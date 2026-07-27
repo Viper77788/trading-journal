@@ -1,22 +1,64 @@
 import React, { useState } from 'react';
-import { TrendingUp, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { TrendingUp, Mail, Lock, Eye, EyeOff, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
-export default function AuthPage({ onSignIn, onSignUp }) {
-  const [activeTab, setActiveTab] = useState('signin');
+function formatAuthError(err, activeTab) {
+  const code = err?.code || '';
+  const msg = err?.message || '';
+
+  if (code.includes('invalid-credential') || code.includes('user-not-found') || code.includes('wrong-password')) {
+    if (activeTab === 'signin') {
+      return 'Invalid email or password. If you do not have an account yet, please switch to the "Sign Up" tab to create one.';
+    }
+    return 'Invalid email or password.';
+  }
+  if (code.includes('email-already-in-use')) {
+    return 'An account with this email already exists. Please switch to the "Sign In" tab to log in.';
+  }
+  if (code.includes('weak-password')) {
+    return 'Password is too weak. Please use at least 6 characters.';
+  }
+  if (code.includes('invalid-email')) {
+    return 'Please enter a valid email address.';
+  }
+  if (code.includes('network-request-failed')) {
+    return 'Network error. Please check your internet connection.';
+  }
+
+  return msg.replace(/^Firebase:\s*/, '') || 'Authentication failed. Please try again.';
+}
+
+export default function AuthPage({ onSignIn, onSignUp, onResetPassword }) {
+  const [activeTab, setActiveTab] = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
 
     if (!email) {
       return setError('Email is required.');
     }
+
+    if (activeTab === 'forgot') {
+      setLoading(true);
+      try {
+        await onResetPassword?.(email);
+        setSuccessMsg('Password reset email sent! Check your inbox (and spam folder).');
+      } catch (err) {
+        setError(formatAuthError(err, activeTab));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (password.length < 6) {
       return setError('Password must be at least 6 characters.');
     }
@@ -32,7 +74,7 @@ export default function AuthPage({ onSignIn, onSignUp }) {
         await onSignUp(email, password);
       }
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please try again.');
+      setError(formatAuthError(err, activeTab));
     } finally {
       setLoading(false);
     }
@@ -53,35 +95,52 @@ export default function AuthPage({ onSignIn, onSignUp }) {
           <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/25">
             <TrendingUp size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Trading Journal</h1>
-          <p className="text-slate-400 text-sm mt-1">Track your performance & discipline</p>
+          <h1 className="text-2xl font-bold text-white">
+            {activeTab === 'forgot' ? 'Reset Password' : 'Trading Journal'}
+          </h1>
+          <p className="text-slate-400 text-sm mt-1 text-center">
+            {activeTab === 'forgot'
+              ? 'Enter your email address and we will send you a reset link'
+              : 'Track your performance & discipline'}
+          </p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex p-1 bg-black/30 rounded-xl mb-6">
-          <button
-            type="button"
-            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
-              activeTab === 'signin' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-            }`}
-            onClick={() => { setActiveTab('signin'); setError(''); }}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
-              activeTab === 'signup' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-            }`}
-            onClick={() => { setActiveTab('signup'); setError(''); }}
-          >
-            Sign Up
-          </button>
-        </div>
+        {/* Tabs (Hidden in forgot password mode) */}
+        {activeTab !== 'forgot' && (
+          <div className="flex p-1 bg-black/30 rounded-xl mb-6">
+            <button
+              type="button"
+              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                activeTab === 'signin' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+              onClick={() => { setActiveTab('signin'); setError(''); setSuccessMsg(''); }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                activeTab === 'signup' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+              onClick={() => { setActiveTab('signup'); setError(''); setSuccessMsg(''); }}
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
 
+        {/* Error Alert */}
         {error && (
           <div className="mb-5 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
             {error}
+          </div>
+        )}
+
+        {/* Success Alert */}
+        {successMsg && (
+          <div className="mb-5 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm flex items-center gap-2">
+            <CheckCircle2 size={18} className="shrink-0" />
+            <span>{successMsg}</span>
           </div>
         )}
 
@@ -100,28 +159,43 @@ export default function AuthPage({ onSignIn, onSignUp }) {
             />
           </div>
 
-          {/* Password */}
-          <div className="relative">
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
-              <Lock size={18} />
+          {/* Password (only in signin and signup mode) */}
+          {activeTab !== 'forgot' && (
+            <div className="relative">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
+                <Lock size={18} />
+              </div>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                className={`${inputClass} !pr-11`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Password"
-              className={`${inputClass} !pr-11`}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
+          )}
 
-          {/* Confirm Password */}
+          {/* Forgot Password Link (in signin mode) */}
+          {activeTab === 'signin' && (
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('forgot'); setError(''); setSuccessMsg(''); }}
+                className="text-xs text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
+          {/* Confirm Password (only in signup mode) */}
           {activeTab === 'signup' && (
             <div className="relative">
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
@@ -137,13 +211,36 @@ export default function AuthPage({ onSignIn, onSignUp }) {
             </div>
           )}
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-3 font-medium transition-all flex items-center justify-center disabled:opacity-70 shadow-lg shadow-blue-600/20"
           >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : (activeTab === 'signin' ? 'Sign In' : 'Sign Up')}
+            {loading ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : activeTab === 'forgot' ? (
+              'Send Reset Link'
+            ) : activeTab === 'signin' ? (
+              'Sign In'
+            ) : (
+              'Sign Up'
+            )}
           </button>
+
+          {/* Back to Sign In (in forgot mode) */}
+          {activeTab === 'forgot' && (
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('signin'); setError(''); setSuccessMsg(''); }}
+                className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Sign In</span>
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

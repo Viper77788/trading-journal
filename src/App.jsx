@@ -13,7 +13,7 @@ import SettingsView from './components/settings/SettingsView';
 import Spinner from './components/shared/Spinner';
 
 export default function App() {
-  const { user, loading: authLoading, signIn, signUp, logout } = useAuth();
+  const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
   const { trades, loading: tradesLoading, fetchTrades, addTrade, editTrade, removeTrade, getTrade, importMt5 } = useTrades();
   const { theme, toggleTheme, isDark } = useTheme();
 
@@ -36,7 +36,7 @@ export default function App() {
 
   // Auth screen
   if (!user) {
-    return <AuthPage onSignIn={signIn} onSignUp={signUp} />;
+    return <AuthPage onSignIn={signIn} onSignUp={signUp} onResetPassword={resetPassword} />;
   }
 
     const handleNavigate = async (view) => {
