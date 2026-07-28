@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Shield, AlertCircle, ArrowRight, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { AlertCircle, Check } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
 import { bulkAssignAccountToTrades } from '../../services/tradeService';
 import { useAuth } from '../../context/AuthContext';
@@ -7,23 +7,38 @@ import { useAuth } from '../../context/AuthContext';
 export default function UnassignedTradesModal({ trades = [], onComplete }) {
   const { user } = useAuth();
   const { accounts, refreshAccounts } = useAccount();
-  const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Find trades missing accountId
-  const orphanedTrades = trades.filter(t => !t.accountId && t.isDeleted !== true);
+  // Sync selectedAccountId when accounts load
+  useEffect(() => {
+    if (!selectedAccountId && accounts.length > 0) {
+      setSelectedAccountId(accounts[0].id);
+    }
+  }, [accounts, selectedAccountId]);
+
+  // Find trades missing accountId or assigned to 'all' / ''
+  const orphanedTrades = trades.filter(
+    t => (!t.accountId || t.accountId === 'all' || t.accountId === '') && t.isDeleted !== true
+  );
 
   if (!orphanedTrades.length || !accounts.length) return null;
 
+  const activeTargetAccountId = selectedAccountId || accounts[0]?.id;
+
   const handleAssign = async () => {
-    if (!selectedAccountId || !user) return;
+    if (!activeTargetAccountId || !user || !orphanedTrades.length) {
+      alert('Please select a valid account to assign trades.');
+      return;
+    }
+
     setLoading(true);
     try {
       const ids = orphanedTrades.map(t => t.id);
-      await bulkAssignAccountToTrades(user.uid, ids, selectedAccountId);
-      alert(`Successfully assigned ${ids.length} trade(s) to account!`);
+      await bulkAssignAccountToTrades(user.uid, ids, activeTargetAccountId);
       if (onComplete) await onComplete();
       await refreshAccounts();
+      alert(`Successfully assigned ${ids.length} trade(s) to account!`);
     } catch (err) {
       alert('Failed to assign trades: ' + (err?.message || 'Unknown error'));
     } finally {
@@ -47,9 +62,9 @@ export default function UnassignedTradesModal({ trades = [], onComplete }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <select
-          value={selectedAccountId}
+          value={activeTargetAccountId}
           onChange={(e) => setSelectedAccountId(e.target.value)}
-          className="bg-slate-900 border border-blue-500/30 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+          className="bg-slate-900 border border-blue-500/30 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
         >
           {accounts.map(acc => (
             <option key={acc.id} value={acc.id}>
@@ -60,7 +75,7 @@ export default function UnassignedTradesModal({ trades = [], onComplete }) {
         <button
           onClick={handleAssign}
           disabled={loading}
-          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-all shadow-md flex items-center gap-1.5"
+          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50"
         >
           <Check size={14} />
           <span>{loading ? 'Assigning...' : 'Assign All'}</span>
