@@ -6,7 +6,8 @@ import {
   updateTradeById, 
   deleteTradeById, 
   getTradeById,
-  importMt5Trades 
+  importMt5Trades,
+  importJsonTrades
 } from '../services/tradeService';
 import { parseMt5ReportWorkbook } from '../utils/mt5Import';
 
@@ -93,6 +94,16 @@ export const useTrades = () => {
     return result;
   };
 
+  const importJson = async (jsonData) => {
+    if (!user) return;
+    if (!Array.isArray(jsonData) || !jsonData.length) {
+      throw new Error('Invalid JSON format: expected a non-empty array of trade objects.');
+    }
+    const result = await importJsonTrades(user.uid, jsonData);
+    await fetchTrades();
+    return result;
+  };
+
   return {
     trades,
     loading,
@@ -101,7 +112,8 @@ export const useTrades = () => {
     editTrade,
     removeTrade,
     getTrade,
-    importMt5
+    importMt5,
+    importJson
   };
 };
 

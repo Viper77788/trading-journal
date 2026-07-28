@@ -14,7 +14,7 @@ import Spinner from './components/shared/Spinner';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
-  const { trades, loading: tradesLoading, fetchTrades, addTrade, editTrade, removeTrade, getTrade, importMt5 } = useTrades();
+  const { trades, loading: tradesLoading, fetchTrades, addTrade, editTrade, removeTrade, getTrade, importMt5, importJson } = useTrades();
   const { theme, toggleTheme, isDark } = useTheme();
 
   const [currentView, setCurrentView] = useState('dashboard');
@@ -156,7 +156,7 @@ export default function App() {
       case 'analytics':
         return <AnalyticsView trades={trades} loading={tradesLoading} />;
       case 'settings':
-        return <SettingsView trades={trades} user={user} onSignOut={handleSignOut} onImportMt5={handleImportMt5} />;
+        return <SettingsView trades={trades} user={user} onSignOut={handleSignOut} onImportMt5={handleImportMt5} onImportJson={handleImportJson} />;
       default:
         return <DashboardView trades={trades} loading={tradesLoading} />;
     }
@@ -171,6 +171,7 @@ export default function App() {
       user={user}
       onSignOut={handleSignOut}
       onImportMt5={handleImportMt5}
+      onImportJson={handleImportJson}
       trades={trades}
     >
       {renderView()}

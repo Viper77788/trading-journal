@@ -10,6 +10,7 @@ export default function Header({
   user,
   onSignOut,
   onImportMt5,
+  onImportJson,
   trades = [],
   onToggleTheme,
   isDark
@@ -46,13 +47,23 @@ export default function Header({
 
   const handleJsonFileChange = (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
         if (Array.isArray(data)) {
-          alert(`Parsed ${data.length} trades from JSON file.`);
+          if (onImportJson) {
+            setImporting(true);
+            try {
+              await onImportJson(data);
+            } finally {
+              setImporting(false);
+            }
+          } else {
+            alert(`Parsed ${data.length} trades from JSON file.`);
+          }
         } else {
           alert('Invalid JSON format: expected array of trades.');
         }

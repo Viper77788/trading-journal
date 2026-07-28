@@ -5,25 +5,32 @@ import {
 } from 'lucide-react';
 import { exportCSV, exportJSON, exportXLSX } from '../../utils/exportUtils';
 
-export default function SettingsView({ trades, user, onSignOut, onImportMt5 }) {
+export default function SettingsView({ trades, user, onSignOut, onImportMt5, onImportJson }) {
   const [importStatus, setImportStatus] = useState('');
   const [importingMt5, setImportingMt5] = useState(false);
   const importMt5InputRef = useRef(null);
 
   const handleImportJSON = (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
         if (Array.isArray(data)) {
-          setImportStatus(`Parsed ${data.length} trades. Import functionality coming soon — for now, add trades manually.`);
+          if (onImportJson) {
+            setImportStatus(`Importing ${data.length} trades into your account...`);
+            await onImportJson(data);
+            setImportStatus(`Successfully imported ${data.length} trades!`);
+          } else {
+            setImportStatus(`Parsed ${data.length} trades.`);
+          }
         } else {
           setImportStatus('Invalid format: expected a JSON array of trade objects.');
         }
-      } catch {
-        setImportStatus('Failed to parse JSON file.');
+      } catch (err) {
+        setImportStatus('Failed to parse JSON file: ' + (err?.message || 'Unknown error'));
       }
     };
     reader.readAsText(file);

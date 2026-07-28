@@ -11,6 +11,7 @@ export default function AppLayout({
   user,
   onSignOut,
   onImportMt5,
+  onImportJson,
   trades
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -50,6 +51,7 @@ export default function AppLayout({
           user={user}
           onSignOut={onSignOut}
           onImportMt5={onImportMt5}
+          onImportJson={onImportJson}
           trades={trades}
           onToggleTheme={onToggleTheme}
           isDark={isDark}

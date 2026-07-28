@@ -45,7 +45,6 @@ export async function importMt5Trades(uid, newTrades) {
 
   let imported = 0;
   const tradesCol = collection(db, 'users', uid, 'trades');
-  // Firestore batched writes (500 per batch limit)
   for (let i = 0; i < toImport.length; i += 500) {
     const chunk = toImport.slice(i, i + 500);
     const batch = writeBatch(db);
@@ -57,4 +56,24 @@ export async function importMt5Trades(uid, newTrades) {
     imported += chunk.length;
   }
   return { imported, skipped: newTrades.length - toImport.length, total: newTrades.length };
+}
+
+export async function importJsonTrades(uid, newTrades) {
+  let imported = 0;
+  const tradesCol = collection(db, 'users', uid, 'trades');
+  for (let i = 0; i < newTrades.length; i += 500) {
+    const chunk = newTrades.slice(i, i + 500);
+    const batch = writeBatch(db);
+    chunk.forEach((t) => {
+      const ref = doc(tradesCol);
+      const { id, ...cleanTrade } = t;
+      batch.set(ref, {
+        ...cleanTrade,
+        createdAt: cleanTrade.createdAt || new Date().toISOString()
+      });
+    });
+    await batch.commit();
+    imported += chunk.length;
+  }
+  return { imported, total: newTrades.length };
 }
