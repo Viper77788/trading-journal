@@ -11,6 +11,7 @@ import AddTradeModal from './components/journal/AddTradeModal';
 import AnalyticsView from './components/analytics/AnalyticsView';
 import SettingsView from './components/settings/SettingsView';
 import Spinner from './components/shared/Spinner';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
@@ -21,6 +22,48 @@ export default function App() {
   const [editingTrade, setEditingTrade] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [tradeFormLoading, setTradeFormLoading] = useState(false);
+
+  const handleImportMt5 = async (file) => {
+    try {
+      const res = await importMt5(file);
+      alert(`Import complete! Imported ${res.imported} new trade(s) (${res.skipped} skipped duplicates).`);
+    } catch (err) {
+      alert("Import failed: " + (err?.message || 'Unknown error'));
+    }
+  };
+
+  const handleImportJson = async (jsonData) => {
+    try {
+      const res = await importJson(jsonData);
+      alert(`Successfully imported ${res.imported} trades into your account!`);
+    } catch (err) {
+      alert("Failed to import JSON: " + (err?.message || 'Unknown error'));
+    }
+  };
+
+  const handleSaveTrade = async (payload) => {
+    setTradeFormLoading(true);
+    try {
+      if (editingTrade) {
+        await editTrade(editingTrade.id, payload);
+      } else {
+        await addTrade(payload);
+      }
+      setCurrentView('journal');
+    } catch (err) {
+      alert('Save failed: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setTradeFormLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+  };
 
   // Auth loading screen
   if (authLoading) {
@@ -39,7 +82,7 @@ export default function App() {
     return <AuthPage onSignIn={signIn} onSignUp={signUp} onResetPassword={resetPassword} />;
   }
 
-    const handleNavigate = async (view) => {
+  const handleNavigate = async (view) => {
     if (view === 'trade-new') {
       setEditingTrade(null);
       setIsViewOnly(false);
@@ -71,8 +114,9 @@ export default function App() {
   };
 
   const handleDeleteTrade = async (id) => {
-    if (!window.confirm("Delete this trade? This can't be undone.")) return;
-    await removeTrade(id);
+    if (window.confirm('Are you sure you want to delete this trade?')) {
+      await removeTrade(id);
+    }
   };
 
   const handleChartTrade = (trade) => {
@@ -80,39 +124,6 @@ export default function App() {
       window.open(trade.tradingViewLink, '_blank', 'noopener,noreferrer');
     } else {
       alert('No TradingView link saved for this trade. Add one by editing the trade.');
-    }
-  };
-
-  const handleSaveTrade = async (payload) => {
-    setTradeFormLoading(true);
-    try {
-      if (editingTrade) {
-        await editTrade(editingTrade.id, payload);
-      } else {
-        await addTrade(payload);
-      }
-      setCurrentView('journal');
-      await fetchTrades();
-    } catch (err) {
-      alert("Couldn't save this trade: " + (err?.message || 'unknown error'));
-    } finally {
-      setTradeFormLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    await logout();
-    setCurrentView('dashboard');
-  };
-
-  const handleImportMt5 = async (file) => {
-    try {
-      const result = await importMt5(file);
-      let message = `Imported ${result.imported} trade${result.imported === 1 ? '' : 's'} from MT5.`;
-      if (result.skipped) message += ` Skipped ${result.skipped} already-imported trade${result.skipped === 1 ? '' : 's'}.`;
-      alert(message);
-    } catch (err) {
-      alert("Couldn't import that file: " + (err?.message || 'unknown error'));
     }
   };
 
@@ -158,23 +169,25 @@ export default function App() {
       case 'settings':
         return <SettingsView trades={trades} user={user} onSignOut={handleSignOut} onImportMt5={handleImportMt5} onImportJson={handleImportJson} />;
       default:
-        return <DashboardView trades={trades} loading={tradesLoading} />;
+        return <DashboardView trades={trades} loading={tradesLoading} onImportMt5={handleImportMt5} />;
     }
   };
 
   return (
-    <AppLayout
-      currentView={currentView}
-      onNavigate={handleNavigate}
-      onToggleTheme={toggleTheme}
-      isDark={isDark}
-      user={user}
-      onSignOut={handleSignOut}
-      onImportMt5={handleImportMt5}
-      onImportJson={handleImportJson}
-      trades={trades}
-    >
-      {renderView()}
-    </AppLayout>
+    <ErrorBoundary>
+      <AppLayout
+        currentView={currentView}
+        onNavigate={handleNavigate}
+        onToggleTheme={toggleTheme}
+        isDark={isDark}
+        user={user}
+        onSignOut={handleSignOut}
+        onImportMt5={handleImportMt5}
+        onImportJson={handleImportJson}
+        trades={trades}
+      >
+        {renderView()}
+      </AppLayout>
+    </ErrorBoundary>
   );
 }

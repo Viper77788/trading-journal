@@ -99,7 +99,11 @@ export const computeStreaks = (trades) => {
     return { longestWin: 0, longestLoss: 0, current: 0 };
   }
 
-  const sortedTrades = [...trades].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const sortedTrades = [...trades].sort((a, b) => {
+    const dA = new Date(a.tradeDate || a.createdAt || 0).getTime();
+    const dB = new Date(b.tradeDate || b.createdAt || 0).getTime();
+    return dA - dB;
+  });
   
   let longestWin = 0;
   let longestLoss = 0;
