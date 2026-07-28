@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Menu, LineChart, User, LogOut, Upload, Download,
-  FileSpreadsheet, FileJson, FileText, Sun, Moon, Shield
+  FileSpreadsheet, FileJson, FileText, Sun, Moon, Shield, Settings
 } from 'lucide-react';
 import { exportCSV, exportJSON, exportXLSX } from '../../utils/exportUtils';
 
@@ -15,7 +15,8 @@ export default function Header({
   onImportJson,
   trades = [],
   onToggleTheme,
-  isDark
+  isDark,
+  onNavigate
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -105,7 +106,7 @@ export default function Header({
       <input type="file" ref={mt5InputRef} accept=".xlsx,.xls" className="hidden" onChange={handleMt5FileChange} />
       <input type="file" ref={jsonInputRef} accept=".json" className="hidden" onChange={handleJsonFileChange} />
 
-      {/* Right Header Controls - Only Profile Avatar Icon */}
+      {/* Right Header Controls - Profile Avatar Button */}
       <div className="flex items-center gap-3 relative" ref={dropdownRef}>
         <button
           onClick={() => setProfileOpen(!profileOpen)}
@@ -132,8 +133,19 @@ export default function Header({
               </div>
             </div>
 
-            {/* Quick Actions / Import */}
+            {/* Settings Screen Menu Option */}
             <div className="space-y-1">
+              <button
+                onClick={() => { setProfileOpen(false); onNavigate?.('settings'); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-blue-400 light:text-blue-600 hover:bg-blue-500/10 light:hover:bg-blue-50 rounded-xl transition-colors"
+              >
+                <Settings size={15} />
+                <span>Account & Timezone Settings</span>
+              </button>
+            </div>
+
+            {/* Quick Actions / Import */}
+            <div className="space-y-1 pt-2 border-t border-white/10 dark:border-white/10 light:border-slate-200">
               <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-400 light:text-slate-500 uppercase tracking-wider px-2 mb-1.5">Import Data</p>
               <button
                 onClick={() => { setProfileOpen(false); mt5InputRef.current?.click(); }}

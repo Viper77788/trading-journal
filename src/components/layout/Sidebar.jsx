@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, BookOpen, CalendarDays, PlusCircle,
-  BarChart3, LineChart, Sun, Moon, Shield, Trash2, Target
+  BarChart3, LineChart, Sun, Moon, Shield, Trash2, Target, Settings
 } from 'lucide-react';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'propfirm', label: 'Prop Firm', icon: Shield },
   { id: 'playbook', label: 'Playbook', icon: Target },
+  { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'trash', label: 'Trash Bin', icon: Trash2 },
 ];
 
