@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import TradeFilters from './TradeFilters';
 import TradeTable from './TradeTable';
 import { resultOf, setupArray, isYes } from '../../utils/formatters';
+import { classifySession, SESSIONS } from '../../utils/sessionAnalytics';
 
 import { useAccount } from '../../context/AccountContext';
 
@@ -12,6 +13,7 @@ export default function JournalView({ trades = [], loading, onView, onEdit, onDe
   const [searchTerm, setSearchTerm] = useState('');
   const [quickFilter, setQuickFilter] = useState('all');
   const [setupFilter, setSetupFilter] = useState([]);
+  const [sessionFilter, setSessionFilter] = useState([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sortKey, setSortKey] = useState(null);
@@ -31,6 +33,14 @@ export default function JournalView({ trades = [], loading, onView, onEdit, onDe
       filtered = filtered.filter(t => {
         const tSetups = setupArray(t);
         return setupFilter.some(s => tSetups.includes(s));
+      });
+    }
+
+    if (sessionFilter.length > 0) {
+      filtered = filtered.filter(t => {
+        const sId = classifySession(t);
+        const sObj = SESSIONS[sId];
+        return sObj && sessionFilter.includes(sObj.label);
       });
     }
 
@@ -102,6 +112,7 @@ export default function JournalView({ trades = [], loading, onView, onEdit, onDe
         quickFilter={quickFilter} onQuickFilterChange={setQuickFilter}
         dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo}
         setupFilter={setupFilter} onSetupFilterChange={setSetupFilter}
+        sessionFilter={sessionFilter} onSessionFilterChange={setSessionFilter}
       />
 
       {loading ? (

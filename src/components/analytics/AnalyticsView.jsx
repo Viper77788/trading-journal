@@ -10,6 +10,7 @@ import {
 } from 'chart.js';
 import { computeStats, computeStreaks } from '../../utils/calculations';
 import { resultOf, fmtMoney, setupArray, isYes } from '../../utils/formatters';
+import { computeSessionStats, computePairStats, computeDurationStats } from '../../utils/sessionAnalytics';
 import Spinner from '../shared/Spinner';
 import EmptyState from '../shared/EmptyState';
 
@@ -21,10 +22,14 @@ export default function AnalyticsView({ trades = [], loading }) {
   const { filterTradesByAccount } = useAccount();
   const filteredTrades = useMemo(() => filterTradesByAccount(trades), [trades, filterTradesByAccount]);
 
-  const [activeTab, setActiveTab] = useState('strategy');
+  const [activeTab, setActiveTab] = useState('sessions');
 
   const stats = useMemo(() => computeStats(filteredTrades), [filteredTrades]);
   const streaks = useMemo(() => computeStreaks(filteredTrades), [filteredTrades]);
+
+  const sessionData = useMemo(() => computeSessionStats(filteredTrades), [filteredTrades]);
+  const pairData = useMemo(() => computePairStats(filteredTrades), [filteredTrades]);
+  const durationData = useMemo(() => computeDurationStats(filteredTrades), [filteredTrades]);
 
   /* ---- Strategy Breakdown ---- */
   const strategyData = useMemo(() => {
@@ -96,6 +101,9 @@ export default function AnalyticsView({ trades = [], loading }) {
   if (!filteredTrades.length) return <EmptyState icon={BarChart3} title="No analytics yet" subtitle="Log some trades for this account to see detailed breakdowns." />;
 
   const tabs = [
+    { key: 'sessions', label: 'Sessions (NY)', icon: Clock },
+    { key: 'pairs', label: 'Pairs & Assets', icon: PieChart },
+    { key: 'duration', label: 'Holding Duration', icon: Clock },
     { key: 'strategy', label: 'Strategy', icon: Target },
     { key: 'timing', label: 'Day of Week', icon: Calendar },
     { key: 'psychology', label: 'Psychology', icon: TrendingUp },
@@ -128,6 +136,140 @@ export default function AnalyticsView({ trades = [], loading }) {
           </button>
         ))}
       </div>
+
+      {/* Session Analytics Tab (America/New_York Timezone) */}
+      {activeTab === 'sessions' && (
+        <div className="space-y-6 animate-fadeIn">
+          <div className="glass-card p-6">
+            <h3 className="text-lg font-bold text-white mb-1">Session Performance Breakdown (NY Local Time)</h3>
+            <p className="text-xs text-slate-400 mb-6">DST-aware killzone classification in America/New_York time</p>
+            <div className="overflow-x-auto">
+              <table className="journal-table w-full">
+                <thead>
+                  <tr>
+                    <th>Session</th>
+                    <th>Hours (NY)</th>
+                    <th>Trades</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Win Rate</th>
+                    <th>Net P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessionData.map(s => (
+                    <tr key={s.id}>
+                      <td className="font-semibold text-white flex items-center gap-2">
+                        <span>{s.icon}</span>
+                        <span>{s.label}</span>
+                      </td>
+                      <td className="text-xs text-slate-400 font-mono">{s.time}</td>
+                      <td>{s.total}</td>
+                      <td className="text-emerald-400">{s.wins}</td>
+                      <td className="text-red-400">{s.losses}</td>
+                      <td className={`font-bold ${s.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {s.total > 0 ? `${s.winRate.toFixed(1)}%` : '—'}
+                      </td>
+                      <td className={`font-mono font-bold ${s.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {fmtMoney(s.pnl)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pairs & Asset Ranking Tab */}
+      {activeTab === 'pairs' && (
+        <div className="space-y-6 animate-fadeIn">
+          {pairData.bestPair && (
+            <div className="glass-card p-5 border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Top Performing Asset (≥ 5 Trades)</span>
+                <h3 className="text-xl font-black text-white mt-0.5">{pairData.bestPair.pair}</h3>
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-black font-mono text-emerald-400">{fmtMoney(pairData.bestPair.pnl)}</div>
+                <div className="text-xs text-slate-300 font-mono">{pairData.bestPair.winRate.toFixed(1)}% Win Rate ({pairData.bestPair.total} trades)</div>
+              </div>
+            </div>
+          )}
+
+          <div className="glass-card p-6">
+            <h3 className="text-lg font-bold text-white mb-4">Pair & Asset Class Performance Ranking</h3>
+            <div className="overflow-x-auto">
+              <table className="journal-table w-full">
+                <thead>
+                  <tr>
+                    <th>Asset / Pair</th>
+                    <th>Total Trades</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Win Rate</th>
+                    <th>Net P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pairData.list.map(p => (
+                    <tr key={p.pair}>
+                      <td className="font-bold text-white font-mono">{p.pair}</td>
+                      <td>{p.total}</td>
+                      <td className="text-emerald-400">{p.wins}</td>
+                      <td className="text-red-400">{p.losses}</td>
+                      <td className={`font-bold ${p.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {p.winRate.toFixed(1)}%
+                      </td>
+                      <td className={`font-mono font-bold ${p.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {fmtMoney(p.pnl)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Holding Duration Tab */}
+      {activeTab === 'duration' && (
+        <div className="space-y-6 animate-fadeIn">
+          <div className="glass-card p-6">
+            <h3 className="text-lg font-bold text-white mb-4">Holding Time Category Performance</h3>
+            <div className="overflow-x-auto">
+              <table className="journal-table w-full">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Trades</th>
+                    <th>Wins</th>
+                    <th>Win Rate</th>
+                    <th>Net P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {durationData.map(d => (
+                    <tr key={d.label}>
+                      <td className="font-bold text-white">{d.label}</td>
+                      <td>{d.total}</td>
+                      <td className="text-emerald-400">{d.wins}</td>
+                      <td className={`font-bold ${d.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {d.total > 0 ? `${d.winRate.toFixed(1)}%` : '—'}
+                      </td>
+                      <td className={`font-mono font-bold ${d.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {fmtMoney(d.pnl)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Strategy Tab */}
       {activeTab === 'strategy' && (
