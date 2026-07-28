@@ -32,8 +32,8 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
         <div className="flex justify-between items-center">
           <span className={`text-xs font-semibold ${hasTrades ? 'text-white' : 'text-slate-500'}`}>{day}</span>
           {hasTrades && (
-            <span className="text-[10px] bg-white/10 px-1.5 py-0.2 rounded-full font-mono text-slate-300">
-              {dayTrades.length}t
+            <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded-md font-sans text-slate-300">
+              {dayTrades.length} {dayTrades.length === 1 ? 'trade' : 'trades'}
             </span>
           )}
         </div>
