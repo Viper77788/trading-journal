@@ -19,6 +19,7 @@ import UnassignedTradesModal from './components/account/UnassignedTradesModal';
 
 import PlaybookView from './components/playbook/PlaybookView';
 import TradeShareCardModal from './components/share/TradeShareCardModal';
+import ImportMt5TimezoneModal from './components/account/ImportMt5TimezoneModal';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
@@ -28,16 +29,18 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [editingTrade, setEditingTrade] = useState(null);
   const [sharingTrade, setSharingTrade] = useState(null);
+  const [pendingMt5File, setPendingMt5File] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [tradeFormLoading, setTradeFormLoading] = useState(false);
 
-  const handleImportMt5 = async (file) => {
-    try {
-      const res = await importMt5(file);
-      alert(`Import complete! Imported ${res.imported} new trade(s) (${res.skipped} skipped duplicates).`);
-    } catch (err) {
-      alert("Import failed: " + (err?.message || 'Unknown error'));
-    }
+  const handleImportMt5 = (file) => {
+    if (file) setPendingMt5File(file);
+  };
+
+  const confirmImportMt5 = async (file, sourceUtcOffsetHours) => {
+    const res = await importMt5(file, sourceUtcOffsetHours);
+    alert(`Import complete! Imported ${res.imported} new trade(s) (${res.skipped} skipped duplicates).`);
+    setPendingMt5File(null);
   };
 
   const handleImportJson = async (jsonData) => {
@@ -203,6 +206,13 @@ export default function App() {
         trades={trades}
       >
         <UnassignedTradesModal trades={trades} onComplete={fetchTrades} />
+        {pendingMt5File && (
+          <ImportMt5TimezoneModal
+            file={pendingMt5File}
+            onClose={() => setPendingMt5File(null)}
+            onConfirmImport={confirmImportMt5}
+          />
+        )}
         {renderView()}
 
         {sharingTrade && (

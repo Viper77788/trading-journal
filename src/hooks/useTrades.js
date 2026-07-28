@@ -81,11 +81,11 @@ export const useTrades = () => {
     }
   };
 
-  const importMt5 = async (file) => {
+  const importMt5 = async (file, sourceUtcOffsetHours = 3) => {
     if (!user) return;
     const XLSX = await import('xlsx');
     const buffer = await file.arrayBuffer();
-    const parsed = parseMt5ReportWorkbook(buffer, XLSX);
+    const parsed = parseMt5ReportWorkbook(buffer, XLSX, sourceUtcOffsetHours);
     if (!parsed.length) {
       throw new Error('No closed trades were found in that file\'s Positions section.');
     }

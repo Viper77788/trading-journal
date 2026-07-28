@@ -1,26 +1,28 @@
 /**
- * Convert MT5's "YYYY.MM.DD HH:MM:SS" (GMT+3) into an ISO string adjusted to UTC-4 (EST).
- * MT5 brokers typically use GMT+3; offset difference is -7 hours.
+ * Convert MT5's "YYYY.MM.DD HH:MM:SS" (in broker timezone, default GMT+3 = offset 3)
+ * into a pure standard UTC ISO string ("YYYY-MM-DDTHH:MM:SS.000Z").
  */
-export function mt5DateTimeToIso(value) {
+export function mt5DateTimeToIso(value, sourceUtcOffsetHours = 3) {
   if (!value) return '';
   const s = String(value).trim();
   const m = s.match(/^(\d{4})[.\-](\d{2})[.\-](\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
   if (!m) return s;
   const [, y, mo, d, h, mi, se] = m;
-  const gmt3Ms = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se || 0)) - 3 * 60 * 60 * 1000;
-  const estMs = gmt3Ms - 4 * 60 * 60 * 1000;
-  const est = new Date(estMs);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${est.getUTCFullYear()}-${pad(est.getUTCMonth() + 1)}-${pad(est.getUTCDate())}T${pad(est.getUTCHours())}:${pad(est.getUTCMinutes())}:${pad(est.getUTCSeconds())}`;
+
+  const offsetMs = Number(sourceUtcOffsetHours ?? 3) * 60 * 60 * 1000;
+  const localMs = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se || 0));
+  const utcMs = localMs - offsetMs;
+  const utcDate = new Date(utcMs);
+
+  return utcDate.toISOString();
 }
 
 /**
- * Extract YYYY-MM-DD from an MT5 timestamp, after converting GMT+3 to EST.
+ * Extract YYYY-MM-DD in UTC from an MT5 timestamp.
  */
-export function mt5DateToIso(value) {
+export function mt5DateToIso(value, sourceUtcOffsetHours = 3) {
   if (!value) return '';
-  const iso = mt5DateTimeToIso(value);
+  const iso = mt5DateTimeToIso(value, sourceUtcOffsetHours);
   return iso ? iso.slice(0, 10) : String(value).trim().slice(0, 10);
 }
 
@@ -32,9 +34,9 @@ export function mt5NumberOrNull(value) {
 
 /**
  * Reads an MT5 "ReportHistory-*.xlsx" workbook (as an ArrayBuffer) and returns
- * an array of trade payloads ready to save to Firestore.
+ * an array of trade payloads converted cleanly to UTC standard ISO timestamps.
  */
-export function parseMt5ReportWorkbook(arrayBuffer, XLSX) {
+export function parseMt5ReportWorkbook(arrayBuffer, XLSX, sourceUtcOffsetHours = 3) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
@@ -69,11 +71,14 @@ export function parseMt5ReportWorkbook(arrayBuffer, XLSX) {
       rr = Math.round(rr * 100) / 100;
     }
 
+    const openIso = mt5DateTimeToIso(openTime, sourceUtcOffsetHours);
+    const closeIso = mt5DateTimeToIso(closeTime, sourceUtcOffsetHours);
+
     trades.push({
       mt5PositionId: String(positionId),
-      tradeDate: mt5DateToIso(openTime),
-      openTime: mt5DateTimeToIso(openTime),
-      closeTime: mt5DateTimeToIso(closeTime),
+      tradeDate: mt5DateToIso(openTime, sourceUtcOffsetHours),
+      openTime: openIso,
+      closeTime: closeIso,
       pair: String(symbol),
       direction: type === 'sell' ? 'Short' : 'Long',
       entryPrice,
@@ -95,7 +100,7 @@ export function parseMt5ReportWorkbook(arrayBuffer, XLSX) {
       emotionAfterTrade: '',
       mistakes: '',
       lessons: '',
-      comments: `Imported from MT5 — Position #${positionId}, closed ${mt5DateToIso(closeTime)} @ ${closePrice ?? '?'}.`,
+      comments: `Imported from MT5 — Position #${positionId}, closed ${mt5DateToIso(closeTime, sourceUtcOffsetHours)} @ ${closePrice ?? '?'}.`,
       screenshotUrl: '',
     });
   }
