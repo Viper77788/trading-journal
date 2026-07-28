@@ -35,7 +35,7 @@ export default function ScenarioAnalysis({ trades }) {
   });
 
   const matchCount = filteredTrades.length;
-  const winCount = filteredTrades.filter(t => resultOf(t) === 'win').length;
+  const winCount = filteredTrades.filter(t => resultOf(t) === 'Win').length;
   const winRate = matchCount > 0 ? ((winCount / matchCount) * 100).toFixed(1) : 0;
 
   return (

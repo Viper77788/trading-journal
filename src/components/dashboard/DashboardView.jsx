@@ -110,27 +110,30 @@ export default function DashboardView({ trades = [], loading, onImportMt5 }) {
 
       {/* Row 2: P/L Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 stagger-children">
-        <StatCard icon={ArrowUpRight} label="Total Profit" value={fmtMoney(stats.totalProfit)} color="green" />
-        <StatCard icon={ArrowDownRight} label="Total Loss" value={fmtMoney(stats.totalLoss)} color="red" />
+        <StatCard icon={ArrowUpRight} label="Total Profit" value={fmtMoney(stats.totalProfit)} color="green" valueColor="text-emerald-400" />
+        <StatCard icon={ArrowDownRight} label="Total Loss" value={fmtMoney(stats.totalLoss)} color="red" valueColor="text-red-400" />
         <StatCard
           icon={TrendingUp}
           label="Net Profit"
           value={fmtMoney(stats.netProfit)}
           color={stats.netProfit >= 0 ? 'green' : 'red'}
+          valueColor={stats.netProfit > 0 ? 'text-emerald-400' : stats.netProfit < 0 ? 'text-red-400' : 'text-white'}
         />
         <StatCard
           icon={Plus}
           label="Best Trade"
-          value={stats.bestTrade ? fmtMoney(stats.bestTrade.profitLoss) : '$0'}
+          value={stats.bestTrade ? fmtMoney(stats.bestTrade.profitLoss) : '$0.00'}
           sub={stats.bestTrade?.pair || '—'}
           color="green"
+          valueColor={Number(stats.bestTrade?.profitLoss) > 0 ? 'text-emerald-400' : 'text-white'}
         />
         <StatCard
           icon={Minus}
           label="Worst Trade"
-          value={stats.worstTrade ? fmtMoney(stats.worstTrade.profitLoss) : '$0'}
+          value={stats.worstTrade ? fmtMoney(stats.worstTrade.profitLoss) : '$0.00'}
           sub={stats.worstTrade?.pair || '—'}
           color="red"
+          valueColor={Number(stats.worstTrade?.profitLoss) < 0 ? 'text-red-400' : 'text-white'}
         />
       </div>
 
