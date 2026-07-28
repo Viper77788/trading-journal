@@ -54,10 +54,15 @@ export const AccountProvider = ({ children }) => {
 
   const addAccount = async (accountData) => {
     if (!user) return;
-    const newId = await createAccount(user.uid, accountData);
-    await fetchAccounts();
-    switchAccount(newId);
-    return newId;
+    try {
+      const newId = await createAccount(user.uid, accountData);
+      await fetchAccounts();
+      if (newId) switchAccount(newId);
+      return newId;
+    } catch (err) {
+      console.error('Error in addAccount:', err);
+      throw err;
+    }
   };
 
   const editAccount = async (id, accountData) => {

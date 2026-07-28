@@ -1,5 +1,5 @@
 import { db } from '../config/firebase';
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy, setDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 
 export const PROP_FIRM_TEMPLATES = {
   // Funding Pips Options (5k, 10k, 25k, 50k, 100k)
@@ -10,10 +10,10 @@ export const PROP_FIRM_TEMPLATES = {
     type: 'prop_evaluation',
     propFirmName: 'Funding Pips',
     startingBalance: 5000,
-    targetProfit: 400, // 8% Target
-    maxDailyLoss: 250, // 5% Max Daily Loss
+    targetProfit: 400,
+    maxDailyLoss: 250,
     drawdownType: 'static',
-    maxTotalDrawdown: 500, // 10% Max Drawdown
+    maxTotalDrawdown: 500,
     trailingFreezeEnabled: false,
     dailyResetTimezone: 'UTC',
     consistencyRuleLimit: 0,
@@ -28,10 +28,10 @@ export const PROP_FIRM_TEMPLATES = {
     type: 'prop_evaluation',
     propFirmName: 'Funding Pips',
     startingBalance: 10000,
-    targetProfit: 800, // 8% Target
-    maxDailyLoss: 500, // 5% Max Daily Loss
+    targetProfit: 800,
+    maxDailyLoss: 500,
     drawdownType: 'static',
-    maxTotalDrawdown: 1000, // 10% Max Drawdown
+    maxTotalDrawdown: 1000,
     trailingFreezeEnabled: false,
     dailyResetTimezone: 'UTC',
     consistencyRuleLimit: 0,
@@ -46,10 +46,10 @@ export const PROP_FIRM_TEMPLATES = {
     type: 'prop_evaluation',
     propFirmName: 'Funding Pips',
     startingBalance: 25000,
-    targetProfit: 2000, // 8% Target
-    maxDailyLoss: 1250, // 5% Max Daily Loss
+    targetProfit: 2000,
+    maxDailyLoss: 1250,
     drawdownType: 'static',
-    maxTotalDrawdown: 2500, // 10% Max Drawdown
+    maxTotalDrawdown: 2500,
     trailingFreezeEnabled: false,
     dailyResetTimezone: 'UTC',
     consistencyRuleLimit: 0,
@@ -64,10 +64,10 @@ export const PROP_FIRM_TEMPLATES = {
     type: 'prop_evaluation',
     propFirmName: 'Funding Pips',
     startingBalance: 50000,
-    targetProfit: 4000, // 8% Target
-    maxDailyLoss: 2500, // 5% Max Daily Loss
+    targetProfit: 4000,
+    maxDailyLoss: 2500,
     drawdownType: 'static',
-    maxTotalDrawdown: 5000, // 10% Max Drawdown
+    maxTotalDrawdown: 5000,
     trailingFreezeEnabled: false,
     dailyResetTimezone: 'UTC',
     consistencyRuleLimit: 0,
@@ -82,10 +82,10 @@ export const PROP_FIRM_TEMPLATES = {
     type: 'prop_evaluation',
     propFirmName: 'Funding Pips',
     startingBalance: 100000,
-    targetProfit: 8000, // 8% Target
-    maxDailyLoss: 5000, // 5% Max Daily Loss
+    targetProfit: 8000,
+    maxDailyLoss: 5000,
     drawdownType: 'static',
-    maxTotalDrawdown: 10000, // 10% Max Drawdown
+    maxTotalDrawdown: 10000,
     trailingFreezeEnabled: false,
     dailyResetTimezone: 'UTC',
     consistencyRuleLimit: 0,
@@ -211,30 +211,91 @@ export const PROP_FIRM_TEMPLATES = {
   }
 };
 
+// Local storage fallback helpers
+const getLocalAccounts = (uid) => {
+  try {
+    const raw = localStorage.getItem(`tj-accounts-${uid}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalAccounts = (uid, list) => {
+  try {
+    localStorage.setItem(`tj-accounts-${uid}`, JSON.stringify(list));
+  } catch (err) {
+    console.error('Failed to save local accounts:', err);
+  }
+};
+
 export const createAccount = async (uid, accountData) => {
-  const accountsRef = collection(db, `users/${uid}/accounts`);
-  const docRef = await addDoc(accountsRef, {
-    ...accountData,
-    createdAt: new Date().toISOString()
-  });
-  return docRef.id;
+  try {
+    const accountsRef = collection(db, `users/${uid}/accounts`);
+    const docRef = await addDoc(accountsRef, {
+      ...accountData,
+      createdAt: new Date().toISOString()
+    });
+    return docRef.id;
+  } catch (err) {
+    console.warn('Firestore write permission restricted — using local storage fallback:', err?.message);
+    const local = getLocalAccounts(uid);
+    const newAccount = {
+      id: `local_acc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      ...accountData,
+      createdAt: new Date().toISOString()
+    };
+    local.push(newAccount);
+    saveLocalAccounts(uid, local);
+    return newAccount.id;
+  }
 };
 
 export const getAllAccounts = async (uid) => {
-  const accountsRef = collection(db, `users/${uid}/accounts`);
-  const q = query(accountsRef, orderBy('createdAt', 'asc'));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  try {
+    const accountsRef = collection(db, `users/${uid}/accounts`);
+    const q = query(accountsRef, orderBy('createdAt', 'asc'));
+    const querySnapshot = await getDocs(q);
+    const firestoreAccounts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const localAccounts = getLocalAccounts(uid);
+    // Combine and deduplicate
+    const combinedMap = new Map();
+    [...firestoreAccounts, ...localAccounts].forEach(acc => combinedMap.set(acc.id, acc));
+    return Array.from(combinedMap.values());
+  } catch (err) {
+    console.warn('Firestore read permission restricted — loading local accounts:', err?.message);
+    return getLocalAccounts(uid);
+  }
 };
 
 export const updateAccountById = async (uid, id, accountData) => {
-  const docRef = doc(db, `users/${uid}/accounts`, id);
-  await updateDoc(docRef, accountData);
+  try {
+    if (!id.startsWith('local_acc_')) {
+      const docRef = doc(db, `users/${uid}/accounts`, id);
+      await updateDoc(docRef, accountData);
+      return;
+    }
+  } catch (err) {
+    console.warn('Firestore update restricted — updating locally:', err?.message);
+  }
+  const local = getLocalAccounts(uid);
+  const updated = local.map(a => a.id === id ? { ...a, ...accountData } : a);
+  saveLocalAccounts(uid, updated);
 };
 
 export const deleteAccountById = async (uid, id) => {
-  const docRef = doc(db, `users/${uid}/accounts`, id);
-  await deleteDoc(docRef);
+  try {
+    if (!id.startsWith('local_acc_')) {
+      const docRef = doc(db, `users/${uid}/accounts`, id);
+      await deleteDoc(docRef);
+    }
+  } catch (err) {
+    console.warn('Firestore delete restricted — deleting locally:', err?.message);
+  }
+  const local = getLocalAccounts(uid);
+  const updated = local.filter(a => a.id !== id);
+  saveLocalAccounts(uid, updated);
 };
 
 export const ensureDefaultAccount = async (uid) => {
