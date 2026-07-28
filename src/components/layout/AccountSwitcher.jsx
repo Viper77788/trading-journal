@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, Shield, Layers, Check, Sparkles, Building2, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronDown, Plus, Shield, Layers, Check, Building2, X } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
 import { PROP_FIRM_TEMPLATES } from '../../services/accountService';
 
@@ -67,7 +68,7 @@ export default function AccountSwitcher() {
 
       {/* Dropdown Menu */}
       {dropdownOpen && (
-        <div className="absolute left-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl z-50 animate-fadeIn">
+        <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl z-50 animate-fadeIn">
           <div className="text-[11px] font-semibold text-slate-400 px-3 py-1.5 uppercase tracking-wider">
             Trading Accounts
           </div>
@@ -119,13 +120,13 @@ export default function AccountSwitcher() {
         </div>
       )}
 
-      {/* Add Account Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-2xl p-6 text-white shadow-2xl relative animate-scaleIn">
+      {/* Add Account Modal rendered outside via React Portal for perfect z-index */}
+      {modalOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 text-white shadow-2xl relative my-auto animate-scaleIn">
             <button
               onClick={() => setModalOpen(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white"
+              className="absolute right-4 top-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
             >
               <X size={18} />
             </button>
@@ -172,7 +173,7 @@ export default function AccountSwitcher() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                 />
               </div>
 
@@ -184,7 +185,7 @@ export default function AccountSwitcher() {
                     required
                     value={formData.startingBalance}
                     onChange={(e) => setFormData({ ...formData, startingBalance: Number(e.target.value) })}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                   />
                 </div>
                 <div>
@@ -194,7 +195,7 @@ export default function AccountSwitcher() {
                     required
                     value={formData.targetProfit}
                     onChange={(e) => setFormData({ ...formData, targetProfit: Number(e.target.value) })}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                   />
                 </div>
               </div>
@@ -207,7 +208,7 @@ export default function AccountSwitcher() {
                     required
                     value={formData.maxDailyLoss}
                     onChange={(e) => setFormData({ ...formData, maxDailyLoss: Number(e.target.value) })}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                   />
                 </div>
                 <div>
@@ -217,7 +218,7 @@ export default function AccountSwitcher() {
                     required
                     value={formData.maxTotalDrawdown}
                     onChange={(e) => setFormData({ ...formData, maxTotalDrawdown: Number(e.target.value) })}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                   />
                 </div>
               </div>
@@ -228,7 +229,7 @@ export default function AccountSwitcher() {
                   <select
                     value={formData.drawdownType}
                     onChange={(e) => setFormData({ ...formData, drawdownType: e.target.value })}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                   >
                     <option value="static">Static (Fixed Floor)</option>
                     <option value="trailing">Trailing (Trails Equity)</option>
@@ -239,7 +240,7 @@ export default function AccountSwitcher() {
                   <select
                     value={formData.trailingFreezeEnabled ? 'yes' : 'no'}
                     onChange={(e) => setFormData({ ...formData, trailingFreezeEnabled: e.target.value === 'yes' })}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                   >
                     <option value="no">Disabled (Never Freeze)</option>
                     <option value="yes">Enabled (Freeze at Initial Balance)</option>
@@ -247,25 +248,26 @@ export default function AccountSwitcher() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-lg shadow-blue-600/20"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-lg shadow-blue-600/20 transition-all"
                 >
                   {loading ? 'Creating...' : 'Create Account'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
