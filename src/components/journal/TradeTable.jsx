@@ -2,7 +2,7 @@ import React from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import TradeRow from './TradeRow';
 
-const TradeTable = ({ trades, sortKey, sortDir, onSort, onView, onEdit, onDelete, onChart }) => {
+const TradeTable = ({ trades, sortKey, sortDir, onSort, onView, onEdit, onDelete, onChart, onShare }) => {
   const SortIcon = ({ colKey }) => {
     if (sortKey !== colKey) return <span className="text-slate-600 ml-1">⇅</span>;
     return sortDir === 'asc'
@@ -51,6 +51,7 @@ const TradeTable = ({ trades, sortKey, sortDir, onSort, onView, onEdit, onDelete
               onEdit={onEdit}
               onDelete={onDelete}
               onChart={onChart}
+              onShare={onShare}
             />
           ))}
         </tbody>

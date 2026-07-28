@@ -17,6 +17,9 @@ import PropFirmView from './components/propfirm/PropFirmView';
 import TrashBinView from './components/account/TrashBinView';
 import UnassignedTradesModal from './components/account/UnassignedTradesModal';
 
+import PlaybookView from './components/playbook/PlaybookView';
+import TradeShareCardModal from './components/share/TradeShareCardModal';
+
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
   const { trades, loading: tradesLoading, fetchTrades, addTrade, editTrade, removeTrade, getTrade, importMt5, importJson } = useTrades();
@@ -24,6 +27,7 @@ export default function App() {
 
   const [currentView, setCurrentView] = useState('dashboard');
   const [editingTrade, setEditingTrade] = useState(null);
+  const [sharingTrade, setSharingTrade] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [tradeFormLoading, setTradeFormLoading] = useState(false);
 
@@ -94,7 +98,7 @@ export default function App() {
       return;
     }
     setCurrentView(view);
-    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics' || view === 'trash') {
+    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics' || view === 'trash' || view === 'playbook') {
       await fetchTrades();
     }
   };
@@ -144,6 +148,7 @@ export default function App() {
             onEdit={handleEditTrade}
             onDelete={handleDeleteTrade}
             onChart={handleChartTrade}
+            onShare={(trade) => setSharingTrade(trade)}
             onNavigateToTrade={() => handleNavigate('trade-new')}
           />
         );
@@ -172,6 +177,8 @@ export default function App() {
         return <AnalyticsView trades={trades} loading={tradesLoading} />;
       case 'propfirm':
         return <PropFirmView trades={trades} loading={tradesLoading} />;
+      case 'playbook':
+        return <PlaybookView trades={trades} loading={tradesLoading} />;
       case 'trash':
         return <TrashBinView trades={trades} loading={tradesLoading} />;
       case 'settings':
@@ -196,6 +203,13 @@ export default function App() {
       >
         <UnassignedTradesModal trades={trades} onComplete={fetchTrades} />
         {renderView()}
+
+        {sharingTrade && (
+          <TradeShareCardModal
+            trade={sharingTrade}
+            onClose={() => setSharingTrade(null)}
+          />
+        )}
       </AppLayout>
     </ErrorBoundary>
   );

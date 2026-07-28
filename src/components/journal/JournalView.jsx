@@ -6,7 +6,7 @@ import { resultOf, setupArray, isYes } from '../../utils/formatters';
 
 import { useAccount } from '../../context/AccountContext';
 
-export default function JournalView({ trades = [], loading, onView, onEdit, onDelete, onChart, onNavigateToTrade }) {
+export default function JournalView({ trades = [], loading, onView, onEdit, onDelete, onChart, onShare, onNavigateToTrade }) {
   const { filterTradesByAccount } = useAccount();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -126,6 +126,7 @@ export default function JournalView({ trades = [], loading, onView, onEdit, onDe
           onEdit={onEdit}
           onDelete={onDelete}
           onChart={onChart}
+          onShare={onShare}
         />
       )}
     </div>

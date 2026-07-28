@@ -1,9 +1,9 @@
 import React from 'react';
-import { Eye, LineChart, Pencil, Trash2 } from 'lucide-react';
+import { Eye, LineChart, Pencil, Trash2, Share2 } from 'lucide-react';
 import { resultOf, fmtMoney, fmtDate, fmtDateTime, setupArray, isYes } from '../../utils/formatters';
 import Pill from '../shared/Pill';
 
-const TradeRow = ({ trade, showDate = true, onView, onEdit, onDelete, onChart, onlyView = false }) => {
+const TradeRow = ({ trade, showDate = true, onView, onEdit, onDelete, onChart, onShare, onlyView = false }) => {
   const pl = Number(trade.profitLoss) || 0;
   const result = resultOf(trade);
   const setups = setupArray(trade);
@@ -61,6 +61,11 @@ const TradeRow = ({ trade, showDate = true, onView, onEdit, onDelete, onChart, o
           <button onClick={() => onView?.(trade.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="View Details">
             <Eye size={16} />
           </button>
+
+          <button onClick={() => onShare?.(trade)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Share Trade Card">
+            <Share2 size={16} />
+          </button>
+
           {!onlyView && (
             <>
               <button onClick={() => onChart?.(trade)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors" title="Chart">
