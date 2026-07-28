@@ -13,6 +13,8 @@ import SettingsView from './components/settings/SettingsView';
 import Spinner from './components/shared/Spinner';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 
+import PropFirmView from './components/propfirm/PropFirmView';
+
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
   const { trades, loading: tradesLoading, fetchTrades, addTrade, editTrade, removeTrade, getTrade, importMt5, importJson } = useTrades();
@@ -166,6 +168,8 @@ export default function App() {
         );
       case 'analytics':
         return <AnalyticsView trades={trades} loading={tradesLoading} />;
+      case 'propfirm':
+        return <PropFirmView trades={trades} loading={tradesLoading} />;
       case 'settings':
         return <SettingsView trades={trades} user={user} onSignOut={handleSignOut} onImportMt5={handleImportMt5} onImportJson={handleImportJson} />;
       default:

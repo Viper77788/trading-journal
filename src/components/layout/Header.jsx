@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { exportCSV, exportJSON, exportXLSX } from '../../utils/exportUtils';
 
+import AccountSwitcher from './AccountSwitcher';
+
 export default function Header({
   onMenuToggle,
   user,
@@ -94,12 +96,17 @@ export default function Header({
         </div>
       </div>
 
+      {/* Account Switcher */}
+      <div className="ml-auto mr-3">
+        <AccountSwitcher />
+      </div>
+
       {/* Hidden file inputs */}
       <input type="file" ref={mt5InputRef} accept=".xlsx,.xls" className="hidden" onChange={handleMt5FileChange} />
       <input type="file" ref={jsonInputRef} accept=".json" className="hidden" onChange={handleJsonFileChange} />
 
       {/* Right Header Controls - Only Profile Avatar Icon */}
-      <div className="flex items-center gap-3 ml-auto relative" ref={dropdownRef}>
+      <div className="flex items-center gap-3 relative" ref={dropdownRef}>
         <button
           onClick={() => setProfileOpen(!profileOpen)}
           className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all focus:outline-none ring-2 ring-white/10 dark:ring-white/10 light:ring-slate-300 hover:ring-blue-500/50"
