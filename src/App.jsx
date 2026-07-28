@@ -171,6 +171,7 @@ export default function App() {
             onSave={handleSaveTrade}
             onCancel={() => setCurrentView('journal')}
             loading={tradeFormLoading}
+            trades={trades}
           />
         );
       case 'analytics':

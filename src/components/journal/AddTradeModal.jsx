@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Shield, AlertTriangle } from 'lucide-react';
 import MultiSelect from './MultiSelect';
 import { SETUP_OPTIONS, EMOTIONS_BEFORE, EMOTIONS_AFTER } from '../../constants';
