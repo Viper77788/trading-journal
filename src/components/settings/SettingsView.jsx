@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
 import {
   Settings as SettingsIcon, Download, Upload, LogOut,
-  FileJson, FileSpreadsheet, FileText, User, Shield
+  FileJson, FileSpreadsheet, FileText, User, Shield, Globe
 } from 'lucide-react';
 import { exportCSV, exportJSON, exportXLSX } from '../../utils/exportUtils';
+import { useTimezone } from '../../context/TimezoneContext';
 
 export default function SettingsView({ trades, user, onSignOut, onImportMt5, onImportJson }) {
+  const { timezone, setTimezone, TIMEZONE_OPTIONS } = useTimezone();
   const [importStatus, setImportStatus] = useState('');
   const [importingMt5, setImportingMt5] = useState(false);
   const importMt5InputRef = useRef(null);
@@ -37,20 +39,20 @@ export default function SettingsView({ trades, user, onSignOut, onImportMt5, onI
   };
 
   return (
-    <div className="animate-fadeIn max-w-3xl">
-      <div className="mb-8">
+    <div className="animate-fadeIn max-w-3xl space-y-6 pb-12">
+      <div>
         <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-slate-400 text-sm mt-1">Manage your account, data exports, and preferences.</p>
+        <p className="text-slate-400 text-sm mt-1">Manage your account, display timezone, data exports, and preferences.</p>
       </div>
 
       {/* Profile */}
-      <div className="glass-card mb-6">
+      <div className="glass-card">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
             <User size={24} className="text-blue-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Account</h3>
+            <h3 className="text-lg font-semibold text-white">Account Profile</h3>
             <p className="text-slate-400 text-sm">{user?.email || 'Not signed in'}</p>
           </div>
         </div>
@@ -60,8 +62,39 @@ export default function SettingsView({ trades, user, onSignOut, onImportMt5, onI
         </div>
       </div>
 
+      {/* Global Timezone Preferences */}
+      <div className="glass-card border border-blue-500/20 bg-blue-600/5">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+            <Globe size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-white">Global Display & Analytics Timezone</h3>
+            <p className="text-xs text-slate-400">Controls Open/Close time formatting and Session Analytics classification</p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-xs font-semibold text-slate-300 mb-1">Active Timezone</label>
+          <select
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="w-full max-w-md bg-slate-900 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-medium"
+          >
+            {TIMEZONE_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Selected: <strong className="text-blue-400">{timezone}</strong>. All open/close timestamps across Journal and Session Analytics will format in this timezone.
+          </p>
+        </div>
+      </div>
+
       {/* Data Export */}
-      <div className="glass-card mb-6">
+      <div className="glass-card">
         <h3 className="text-lg font-semibold text-white mb-1">Export Data</h3>
         <p className="text-slate-400 text-sm mb-5">Download all {trades.length} trades in your preferred format.</p>
         <div className="flex flex-wrap gap-3">
@@ -93,7 +126,7 @@ export default function SettingsView({ trades, user, onSignOut, onImportMt5, onI
       </div>
 
       {/* Data Import */}
-      <div className="glass-card mb-6">
+      <div className="glass-card">
         <h3 className="text-lg font-semibold text-white mb-1">Import Data</h3>
         <p className="text-slate-400 text-sm mb-5">Import trade history from MetaTrader 5 (Excel) or JSON backup files.</p>
         <div className="flex flex-wrap gap-3 items-center">

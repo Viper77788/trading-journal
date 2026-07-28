@@ -2,19 +2,25 @@ export const fmtMoney = (value) => {
   if (value === undefined || value === null) return '$0.00';
   const num = Number(value);
   if (isNaN(num)) return '$0.00';
-  return num < 0 
-    ? `-$${Math.abs(num).toFixed(2)}` 
+  return num < 0
+    ? `-$${Math.abs(num).toFixed(2)}`
     : `+$${num.toFixed(2)}`;
 };
 
-export const fmtDate = (value) => {
+export const fmtDate = (value, timezone = 'America/New_York') => {
   if (!value) return '';
   const date = new Date(value);
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  if (Number.isNaN(date.getTime())) return value;
+
+  try {
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    if (timezone && timezone !== 'local') {
+      options.timeZone = timezone;
+    }
+    return new Intl.DateTimeFormat('en-US', options).format(date);
+  } catch {
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
 };
 
 export const resultOf = (trade) => {
@@ -38,9 +44,29 @@ export const isYes = (value) => {
   return value === true || value === 'Yes' || value === 'yes';
 };
 
-export function fmtDateTime(value) {
+export function fmtDateTime(value, timezone = 'America/New_York', dateStr = '') {
   if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  let dateObj = null;
+  const valStr = String(value).trim();
+
+  if (valStr.includes('T')) {
+    dateObj = new Date(valStr);
+  } else if (valStr.includes(':')) {
+    const dStr = dateStr || '2026-01-01';
+    dateObj = new Date(`${dStr}T${valStr}:00`);
+  } else {
+    dateObj = new Date(valStr);
+  }
+
+  if (!dateObj || Number.isNaN(dateObj.getTime())) return valStr;
+
+  try {
+    const options = { hour: '2-digit', minute: '2-digit', hour12: false };
+    if (timezone && timezone !== 'local') {
+      options.timeZone = timezone;
+    }
+    return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+  } catch {
+    return valStr;
+  }
 }
