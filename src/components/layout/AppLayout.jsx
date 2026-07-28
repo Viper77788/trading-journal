@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import TimezoneBanner from './TimezoneBanner';
 
 export default function AppLayout({
   children,
@@ -46,6 +47,7 @@ export default function AppLayout({
 
       {/* Main content */}
       <div className="flex flex-col flex-1 w-full min-w-0">
+        <TimezoneBanner onNavigateToSettings={handleNavigate} />
         <Header
           onMenuToggle={() => setSidebarOpen(true)}
           user={user}

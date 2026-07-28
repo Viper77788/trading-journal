@@ -1,25 +1,28 @@
 import React from 'react';
 import { Eye, LineChart, Pencil, Trash2, Share2 } from 'lucide-react';
-import { resultOf, fmtMoney, fmtDate, fmtDateTime, setupArray, isYes } from '../../utils/formatters';
-import { useTimezone } from '../../context/TimezoneContext';
+import { resultOf, fmtMoney, fmtDate, setupArray, isYes } from '../../utils/formatters';
+import { formatTimeInUserTimezone } from '../../utils/timezoneUtils';
+import { useUserPreferences } from '../../context/UserPreferencesContext';
 import Pill from '../shared/Pill';
 
 const TradeRow = ({ trade, showDate = true, onView, onEdit, onDelete, onChart, onShare, onlyView = false }) => {
-  const { timezone } = useTimezone();
-
+  const { userTimezone } = useUserPreferences();
   const pl = Number(trade.profitLoss) || 0;
   const result = resultOf(trade);
   const setups = setupArray(trade);
   const displaySetups = setups.slice(0, 2);
   const moreSetups = setups.length > 2 ? setups.length - 2 : 0;
 
+  const openTimeDisplay = trade.openTime ? formatTimeInUserTimezone(trade.openTime.includes?.('T') ? trade.openTime : `${trade.tradeDate}T${trade.openTime}:00`, userTimezone) : '—';
+  const closeTimeDisplay = trade.closeTime ? formatTimeInUserTimezone(trade.closeTime.includes?.('T') ? trade.closeTime : `${trade.tradeDate}T${trade.closeTime}:00`, userTimezone) : '—';
+
   return (
     <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
       {showDate && (
         <>
-          <td className="p-3 text-sm text-slate-300 whitespace-nowrap">{fmtDate(trade.tradeDate, timezone)}</td>
-          <td className="p-3 text-sm font-mono text-slate-400 whitespace-nowrap">{fmtDateTime(trade.openTime, timezone, trade.tradeDate)}</td>
-          <td className="p-3 text-sm font-mono text-slate-400 whitespace-nowrap">{fmtDateTime(trade.closeTime, timezone, trade.tradeDate)}</td>
+          <td className="p-3 text-sm text-slate-300 whitespace-nowrap">{fmtDate(trade.tradeDate)}</td>
+          <td className="p-3 text-sm font-mono text-slate-400 whitespace-nowrap">{openTimeDisplay}</td>
+          <td className="p-3 text-sm font-mono text-slate-400 whitespace-nowrap">{closeTimeDisplay}</td>
         </>
       )}
       <td className="p-3 font-semibold text-white whitespace-nowrap">{trade.pair || '—'}</td>

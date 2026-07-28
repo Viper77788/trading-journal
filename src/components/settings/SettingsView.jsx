@@ -1,16 +1,40 @@
 import { useState, useRef } from 'react';
 import {
   Settings as SettingsIcon, Download, Upload, LogOut,
-  FileJson, FileSpreadsheet, FileText, User, Shield, Globe
+  FileJson, FileSpreadsheet, FileText, User, Shield, Globe, Check, AlertCircle
 } from 'lucide-react';
 import { exportCSV, exportJSON, exportXLSX } from '../../utils/exportUtils';
-import { useTimezone } from '../../context/TimezoneContext';
+import { useUserPreferences } from '../../context/UserPreferencesContext';
+import { getAllSupportedTimezones, getBrowserTimezone } from '../../utils/timezoneUtils';
 
 export default function SettingsView({ trades, user, onSignOut, onImportMt5, onImportJson }) {
-  const { timezone, setTimezone, TIMEZONE_OPTIONS } = useTimezone();
+  const { userTimezone, timezoneSetAt, updateTimezone } = useUserPreferences();
+  const [selectedTz, setSelectedTz] = useState(userTimezone);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [savingTz, setSavingTz] = useState(false);
+
   const [importStatus, setImportStatus] = useState('');
   const [importingMt5, setImportingMt5] = useState(false);
   const importMt5InputRef = useRef(null);
+
+  const allTimezones = getAllSupportedTimezones();
+  const filteredTimezones = allTimezones.filter(tz =>
+    tz.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tz.value.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleConfirmSaveTz = async () => {
+    setSavingTz(true);
+    try {
+      await updateTimezone(selectedTz);
+      setConfirmOpen(false);
+    } catch (err) {
+      alert('Failed to save timezone: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setSavingTz(false);
+    }
+  };
 
   const handleImportJSON = (e) => {
     const file = e.target.files?.[0];
@@ -42,7 +66,7 @@ export default function SettingsView({ trades, user, onSignOut, onImportMt5, onI
     <div className="animate-fadeIn max-w-3xl space-y-6 pb-12">
       <div>
         <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-slate-400 text-sm mt-1">Manage your account, display timezone, data exports, and preferences.</p>
+        <p className="text-slate-400 text-sm mt-1">Manage your account, display preferences, and data exports.</p>
       </div>
 
       {/* Profile */}
@@ -52,7 +76,7 @@ export default function SettingsView({ trades, user, onSignOut, onImportMt5, onI
             <User size={24} className="text-blue-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Account Profile</h3>
+            <h3 className="text-lg font-semibold text-white">Account</h3>
             <p className="text-slate-400 text-sm">{user?.email || 'Not signed in'}</p>
           </div>
         </div>
@@ -62,36 +86,96 @@ export default function SettingsView({ trades, user, onSignOut, onImportMt5, onI
         </div>
       </div>
 
-      {/* Global Timezone Preferences */}
-      <div className="glass-card border border-blue-500/20 bg-blue-600/5">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
-            <Globe size={20} />
+      {/* Display Timezone Preference */}
+      <div className="glass-card space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <Globe size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Display Timezone Preference</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Controls timestamp formatting across your trading journal</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">Global Display & Analytics Timezone</h3>
-            <p className="text-xs text-slate-400">Controls Open/Close time formatting and Session Analytics classification</p>
-          </div>
+          <span className="px-3 py-1 rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-400 text-xs font-mono font-bold">
+            {userTimezone}
+          </span>
         </div>
 
-        <div className="mt-4">
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Active Timezone</label>
-          <select
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            className="w-full max-w-md bg-slate-900 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-medium"
-          >
-            {TIMEZONE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] text-slate-400 mt-2">
-            Selected: <strong className="text-blue-400">{timezone}</strong>. All open/close timestamps across Journal and Session Analytics will format in this timezone.
-          </p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Search & Select IANA Timezone</label>
+            <input
+              type="text"
+              placeholder="Search e.g. Kolkata, London, New_York, Tokyo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50 mb-2"
+            />
+            <select
+              value={selectedTz}
+              onChange={(e) => {
+                setSelectedTz(e.target.value);
+                setConfirmOpen(true);
+              }}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+            >
+              {filteredTimezones.map(tz => (
+                <option key={tz.value} value={tz.value} className="bg-slate-900 text-white">
+                  {tz.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+            <span>Browser Auto-Detected: <strong className="text-slate-300 font-mono">{getBrowserTimezone()}</strong></span>
+            {timezoneSetAt && (
+              <span>Last Set: <strong className="text-slate-300">{new Date(timezoneSetAt).toLocaleDateString()}</strong></span>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Timezone Change Confirmation Modal */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl p-6 text-white shadow-2xl space-y-4 animate-scaleIn">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <h3 className="text-base font-bold text-white">Confirm Timezone Update</h3>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Changing your timezone to <strong className="text-blue-400 font-mono">{selectedTz}</strong> will re-format all trade timestamps across your journal into your new local time.
+            </p>
+            <p className="text-[11px] text-slate-400 bg-black/30 p-2.5 rounded-xl border border-white/5">
+              💡 Note: Trading session classifications (Asian, London, NY Killzone) stay anchored to real NY market hours, but times will be displayed in your new timezone.
+            </p>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => { setSelectedTz(userTimezone); setConfirmOpen(false); }}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSaveTz}
+                disabled={savingTz}
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-lg shadow-blue-600/20 transition-all flex items-center gap-1.5"
+              >
+                {savingTz ? 'Saving...' : 'Confirm & Apply'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Data Export */}
       <div className="glass-card">
