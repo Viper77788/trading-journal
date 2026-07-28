@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Shield } from 'lucide-react';
+import { Calendar, Clock, Shield, AlertTriangle } from 'lucide-react';
 import MultiSelect from './MultiSelect';
 import { SETUP_OPTIONS, EMOTIONS_BEFORE, EMOTIONS_AFTER } from '../../constants';
 import { useAccount } from '../../context/AccountContext';
+import { checkCircuitBreaker } from '../../utils/aiAdvisor';
 
 const extractTime = (val) => {
   if (!val) return '';
@@ -14,7 +14,7 @@ const extractTime = (val) => {
   return '';
 };
 
-const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
+const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading, trades = [] }) => {
   const { accounts, activeAccountId } = useAccount();
 
   const [formData, setFormData] = useState({
@@ -26,6 +26,9 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
     confidenceScore: 5, emotionBeforeTrade: 'Neutral', emotionAfterTrade: 'Neutral',
     mistakes: '', lessons: '', comments: '', screenshotUrl: ''
   });
+
+  const selectedAccount = accounts.find(a => a.id === formData.accountId);
+  const circuitBreakerInfo = (!trade && !isViewOnly) ? checkCircuitBreaker(selectedAccount, trades) : null;
 
   useEffect(() => {
     if (trade) {
@@ -108,6 +111,21 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
           )}
         </div>
       </div>
+
+      {circuitBreakerInfo && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 flex items-start gap-3 animate-fadeIn">
+          <AlertTriangle size={20} className="shrink-0 mt-0.5 text-amber-400" />
+          <div className="space-y-1">
+            <h4 className="font-bold text-sm text-white">Circuit Breaker Warning (Revenge Trade Intervention)</h4>
+            <p className="text-xs opacity-90">
+              Your last trade ({circuitBreakerInfo.lastTradePair}) closed at a loss <strong className="text-white font-mono">{circuitBreakerInfo.diffMins} minutes ago</strong> (cooldown window: {circuitBreakerInfo.windowMins} mins).
+            </p>
+            <p className="text-[11px] text-amber-400 font-medium">
+              💡 Take a moment to pause. Ensure you are in a calm state before entering this position.
+            </p>
+          </div>
+        </div>
+      )}
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         {/* Basic Info Container */}

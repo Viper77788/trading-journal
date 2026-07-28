@@ -22,6 +22,7 @@ import RRDistributionChart from './RRDistributionChart';
 import HourlyChart from './HourlyChart';
 
 import { useAccount } from '../../context/AccountContext';
+import AiAdvisorWidget from '../advisor/AiAdvisorWidget';
 
 export default function DashboardView({ trades = [], loading, onImportMt5 }) {
   const { filterTradesByAccount } = useAccount();
@@ -36,11 +37,14 @@ export default function DashboardView({ trades = [], loading, onImportMt5 }) {
 
   if (!filteredTrades || filteredTrades.length === 0) {
     return (
-      <EmptyState
-        icon={BookOpen}
-        title="No trades logged yet"
-        subtitle="Add your first trade to start building your performance dashboard for this account."
-      />
+      <div className="space-y-6">
+        <AiAdvisorWidget trades={trades} />
+        <EmptyState
+          icon={BookOpen}
+          title="No trades logged yet"
+          subtitle="Add your first trade to start building your performance dashboard for this account."
+        />
+      </div>
     );
   }
 
@@ -91,6 +95,9 @@ export default function DashboardView({ trades = [], loading, onImportMt5 }) {
           </button>
         </div>
       </div>
+
+      {/* AI Behavioral Advisor Widget */}
+      <AiAdvisorWidget trades={trades} />
 
       {/* Row 1: Core Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 stagger-children">
