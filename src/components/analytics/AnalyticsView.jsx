@@ -13,18 +13,23 @@ import { resultOf, fmtMoney, setupArray, isYes } from '../../utils/formatters';
 import Spinner from '../shared/Spinner';
 import EmptyState from '../shared/EmptyState';
 
+import { useAccount } from '../../context/AccountContext';
+
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
-export default function AnalyticsView({ trades, loading }) {
+export default function AnalyticsView({ trades = [], loading }) {
+  const { filterTradesByAccount } = useAccount();
+  const filteredTrades = useMemo(() => filterTradesByAccount(trades), [trades, filterTradesByAccount]);
+
   const [activeTab, setActiveTab] = useState('strategy');
 
-  const stats = useMemo(() => trades.length ? computeStats(trades) : null, [trades]);
-  const streaks = useMemo(() => trades.length ? computeStreaks(trades) : null, [trades]);
+  const stats = useMemo(() => computeStats(filteredTrades), [filteredTrades]);
+  const streaks = useMemo(() => computeStreaks(filteredTrades), [filteredTrades]);
 
   /* ---- Strategy Breakdown ---- */
   const strategyData = useMemo(() => {
     const tally = new Map();
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       setupArray(t).forEach(s => {
         if (s === 'No Setup') return;
         if (!tally.has(s)) tally.set(s, { wins: 0, losses: 0, total: 0, pnl: 0 });
@@ -38,13 +43,13 @@ export default function AnalyticsView({ trades, loading }) {
     return Array.from(tally.entries())
       .map(([name, d]) => ({ name, ...d, winRate: d.total ? (d.wins / d.total) * 100 : 0 }))
       .sort((a, b) => b.total - a.total);
-  }, [trades]);
+  }, [filteredTrades]);
 
   /* ---- Day-of-Week ---- */
   const dowData = useMemo(() => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const buckets = days.map(d => ({ day: d, wins: 0, losses: 0, total: 0, pnl: 0 }));
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       if (!t.tradeDate) return;
       const dow = new Date(t.tradeDate).getDay();
       buckets[dow].total += 1;
@@ -53,12 +58,12 @@ export default function AnalyticsView({ trades, loading }) {
       else if (resultOf(t) === 'Loss') buckets[dow].losses += 1;
     });
     return buckets.filter(b => b.total > 0);
-  }, [trades]);
+  }, [filteredTrades]);
 
   /* ---- Emotion Analysis ---- */
   const emotionData = useMemo(() => {
     const tally = new Map();
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       const emotion = t.emotionBeforeTrade;
       if (!emotion) return;
       if (!tally.has(emotion)) tally.set(emotion, { wins: 0, losses: 0, total: 0, pnl: 0 });
@@ -71,13 +76,13 @@ export default function AnalyticsView({ trades, loading }) {
     return Array.from(tally.entries())
       .map(([emotion, d]) => ({ emotion, ...d, winRate: d.total ? (d.wins / d.total) * 100 : 0 }))
       .sort((a, b) => b.total - a.total);
-  }, [trades]);
+  }, [filteredTrades]);
 
   /* ---- Confidence Analysis ---- */
   const confidenceData = useMemo(() => {
     const buckets = {};
     for (let i = 1; i <= 10; i++) buckets[i] = { score: i, wins: 0, total: 0, pnl: 0 };
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       const score = Number(t.confidenceScore);
       if (!score || score < 1 || score > 10) return;
       buckets[score].total += 1;
@@ -85,10 +90,10 @@ export default function AnalyticsView({ trades, loading }) {
       if (resultOf(t) === 'Win') buckets[score].wins += 1;
     });
     return Object.values(buckets).filter(b => b.total > 0);
-  }, [trades]);
+  }, [filteredTrades]);
 
   if (loading) return <Spinner />;
-  if (!trades.length) return <EmptyState icon={BarChart3} title="No analytics yet" subtitle="Log some trades to see detailed breakdowns." />;
+  if (!filteredTrades.length) return <EmptyState icon={BarChart3} title="No analytics yet" subtitle="Log some trades for this account to see detailed breakdowns." />;
 
   const tabs = [
     { key: 'strategy', label: 'Strategy', icon: Target },

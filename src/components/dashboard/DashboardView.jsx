@@ -27,19 +27,19 @@ export default function DashboardView({ trades = [], loading, onImportMt5 }) {
   const { filterTradesByAccount } = useAccount();
   const filteredTrades = useMemo(() => filterTradesByAccount(trades), [trades, filterTradesByAccount]);
 
-  const stats = useMemo(() => filteredTrades.length ? computeStats(filteredTrades) : null, [filteredTrades]);
-  const streaks = useMemo(() => filteredTrades.length ? computeStreaks(filteredTrades) : null, [filteredTrades]);
+  const stats = useMemo(() => computeStats(filteredTrades), [filteredTrades]);
+  const streaks = useMemo(() => computeStreaks(filteredTrades), [filteredTrades]);
   const importInputRef = useRef(null);
   const [importing, setImporting] = useState(false);
 
   if (loading) return <Spinner />;
 
-  if (!trades || trades.length === 0) {
+  if (!filteredTrades || filteredTrades.length === 0) {
     return (
       <EmptyState
         icon={BookOpen}
         title="No trades logged yet"
-        subtitle="Add your first trade to start building your performance dashboard."
+        subtitle="Add your first trade to start building your performance dashboard for this account."
       />
     );
   }
