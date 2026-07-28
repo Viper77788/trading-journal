@@ -6,14 +6,14 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
   const firstWeekday = new Date(year, month, 1).getDay();
 
   const blanks = Array.from({ length: firstWeekday }).map((_, i) => (
-    <div key={`blank-${i}`} className="p-2 border border-white/[0.04] bg-black/10 min-h-[68px]" />
+    <div key={`blank-${i}`} className="p-2.5 border border-white/[0.04] bg-black/10 min-h-[82px] rounded-xl" />
   ));
 
   const days = Array.from({ length: daysInMonth }).map((_, i) => {
     const day = i + 1;
     const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dayTrades = tradesByDay.get(dateKey) || [];
-    
+
     let netPl = 0;
     dayTrades.forEach(t => netPl += Number(t.profitLoss || 0));
 
@@ -22,25 +22,30 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
     const hasTrades = dayTrades.length > 0;
 
     return (
-      <div 
-        key={`day-${day}`} 
-        className={`p-2 border border-white/[0.06] min-h-[68px] flex flex-col justify-between transition-all rounded-lg calendar-day ${
+      <div
+        key={`day-${day}`}
+        className={`p-2.5 border border-white/[0.06] min-h-[82px] flex flex-col justify-between transition-all rounded-xl calendar-day ${
           hasTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : 'bg-white/[0.02]'
         } ${isProfit ? 'bg-emerald-500/10 border-emerald-500/20' : isLoss ? 'bg-red-500/10 border-red-500/20' : ''}`}
         onClick={() => hasTrades && onDayClick(dateKey)}
       >
-        <div className="flex justify-between items-center">
-          <span className={`text-xs font-semibold ${hasTrades ? 'text-white' : 'text-slate-500'}`}>{day}</span>
-          {hasTrades && (
-            <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded-md font-sans text-slate-300">
+        {/* Top Row: Day Number */}
+        <div className="flex justify-between items-start">
+          <span className={`text-xs font-bold ${hasTrades ? 'text-white' : 'text-slate-500'}`}>{day}</span>
+        </div>
+
+        {/* Content Section: Trade Count Badge on separate line + Net PnL */}
+        {hasTrades ? (
+          <div className="mt-1 flex flex-col items-center justify-center space-y-1">
+            <span className="text-[10px] font-medium bg-white/10 px-2 py-0.5 rounded-md text-slate-300 tracking-tight">
               {dayTrades.length} {dayTrades.length === 1 ? 'trade' : 'trades'}
             </span>
-          )}
-        </div>
-        {hasTrades && (
-          <div className={`mt-1 text-xs font-mono font-semibold ${isProfit ? 'text-emerald-400' : isLoss ? 'text-red-400' : 'text-slate-400'}`}>
-            {fmtMoney(netPl)}
+            <div className={`text-xs font-mono font-bold ${isProfit ? 'text-emerald-400' : isLoss ? 'text-red-400' : 'text-slate-400'}`}>
+              {fmtMoney(netPl)}
+            </div>
           </div>
+        ) : (
+          <div className="h-6" />
         )}
       </div>
     );
