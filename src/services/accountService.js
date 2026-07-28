@@ -2,6 +2,99 @@ import { db } from '../config/firebase';
 import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy, setDoc } from 'firebase/firestore';
 
 export const PROP_FIRM_TEMPLATES = {
+  // Funding Pips Options (5k, 10k, 25k, 50k, 100k)
+  FUNDING_PIPS_5K: {
+    name: 'Funding Pips $5k Evaluation',
+    broker: 'cTrader / MT5',
+    currency: 'USD',
+    type: 'prop_evaluation',
+    propFirmName: 'Funding Pips',
+    startingBalance: 5000,
+    targetProfit: 400, // 8% Target
+    maxDailyLoss: 250, // 5% Max Daily Loss
+    drawdownType: 'static',
+    maxTotalDrawdown: 500, // 10% Max Drawdown
+    trailingFreezeEnabled: false,
+    dailyResetTimezone: 'UTC',
+    consistencyRuleLimit: 0,
+    overtradingThreshold: 5,
+    revengeTradeTimeWindow: 30,
+    riskWarningThresholdPct: 80,
+  },
+  FUNDING_PIPS_10K: {
+    name: 'Funding Pips $10k Evaluation',
+    broker: 'cTrader / MT5',
+    currency: 'USD',
+    type: 'prop_evaluation',
+    propFirmName: 'Funding Pips',
+    startingBalance: 10000,
+    targetProfit: 800, // 8% Target
+    maxDailyLoss: 500, // 5% Max Daily Loss
+    drawdownType: 'static',
+    maxTotalDrawdown: 1000, // 10% Max Drawdown
+    trailingFreezeEnabled: false,
+    dailyResetTimezone: 'UTC',
+    consistencyRuleLimit: 0,
+    overtradingThreshold: 5,
+    revengeTradeTimeWindow: 30,
+    riskWarningThresholdPct: 80,
+  },
+  FUNDING_PIPS_25K: {
+    name: 'Funding Pips $25k Evaluation',
+    broker: 'cTrader / MT5',
+    currency: 'USD',
+    type: 'prop_evaluation',
+    propFirmName: 'Funding Pips',
+    startingBalance: 25000,
+    targetProfit: 2000, // 8% Target
+    maxDailyLoss: 1250, // 5% Max Daily Loss
+    drawdownType: 'static',
+    maxTotalDrawdown: 2500, // 10% Max Drawdown
+    trailingFreezeEnabled: false,
+    dailyResetTimezone: 'UTC',
+    consistencyRuleLimit: 0,
+    overtradingThreshold: 5,
+    revengeTradeTimeWindow: 30,
+    riskWarningThresholdPct: 80,
+  },
+  FUNDING_PIPS_50K: {
+    name: 'Funding Pips $50k Evaluation',
+    broker: 'cTrader / MT5',
+    currency: 'USD',
+    type: 'prop_evaluation',
+    propFirmName: 'Funding Pips',
+    startingBalance: 50000,
+    targetProfit: 4000, // 8% Target
+    maxDailyLoss: 2500, // 5% Max Daily Loss
+    drawdownType: 'static',
+    maxTotalDrawdown: 5000, // 10% Max Drawdown
+    trailingFreezeEnabled: false,
+    dailyResetTimezone: 'UTC',
+    consistencyRuleLimit: 0,
+    overtradingThreshold: 5,
+    revengeTradeTimeWindow: 30,
+    riskWarningThresholdPct: 80,
+  },
+  FUNDING_PIPS_100K: {
+    name: 'Funding Pips $100k Evaluation',
+    broker: 'cTrader / MT5',
+    currency: 'USD',
+    type: 'prop_evaluation',
+    propFirmName: 'Funding Pips',
+    startingBalance: 100000,
+    targetProfit: 8000, // 8% Target
+    maxDailyLoss: 5000, // 5% Max Daily Loss
+    drawdownType: 'static',
+    maxTotalDrawdown: 10000, // 10% Max Drawdown
+    trailingFreezeEnabled: false,
+    dailyResetTimezone: 'UTC',
+    consistencyRuleLimit: 0,
+    overtradingThreshold: 6,
+    revengeTradeTimeWindow: 30,
+    riskWarningThresholdPct: 80,
+  },
+
+  // FTMO Options
   FTMO_100K: {
     name: 'FTMO $100k Evaluation',
     broker: 'MetaTrader 5',
@@ -14,12 +107,32 @@ export const PROP_FIRM_TEMPLATES = {
     drawdownType: 'static',
     maxTotalDrawdown: 10000,
     trailingFreezeEnabled: false,
-    dailyResetTimezone: 'Europe/Prague', // FTMO server time GMT+2/3
-    consistencyRuleLimit: 0, // No consistency rule on FTMO
+    dailyResetTimezone: 'Europe/Prague',
+    consistencyRuleLimit: 0,
     overtradingThreshold: 6,
     revengeTradeTimeWindow: 30,
     riskWarningThresholdPct: 80,
   },
+  FTMO_50K: {
+    name: 'FTMO $50k Evaluation',
+    broker: 'MetaTrader 5',
+    currency: 'USD',
+    type: 'prop_evaluation',
+    propFirmName: 'FTMO',
+    startingBalance: 50000,
+    targetProfit: 5000,
+    maxDailyLoss: 2500,
+    drawdownType: 'static',
+    maxTotalDrawdown: 5000,
+    trailingFreezeEnabled: false,
+    dailyResetTimezone: 'Europe/Prague',
+    consistencyRuleLimit: 0,
+    overtradingThreshold: 6,
+    revengeTradeTimeWindow: 30,
+    riskWarningThresholdPct: 80,
+  },
+
+  // Apex Options
   APEX_50K: {
     name: 'Apex $50k Evaluation',
     broker: 'NinjaTrader',
@@ -31,13 +144,33 @@ export const PROP_FIRM_TEMPLATES = {
     maxDailyLoss: 2500,
     drawdownType: 'trailing',
     maxTotalDrawdown: 2500,
-    trailingFreezeEnabled: true, // Apex freezes trailing floor at startingBalance + $100
+    trailingFreezeEnabled: true,
     dailyResetTimezone: 'America/New_York',
     consistencyRuleLimit: 30,
     overtradingThreshold: 8,
     revengeTradeTimeWindow: 20,
     riskWarningThresholdPct: 80,
   },
+  APEX_100K: {
+    name: 'Apex $100k Evaluation',
+    broker: 'NinjaTrader',
+    currency: 'USD',
+    type: 'prop_evaluation',
+    propFirmName: 'Apex Trader Funding',
+    startingBalance: 100000,
+    targetProfit: 6000,
+    maxDailyLoss: 3000,
+    drawdownType: 'trailing',
+    maxTotalDrawdown: 3000,
+    trailingFreezeEnabled: true,
+    dailyResetTimezone: 'America/New_York',
+    consistencyRuleLimit: 30,
+    overtradingThreshold: 8,
+    revengeTradeTimeWindow: 20,
+    riskWarningThresholdPct: 80,
+  },
+
+  // TopStep Options
   TOPSTEP_150K: {
     name: 'TopStep $150k Trading Combine',
     broker: 'Tradovate',
@@ -56,6 +189,8 @@ export const PROP_FIRM_TEMPLATES = {
     revengeTradeTimeWindow: 30,
     riskWarningThresholdPct: 80,
   },
+
+  // Personal Live
   PERSONAL_LIVE: {
     name: 'Personal Trading Account',
     broker: 'Interactive Brokers',
@@ -106,9 +241,9 @@ export const ensureDefaultAccount = async (uid) => {
   const existing = await getAllAccounts(uid);
   if (existing.length > 0) return existing;
 
-  // Seed default FTMO 100k account if none exists
+  // Seed default Funding Pips 100k account if none exists
   const defaultAccount = {
-    ...PROP_FIRM_TEMPLATES.FTMO_100K,
+    ...PROP_FIRM_TEMPLATES.FUNDING_PIPS_100K,
     isDefault: true,
     createdAt: new Date().toISOString()
   };

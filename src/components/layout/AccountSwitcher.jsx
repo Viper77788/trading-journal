@@ -11,9 +11,19 @@ export default function AccountSwitcher() {
   const dropdownRef = useRef(null);
 
   // Form state for new account modal
-  const [selectedTemplateKey, setSelectedTemplateKey] = useState('FTMO_100K');
-  const [formData, setFormData] = useState(PROP_FIRM_TEMPLATES.FTMO_100K);
+  const [firmFilter, setFirmFilter] = useState('Funding Pips');
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState('FUNDING_PIPS_100K');
+  const [formData, setFormData] = useState(PROP_FIRM_TEMPLATES.FUNDING_PIPS_100K);
   const [loading, setLoading] = useState(false);
+
+  const filteredTemplates = Object.entries(PROP_FIRM_TEMPLATES).filter(([_, tpl]) => {
+    if (firmFilter === 'All') return true;
+    if (firmFilter === 'Funding Pips') return tpl.propFirmName === 'Funding Pips';
+    if (firmFilter === 'FTMO') return tpl.propFirmName === 'FTMO';
+    if (firmFilter === 'Apex') return tpl.propFirmName === 'Apex Trader Funding';
+    if (firmFilter === 'TopStep') return tpl.propFirmName === 'TopStep';
+    return true;
+  });
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -141,18 +151,38 @@ export default function AccountSwitcher() {
               </div>
             </div>
 
-            {/* Template Selector */}
-            <div className="mb-6">
-              <label className="text-xs font-medium text-slate-400 mb-2 block">Quick Templates</label>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(PROP_FIRM_TEMPLATES).map(([key, tpl]) => (
+            {/* Template Category Selector */}
+            <div className="mb-6 space-y-3">
+              <label className="text-xs font-medium text-slate-400 block">Select Prop Firm Template</label>
+
+              {/* Firm Filter Chips */}
+              <div className="flex flex-wrap gap-1.5 p-1 bg-black/30 rounded-xl">
+                {['Funding Pips', 'FTMO', 'Apex', 'TopStep', 'All'].map((firm) => (
+                  <button
+                    key={firm}
+                    type="button"
+                    onClick={() => setFirmFilter(firm)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      firmFilter === firm
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {firm}
+                  </button>
+                ))}
+              </div>
+
+              {/* Templates Grid */}
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1">
+                {filteredTemplates.map(([key, tpl]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => handleTemplateSelect(key)}
                     className={`p-3 rounded-xl border text-left text-xs transition-all ${
                       selectedTemplateKey === key
-                        ? 'bg-blue-600/20 border-blue-500 text-white'
+                        ? 'bg-blue-600/25 border-blue-500 text-white ring-1 ring-blue-500/50'
                         : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'
                     }`}
                   >
