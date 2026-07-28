@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, BookOpen, CalendarDays, PlusCircle,
-  BarChart3, LineChart, Sun, Moon, Shield
+  BarChart3, LineChart, Sun, Moon, Shield, Trash2
 } from 'lucide-react';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { id: 'trade-new', label: 'Add Trade', icon: PlusCircle },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'propfirm', label: 'Prop Firm', icon: Shield },
+  { id: 'trash', label: 'Trash Bin', icon: Trash2 },
 ];
 
 export default function Sidebar({ currentView, onNavigate, onToggleTheme, isDark }) {

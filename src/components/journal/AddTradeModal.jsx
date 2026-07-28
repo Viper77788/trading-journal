@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, Shield } from 'lucide-react';
 import MultiSelect from './MultiSelect';
 import { SETUP_OPTIONS, EMOTIONS_BEFORE, EMOTIONS_AFTER } from '../../constants';
+import { useAccount } from '../../context/AccountContext';
 
 const extractTime = (val) => {
   if (!val) return '';
@@ -14,7 +15,10 @@ const extractTime = (val) => {
 };
 
 const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
+  const { accounts, activeAccountId } = useAccount();
+
   const [formData, setFormData] = useState({
+    accountId: activeAccountId !== 'all' ? activeAccountId : (accounts[0]?.id || ''),
     tradeDate: '', openTime: '', closeTime: '', pair: '', direction: 'Long', entryPrice: '', stopLoss: '', takeProfit: '',
     profitLoss: '', rr: '', tradeResult: 'Auto', tradingViewLink: '',
     setup: [], planFollowed: 'No', previous4HourDirection: 'No', previousWeeklyDirection: 'No',
@@ -27,13 +31,16 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
     if (trade) {
       setFormData({
         ...trade,
+        accountId: trade.accountId || (activeAccountId !== 'all' ? activeAccountId : accounts[0]?.id || ''),
         setup: Array.isArray(trade.setup) ? trade.setup : (trade.setup ? trade.setup.split(',') : []),
         tradeDate: trade.tradeDate ? new Date(trade.tradeDate).toISOString().split('T')[0] : '',
         openTime: extractTime(trade.openTime),
         closeTime: extractTime(trade.closeTime)
       });
+    } else if (activeAccountId !== 'all') {
+      setFormData(prev => ({ ...prev, accountId: activeAccountId }));
     }
-  }, [trade]);
+  }, [trade, activeAccountId, accounts]);
 
   const handleChange = (field, value) => {
     if (isViewOnly) return;
@@ -48,6 +55,12 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isViewOnly) return;
+
+    if (!formData.accountId) {
+      alert('Please select a Trading Account for this trade.');
+      return;
+    }
+
     const payload = {
       ...formData,
       openTime: formData.openTime || null,
@@ -59,23 +72,30 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
   const renderToggle = (label, field) => (
     <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
       <span className="text-sm font-medium text-slate-300">{label}</span>
-      <button 
-        type="button" 
+      <button
+        type="button"
         onClick={() => handleToggle(field)}
-        className={`w-11 h-6 rounded-full relative transition-colors ${formData[field] === 'Yes' ? 'bg-emerald-600' : 'bg-slate-700'}`}
         disabled={isViewOnly}
+        className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+          formData[field] === 'Yes' ? 'bg-blue-600 justify-end' : 'bg-white/20 justify-start'
+        }`}
       >
-        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${formData[field] === 'Yes' ? 'left-6' : 'left-1'}`} />
+        <div className="w-4 h-4 rounded-full bg-white shadow-md" />
       </button>
     </div>
   );
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 pb-20">
-      <div className="flex justify-between items-center mb-6">
+    <div className="animate-fadeIn max-w-4xl mx-auto space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-white/10 pb-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">{isViewOnly ? 'View Trade' : trade ? 'Edit Trade' : 'New Trade'}</h2>
-          <p className="text-slate-400 text-sm mt-1">{isViewOnly ? 'Trade breakdown' : 'Fill in trade execution details and psychology'}</p>
+          <h1 className="text-2xl font-bold text-white">
+            {isViewOnly ? 'View Trade Details' : trade ? 'Edit Trade' : 'Log New Trade'}
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            {isViewOnly ? 'Review recorded trade metrics & setup parameters' : 'Record complete parameters, setup details, and trading psychology'}
+          </p>
         </div>
         <div className="flex gap-3">
           <button type="button" onClick={onCancel} className="px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 text-sm font-medium transition-all">
@@ -90,10 +110,32 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
       </div>
 
       <form className="space-y-6" onSubmit={handleSubmit}>
-        {/* Basic Info Container with relative z-20 so MultiSelect dropdown stays above card #2 */}
+        {/* Basic Info Container */}
         <div className="relative z-20 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
           <h3 className="text-lg font-semibold text-white">Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+            {/* Target Account Selector */}
+            <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-blue-600/10 p-3 rounded-xl border border-blue-500/20">
+              <label className="block text-xs font-semibold text-blue-400 mb-1 flex items-center gap-1.5">
+                <Shield size={14} /> Trading Account (Required)
+              </label>
+              <select
+                value={formData.accountId}
+                onChange={e => handleChange('accountId', e.target.value)}
+                disabled={isViewOnly}
+                required
+                className="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="" disabled>-- Select Trading Account --</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name} (${acc.startingBalance?.toLocaleString()} • {acc.currency})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center gap-1.5">
                 <Calendar size={13} className="text-blue-400" /> Date
@@ -114,7 +156,7 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Pair</label>
-              <input type="text" value={formData.pair} onChange={e => handleChange('pair', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm" placeholder="EURUSD" required />
+              <input type="text" value={formData.pair} onChange={e => handleChange('pair', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm uppercase" placeholder="XAUUSD" required />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Direction</label>
@@ -140,90 +182,89 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading }) => {
               <input type="number" step="0.01" value={formData.profitLoss} onChange={e => handleChange('profitLoss', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm font-mono" required />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Risk/Reward (RR)</label>
-              <input type="number" step="0.1" value={formData.rr} onChange={e => handleChange('rr', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm font-mono" />
+              <label className="block text-xs font-medium text-slate-400 mb-1">Risk / Reward (RR)</label>
+              <input type="number" step="0.1" value={formData.rr} onChange={e => handleChange('rr', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm" placeholder="1.5" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Result</label>
               <select value={formData.tradeResult} onChange={e => handleChange('tradeResult', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm">
-                <option value="Auto">Auto (from P/L)</option>
-                <option value="Win">Win</option>
-                <option value="Loss">Loss</option>
-                <option value="Breakeven">Breakeven</option>
+                <option value="Auto" className="bg-slate-900 text-white">Auto (derive from P/L)</option>
+                <option value="Win" className="bg-slate-900 text-white">Win</option>
+                <option value="Loss" className="bg-slate-900 text-white">Loss</option>
+                <option value="Breakeven" className="bg-slate-900 text-white">Breakeven</option>
               </select>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-slate-400 mb-1">TradingView Link</label>
-              <input type="url" value={formData.tradingViewLink} onChange={e => handleChange('tradingViewLink', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm" />
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">TradingView Chart Link</label>
+              <input type="url" value={formData.tradingViewLink} onChange={e => handleChange('tradingViewLink', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm" placeholder="https://www.tradingview.com/x/..." />
             </div>
-            <div className="md:col-span-3">
-              <label className="block text-xs font-medium text-slate-400 mb-1">Setup</label>
-              <div className="w-full">
-                {isViewOnly ? (
-                  <div className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm">
-                    {formData.setup.length ? formData.setup.join(', ') : 'No Setup'}
-                  </div>
-                ) : (
-                  <MultiSelect options={SETUP_OPTIONS} selected={formData.setup} onChange={val => handleChange('setup', val)} placeholder="Select setup(s)" />
-                )}
-              </div>
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-1">Setup Type(s)</label>
+              <MultiSelect options={SETUP_OPTIONS} selected={formData.setup} onChange={selected => handleChange('setup', selected)} placeholder="Select setup strategies..." />
             </div>
           </div>
         </div>
 
-        {/* Subsequent Cards */}
-        <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+        {/* Setup Validation Checklist */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
           <h3 className="text-lg font-semibold text-white">Setup Validation Checklist</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {renderToggle('Plan Followed?', 'planFollowed')}
-            {renderToggle('Prev 4H Direction?', 'previous4HourDirection')}
-            {renderToggle('Prev Weekly Direction?', 'previousWeeklyDirection')}
-            {renderToggle('Prev Daily Direction?', 'previousDailyDirection')}
-            {renderToggle('Prev 1H Direction?', 'previous1HourDirection')}
-            {renderToggle('Left Side Range Clean?', 'leftSideRangeClean')}
+            {renderToggle('Plan Followed', 'planFollowed')}
+            {renderToggle('4H Candle Direction Aligned', 'previous4HourDirection')}
+            {renderToggle('Weekly Direction Aligned', 'previousWeeklyDirection')}
+            {renderToggle('Daily Direction Aligned', 'previousDailyDirection')}
+            {renderToggle('1H Direction Aligned', 'previous1HourDirection')}
+            {renderToggle('Left-Side Range Clean', 'leftSideRangeClean')}
           </div>
         </div>
 
-        <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
-          <h3 className="text-lg font-semibold text-white">Trade Quality Score</h3>
-          <div className="flex items-center gap-4">
-            <input type="range" min="1" max="10" value={formData.confidenceScore} onChange={e => handleChange('confidenceScore', parseInt(e.target.value))} disabled={isViewOnly} className="flex-1 accent-blue-500" />
-            <span className="text-2xl font-mono text-white font-bold">{formData.confidenceScore}/10</span>
-          </div>
-        </div>
+        {/* Quality Score & Psychology */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-6">
+          <h3 className="text-lg font-semibold text-white">Quality Score & Psychology</h3>
 
-        <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
-          <h3 className="text-lg font-semibold text-white">Psychology & Review</h3>
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-medium text-slate-300">Trade Quality Score</label>
+              <span className="text-lg font-bold font-mono text-blue-400">{formData.confidenceScore}/10</span>
+            </div>
+            <input type="range" min="1" max="10" value={formData.confidenceScore} onChange={e => handleChange('confidenceScore', Number(e.target.value))} disabled={isViewOnly} className="w-full accent-blue-500 cursor-pointer" />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Emotion Before Trade</label>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Emotion Before Trade (Optional)</label>
               <select value={formData.emotionBeforeTrade} onChange={e => handleChange('emotionBeforeTrade', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm">
-                {EMOTIONS_BEFORE.map(e => <option key={e} value={e}>{e}</option>)}
+                {EMOTIONS_BEFORE.map(emo => <option key={emo} value={emo} className="bg-slate-900">{emo}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Emotion After Trade</label>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Emotion After Trade (Optional)</label>
               <select value={formData.emotionAfterTrade} onChange={e => handleChange('emotionAfterTrade', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm">
-                {EMOTIONS_AFTER.map(e => <option key={e} value={e}>{e}</option>)}
+                {EMOTIONS_AFTER.map(emo => <option key={emo} value={emo} className="bg-slate-900">{emo}</option>)}
               </select>
             </div>
           </div>
-          <div className="space-y-4">
+        </div>
+
+        {/* Notes & Review */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+          <h3 className="text-lg font-semibold text-white">Review & Notes</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Mistakes Made</label>
-              <textarea value={formData.mistakes} onChange={e => handleChange('mistakes', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm min-h-[80px]"></textarea>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Mistakes</label>
+              <textarea rows={3} value={formData.mistakes} onChange={e => handleChange('mistakes', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm resize-none" placeholder="What mistakes were made?" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Lessons Learned</label>
-              <textarea value={formData.lessons} onChange={e => handleChange('lessons', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm min-h-[80px]"></textarea>
+              <textarea rows={3} value={formData.lessons} onChange={e => handleChange('lessons', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm resize-none" placeholder="What did you learn from this trade?" />
             </div>
-            <div>
+            <div className="col-span-1 md:col-span-2">
               <label className="block text-xs font-medium text-slate-400 mb-1">Comments</label>
-              <textarea value={formData.comments} onChange={e => handleChange('comments', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm min-h-[80px]"></textarea>
+              <textarea rows={2} value={formData.comments} onChange={e => handleChange('comments', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm resize-none" placeholder="General observations..." />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Screenshot URL</label>
-              <input type="url" value={formData.screenshotUrl} onChange={e => handleChange('screenshotUrl', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm" />
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-1">Screenshot Image URL</label>
+              <input type="url" value={formData.screenshotUrl} onChange={e => handleChange('screenshotUrl', e.target.value)} disabled={isViewOnly} className="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-white text-sm" placeholder="https://..." />
             </div>
           </div>
         </div>

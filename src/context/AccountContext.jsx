@@ -2,9 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import {
   getAllAccounts,
+  getDeletedAccounts,
   createAccount,
   updateAccountById,
-  deleteAccountById,
+  softDeleteAccountById,
+  restoreAccountById,
+  permanentlyDeleteAccountById,
+  autoPurgeExpiredTrash,
   ensureDefaultAccount
 } from '../services/accountService';
 
@@ -22,6 +26,9 @@ export const AccountProvider = ({ children }) => {
     if (!user) return;
     setLoading(true);
     try {
+      // Auto purge items in trash > 30 days (fire-and-forget)
+      autoPurgeExpiredTrash(user.uid);
+
       const data = await ensureDefaultAccount(user.uid);
       setAccounts(data);
 
@@ -71,14 +78,33 @@ export const AccountProvider = ({ children }) => {
     await fetchAccounts();
   };
 
-  const removeAccount = async (id) => {
+  const softDeleteAccount = async (id) => {
     if (!user) return;
-    await deleteAccountById(user.uid, id);
+    await softDeleteAccountById(user.uid, id);
     const updated = accounts.filter(a => a.id !== id);
     setAccounts(updated);
     if (activeAccountId === id) {
-      switchAccount(updated.length > 0 ? updated[0].id : 'all');
+      switchAccount('all');
     }
+    await fetchAccounts();
+  };
+
+  const restoreAccount = async (id) => {
+    if (!user) return;
+    await restoreAccountById(user.uid, id);
+    await fetchAccounts();
+    switchAccount(id);
+  };
+
+  const permanentlyDeleteAccount = async (id) => {
+    if (!user) return;
+    await permanentlyDeleteAccountById(user.uid, id);
+    await fetchAccounts();
+  };
+
+  const fetchTrash = async () => {
+    if (!user) return [];
+    return await getDeletedAccounts(user.uid);
   };
 
   const activeAccount = activeAccountId === 'all'
@@ -87,8 +113,9 @@ export const AccountProvider = ({ children }) => {
 
   const filterTradesByAccount = (trades = []) => {
     if (!trades) return [];
-    if (activeAccountId === 'all') return trades;
-    return trades.filter(t => t.accountId === activeAccountId || !t.accountId);
+    const activeTrades = trades.filter(t => t.isDeleted !== true);
+    if (activeAccountId === 'all') return activeTrades;
+    return activeTrades.filter(t => t.accountId === activeAccountId);
   };
 
   const value = {
@@ -99,7 +126,10 @@ export const AccountProvider = ({ children }) => {
     switchAccount,
     addAccount,
     editAccount,
-    removeAccount,
+    softDeleteAccount,
+    restoreAccount,
+    permanentlyDeleteAccount,
+    fetchTrash,
     filterTradesByAccount,
     refreshAccounts: fetchAccounts
   };

@@ -14,6 +14,8 @@ import Spinner from './components/shared/Spinner';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 
 import PropFirmView from './components/propfirm/PropFirmView';
+import TrashBinView from './components/account/TrashBinView';
+import UnassignedTradesModal from './components/account/UnassignedTradesModal';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
@@ -92,7 +94,7 @@ export default function App() {
       return;
     }
     setCurrentView(view);
-    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics') {
+    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics' || view === 'trash') {
       await fetchTrades();
     }
   };
@@ -170,6 +172,8 @@ export default function App() {
         return <AnalyticsView trades={trades} loading={tradesLoading} />;
       case 'propfirm':
         return <PropFirmView trades={trades} loading={tradesLoading} />;
+      case 'trash':
+        return <TrashBinView trades={trades} loading={tradesLoading} />;
       case 'settings':
         return <SettingsView trades={trades} user={user} onSignOut={handleSignOut} onImportMt5={handleImportMt5} onImportJson={handleImportJson} />;
       default:
@@ -190,6 +194,7 @@ export default function App() {
         onImportJson={handleImportJson}
         trades={trades}
       >
+        <UnassignedTradesModal trades={trades} onComplete={fetchTrades} />
         {renderView()}
       </AppLayout>
     </ErrorBoundary>

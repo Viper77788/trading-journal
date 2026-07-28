@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Plus, Shield, Layers, Check, Building2, X } from 'lucide-react';
+import { ChevronDown, Plus, Shield, Layers, Check, Building2, X, Trash2 } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
 import { PROP_FIRM_TEMPLATES } from '../../services/accountService';
+import DeleteAccountConfirmModal from '../account/DeleteAccountConfirmModal';
 
 export default function AccountSwitcher() {
   const { accounts, activeAccountId, activeAccount, switchAccount, addAccount } = useAccount();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteTargetAccount, setDeleteTargetAccount] = useState(null);
   const dropdownRef = useRef(null);
 
   // Form state for new account modal
@@ -55,6 +57,51 @@ export default function AccountSwitcher() {
     }
   };
 
+  // Categorize accounts by type
+  const propFirmAccounts = accounts.filter(a => a.type === 'prop_evaluation' || a.type === 'prop_funded');
+  const personalLiveAccounts = accounts.filter(a => a.type === 'personal_live' || !a.type);
+  const demoAccounts = accounts.filter(a => a.type === 'demo');
+
+  const renderAccountGroup = (title, icon, list) => {
+    if (!list.length) return null;
+    return (
+      <div className="space-y-1 my-1.5">
+        <div className="text-[10px] font-semibold text-slate-400 px-3 uppercase tracking-wider flex items-center gap-1">
+          <span>{icon}</span>
+          <span>{title}</span>
+        </div>
+        {list.map((acc) => (
+          <div
+            key={acc.id}
+            className={`flex items-center justify-between p-2 rounded-xl text-xs transition-all group ${
+              activeAccountId === acc.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-300 hover:bg-white/5'
+            }`}
+          >
+            <button
+              onClick={() => { switchAccount(acc.id); setDropdownOpen(false); }}
+              className="flex-1 flex flex-col text-left truncate"
+            >
+              <span className="font-medium text-white truncate max-w-[150px]">{acc.name}</span>
+              <span className="text-[10px] text-slate-400">
+                ${acc.startingBalance?.toLocaleString()} • {acc.propFirmName || acc.broker}
+              </span>
+            </button>
+            <div className="flex items-center gap-1.5">
+              {activeAccountId === acc.id && <Check size={14} className="shrink-0 text-blue-400" />}
+              <button
+                onClick={(e) => { e.stopPropagation(); setDeleteTargetAccount(acc); setDropdownOpen(false); }}
+                className="p-1 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                title="Move Account to Trash"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Account Switcher Button */}
@@ -78,11 +125,7 @@ export default function AccountSwitcher() {
 
       {/* Dropdown Menu */}
       {dropdownOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl z-50 animate-fadeIn">
-          <div className="text-[11px] font-semibold text-slate-400 px-3 py-1.5 uppercase tracking-wider">
-            Trading Accounts
-          </div>
-
+        <div className="absolute right-0 mt-2 w-72 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2.5 shadow-2xl z-50 animate-fadeIn space-y-1">
           <button
             onClick={() => { switchAccount('all'); setDropdownOpen(false); }}
             className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs transition-all ${
@@ -98,24 +141,10 @@ export default function AccountSwitcher() {
 
           <div className="my-1 border-t border-white/5" />
 
-          <div className="max-h-48 overflow-y-auto space-y-1">
-            {accounts.map((acc) => (
-              <button
-                key={acc.id}
-                onClick={() => { switchAccount(acc.id); setDropdownOpen(false); }}
-                className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs transition-all ${
-                  activeAccountId === acc.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-300 hover:bg-white/5'
-                }`}
-              >
-                <div className="flex flex-col text-left">
-                  <span className="font-medium text-white truncate max-w-[160px]">{acc.name}</span>
-                  <span className="text-[10px] text-slate-400">
-                    ${acc.startingBalance?.toLocaleString()} • {acc.propFirmName || acc.broker}
-                  </span>
-                </div>
-                {activeAccountId === acc.id && <Check size={14} className="shrink-0" />}
-              </button>
-            ))}
+          <div className="max-h-60 overflow-y-auto space-y-2">
+            {renderAccountGroup('Prop Firm Accounts', '🏆', propFirmAccounts)}
+            {renderAccountGroup('Live & Personal Accounts', '💰', personalLiveAccounts)}
+            {renderAccountGroup('Demo Accounts', '🧪', demoAccounts)}
           </div>
 
           <div className="my-1 border-t border-white/5" />
@@ -130,7 +159,7 @@ export default function AccountSwitcher() {
         </div>
       )}
 
-      {/* Add Account Modal rendered outside via React Portal for perfect z-index */}
+      {/* Add Account Modal */}
       {modalOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 text-white shadow-2xl relative my-auto animate-scaleIn">
@@ -154,8 +183,6 @@ export default function AccountSwitcher() {
             {/* Template Category Selector */}
             <div className="mb-6 space-y-3">
               <label className="text-xs font-medium text-slate-400 block">Select Prop Firm Template</label>
-
-              {/* Firm Filter Chips */}
               <div className="flex flex-wrap gap-1.5 p-1 bg-black/30 rounded-xl">
                 {['Funding Pips', 'FTMO', 'Apex', 'TopStep', 'All'].map((firm) => (
                   <button
@@ -173,7 +200,6 @@ export default function AccountSwitcher() {
                 ))}
               </div>
 
-              {/* Templates Grid */}
               <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1">
                 {filteredTemplates.map(([key, tpl]) => (
                   <button
@@ -298,6 +324,14 @@ export default function AccountSwitcher() {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTargetAccount && (
+        <DeleteAccountConfirmModal
+          account={deleteTargetAccount}
+          onClose={() => setDeleteTargetAccount(null)}
+        />
       )}
     </div>
   );

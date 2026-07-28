@@ -4,7 +4,11 @@ import TradeFilters from './TradeFilters';
 import TradeTable from './TradeTable';
 import { resultOf, setupArray, isYes } from '../../utils/formatters';
 
-export default function JournalView({ trades, loading, onView, onEdit, onDelete, onChart, onNavigateToTrade }) {
+import { useAccount } from '../../context/AccountContext';
+
+export default function JournalView({ trades = [], loading, onView, onEdit, onDelete, onChart, onNavigateToTrade }) {
+  const { filterTradesByAccount } = useAccount();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [quickFilter, setQuickFilter] = useState('all');
   const [setupFilter, setSetupFilter] = useState([]);
@@ -14,7 +18,7 @@ export default function JournalView({ trades, loading, onView, onEdit, onDelete,
   const [sortDir, setSortDir] = useState('asc');
 
   const filteredTrades = useMemo(() => {
-    let filtered = [...trades];
+    let filtered = filterTradesByAccount(trades);
 
     if (quickFilter !== 'all') {
       if (quickFilter === 'win') filtered = filtered.filter(t => resultOf(t) === 'Win');

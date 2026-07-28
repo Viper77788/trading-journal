@@ -1,5 +1,5 @@
 import { db } from '../config/firebase';
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy, writeBatch, where } from 'firebase/firestore';
 
 export const PROP_FIRM_TEMPLATES = {
   // Funding Pips Options (5k, 10k, 25k, 50k, 100k)
@@ -234,6 +234,7 @@ export const createAccount = async (uid, accountData) => {
     const accountsRef = collection(db, `users/${uid}/accounts`);
     const docRef = await addDoc(accountsRef, {
       ...accountData,
+      isDeleted: false,
       createdAt: new Date().toISOString()
     });
     return docRef.id;
@@ -243,6 +244,7 @@ export const createAccount = async (uid, accountData) => {
     const newAccount = {
       id: `local_acc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       ...accountData,
+      isDeleted: false,
       createdAt: new Date().toISOString()
     };
     local.push(newAccount);
@@ -259,13 +261,14 @@ export const getAllAccounts = async (uid) => {
     const firestoreAccounts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     const localAccounts = getLocalAccounts(uid);
-    // Combine and deduplicate
     const combinedMap = new Map();
     [...firestoreAccounts, ...localAccounts].forEach(acc => combinedMap.set(acc.id, acc));
-    return Array.from(combinedMap.values());
+
+    // Exclude soft-deleted accounts from standard listings
+    return Array.from(combinedMap.values()).filter(acc => acc.isDeleted !== true);
   } catch (err) {
-    console.warn('Firestore read permission restricted — loading local accounts:', err?.message);
-    return getLocalAccounts(uid);
+    console.warn('Firestore read permission restricted — loading local active accounts:', err?.message);
+    return getLocalAccounts(uid).filter(acc => acc.isDeleted !== true);
   }
 };
 
@@ -284,25 +287,140 @@ export const updateAccountById = async (uid, id, accountData) => {
   saveLocalAccounts(uid, updated);
 };
 
-export const deleteAccountById = async (uid, id) => {
+export const getDeletedAccounts = async (uid) => {
   try {
-    if (!id.startsWith('local_acc_')) {
-      const docRef = doc(db, `users/${uid}/accounts`, id);
-      await deleteDoc(docRef);
+    const accountsRef = collection(db, `users/${uid}/accounts`);
+    const querySnapshot = await getDocs(accountsRef);
+    const firestoreAccounts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const localAccounts = getLocalAccounts(uid);
+    const combinedMap = new Map();
+    [...firestoreAccounts, ...localAccounts].forEach(acc => combinedMap.set(acc.id, acc));
+
+    return Array.from(combinedMap.values()).filter(acc => acc.isDeleted === true);
+  } catch (err) {
+    return getLocalAccounts(uid).filter(acc => acc.isDeleted === true);
+  }
+};
+
+export const softDeleteAccountById = async (uid, accountId) => {
+  const deletedAt = new Date().toISOString();
+  try {
+    if (!accountId.startsWith('local_acc_')) {
+      const docRef = doc(db, `users/${uid}/accounts`, accountId);
+      await updateDoc(docRef, { isDeleted: true, deletedAt });
+
+      // Soft delete matching trades
+      const tradesRef = collection(db, `users/${uid}/trades`);
+      const q = query(tradesRef, where('accountId', '==', accountId));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(docSnap => batch.update(docSnap.ref, { isDeleted: true, deletedAt }));
+        await batch.commit();
+      }
     }
   } catch (err) {
-    console.warn('Firestore delete restricted — deleting locally:', err?.message);
+    console.warn('Firestore soft delete fallback:', err?.message);
   }
+
+  // Update local storage fallback
   const local = getLocalAccounts(uid);
-  const updated = local.filter(a => a.id !== id);
+  const updated = local.map(a => a.id === accountId ? { ...a, isDeleted: true, deletedAt } : a);
   saveLocalAccounts(uid, updated);
+};
+
+export const restoreAccountById = async (uid, accountId) => {
+  try {
+    const active = await getAllAccounts(uid);
+    let targetAccount = null;
+
+    if (!accountId.startsWith('local_acc_')) {
+      const docRef = doc(db, `users/${uid}/accounts`, accountId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) targetAccount = snap.data();
+    }
+    if (!targetAccount) {
+      targetAccount = getLocalAccounts(uid).find(a => a.id === accountId);
+    }
+
+    let restoredName = targetAccount?.name || 'Account';
+    if (active.some(a => a.name === restoredName)) {
+      restoredName += ' (Restored)';
+    }
+
+    if (!accountId.startsWith('local_acc_')) {
+      const docRef = doc(db, `users/${uid}/accounts`, accountId);
+      await updateDoc(docRef, { isDeleted: false, deletedAt: null, name: restoredName });
+
+      // Restore matching trades
+      const tradesRef = collection(db, `users/${uid}/trades`);
+      const q = query(tradesRef, where('accountId', '==', accountId));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(docSnap => batch.update(docSnap.ref, { isDeleted: false, deletedAt: null }));
+        await batch.commit();
+      }
+    }
+  } catch (err) {
+    console.warn('Firestore restore fallback:', err?.message);
+  }
+
+  const local = getLocalAccounts(uid);
+  const updated = local.map(a => a.id === accountId ? { ...a, isDeleted: false, deletedAt: null } : a);
+  saveLocalAccounts(uid, updated);
+};
+
+export const permanentlyDeleteAccountById = async (uid, accountId) => {
+  try {
+    if (!accountId.startsWith('local_acc_')) {
+      const docRef = doc(db, `users/${uid}/accounts`, accountId);
+      await deleteDoc(docRef);
+
+      // Hard delete matching trades
+      const tradesRef = collection(db, `users/${uid}/trades`);
+      const q = query(tradesRef, where('accountId', '==', accountId));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(docSnap => batch.delete(docSnap.ref));
+        await batch.commit();
+      }
+    }
+  } catch (err) {
+    console.warn('Firestore permanent delete fallback:', err?.message);
+  }
+
+  const local = getLocalAccounts(uid);
+  const updated = local.filter(a => a.id !== accountId);
+  saveLocalAccounts(uid, updated);
+};
+
+export const autoPurgeExpiredTrash = async (uid) => {
+  if (!uid) return;
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+
+  try {
+    const deletedAccounts = await getDeletedAccounts(uid);
+    for (const acc of deletedAccounts) {
+      if (acc.deletedAt) {
+        const deletedMs = new Date(acc.deletedAt).getTime();
+        if (nowMs - deletedMs > thirtyDaysMs) {
+          await permanentlyDeleteAccountById(uid, acc.id);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Auto purge error:', err?.message);
+  }
 };
 
 export const ensureDefaultAccount = async (uid) => {
   const existing = await getAllAccounts(uid);
   if (existing.length > 0) return existing;
 
-  // Seed default Funding Pips 100k account if none exists
   const defaultAccount = {
     ...PROP_FIRM_TEMPLATES.FUNDING_PIPS_100K,
     isDefault: true,

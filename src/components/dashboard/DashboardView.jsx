@@ -21,9 +21,14 @@ import MonthlyChart from './MonthlyChart';
 import RRDistributionChart from './RRDistributionChart';
 import HourlyChart from './HourlyChart';
 
-export default function DashboardView({ trades, loading, onImportMt5 }) {
-  const stats = useMemo(() => trades.length ? computeStats(trades) : null, [trades]);
-  const streaks = useMemo(() => trades.length ? computeStreaks(trades) : null, [trades]);
+import { useAccount } from '../../context/AccountContext';
+
+export default function DashboardView({ trades = [], loading, onImportMt5 }) {
+  const { filterTradesByAccount } = useAccount();
+  const filteredTrades = useMemo(() => filterTradesByAccount(trades), [trades, filterTradesByAccount]);
+
+  const stats = useMemo(() => filteredTrades.length ? computeStats(filteredTrades) : null, [filteredTrades]);
+  const streaks = useMemo(() => filteredTrades.length ? computeStreaks(filteredTrades) : null, [filteredTrades]);
   const importInputRef = useRef(null);
   const [importing, setImporting] = useState(false);
 
@@ -129,7 +134,7 @@ export default function DashboardView({ trades, loading, onImportMt5 }) {
       <div className="glass-card">
         <h3 className="text-lg font-semibold text-white mb-4">Equity Curve</h3>
         <div className="h-[300px]">
-          <EquityChart trades={trades} />
+          <EquityChart trades={filteredTrades} />
         </div>
       </div>
 
@@ -138,13 +143,13 @@ export default function DashboardView({ trades, loading, onImportMt5 }) {
         <div className="glass-card">
           <h3 className="text-lg font-semibold text-white mb-4">Win vs Loss</h3>
           <div className="h-[250px]">
-            <WinLossChart trades={trades} />
+            <WinLossChart trades={filteredTrades} />
           </div>
         </div>
         <div className="glass-card">
           <h3 className="text-lg font-semibold text-white mb-4">Long vs Short</h3>
           <div className="h-[250px]">
-            <LongShortChart trades={trades} />
+            <LongShortChart trades={filteredTrades} />
           </div>
         </div>
       </div>
@@ -153,13 +158,13 @@ export default function DashboardView({ trades, loading, onImportMt5 }) {
         <div className="glass-card">
           <h3 className="text-lg font-semibold text-white mb-4">Monthly Profit</h3>
           <div className="h-[250px]">
-            <MonthlyChart trades={trades} />
+            <MonthlyChart trades={filteredTrades} />
           </div>
         </div>
         <div className="glass-card">
           <h3 className="text-lg font-semibold text-white mb-4">RR Distribution</h3>
           <div className="h-[250px]">
-            <RRDistributionChart trades={trades} />
+            <RRDistributionChart trades={filteredTrades} />
           </div>
         </div>
       </div>
@@ -167,7 +172,7 @@ export default function DashboardView({ trades, loading, onImportMt5 }) {
       {/* Hourly Performance */}
       <div className="glass-card">
         <h3 className="text-lg font-semibold text-white mb-4">Performance by Hour of Day</h3>
-        <HourlyChart trades={trades} />
+        <HourlyChart trades={filteredTrades} />
       </div>
 
       {/* Discipline */}
@@ -178,8 +183,8 @@ export default function DashboardView({ trades, loading, onImportMt5 }) {
 
       {/* Scenario + Insights */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ScenarioAnalysis trades={trades} />
-        <InsightsList trades={trades} />
+        <ScenarioAnalysis trades={filteredTrades} />
+        <InsightsList trades={filteredTrades} />
       </div>
     </div>
   );

@@ -7,14 +7,12 @@ import Spinner from '../shared/Spinner';
 import EmptyState from '../shared/EmptyState';
 
 export default function PropFirmView({ trades = [], loading = false }) {
-  const { activeAccount, activeAccountId, accounts } = useAccount();
+  const { activeAccount, activeAccountId, accounts, filterTradesByAccount } = useAccount();
 
   if (loading) return <Spinner />;
 
-  // Filter trades for active account
-  const accountTrades = activeAccountId === 'all'
-    ? trades
-    : trades.filter(t => t.accountId === activeAccountId || !t.accountId);
+  // Strictly filter trades for active account without leakage
+  const accountTrades = filterTradesByAccount(trades);
 
   if (!activeAccount && activeAccountId !== 'all') {
     return (
