@@ -13,8 +13,8 @@ const TradeRow = ({ trade, showDate = true, onView, onEdit, onDelete, onChart, o
   const displaySetups = setups.slice(0, 2);
   const moreSetups = setups.length > 2 ? setups.length - 2 : 0;
 
-  const openTimeDisplay = trade.openTime ? formatTimeInUserTimezone(trade.openTime.includes?.('T') ? trade.openTime : `${trade.tradeDate}T${trade.openTime}:00`, userTimezone) : '—';
-  const closeTimeDisplay = trade.closeTime ? formatTimeInUserTimezone(trade.closeTime.includes?.('T') ? trade.closeTime : `${trade.tradeDate}T${trade.closeTime}:00`, userTimezone) : '—';
+  const openTimeDisplay = trade.openTime ? formatTimeInUserTimezone(trade.openTime, userTimezone, trade.tradeDate) : '—';
+  const closeTimeDisplay = trade.closeTime ? formatTimeInUserTimezone(trade.closeTime, userTimezone, trade.tradeDate) : '—';
 
   return (
     <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">

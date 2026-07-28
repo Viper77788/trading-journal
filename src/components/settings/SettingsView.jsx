@@ -105,23 +105,16 @@ export default function SettingsView({ trades, user, onSignOut, onImportMt5, onI
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Search & Select IANA Timezone</label>
-            <input
-              type="text"
-              placeholder="Search e.g. Kolkata, London, New_York, Tokyo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50 mb-2"
-            />
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Display Timezone (TradingView Style)</label>
             <select
               value={selectedTz}
               onChange={(e) => {
                 setSelectedTz(e.target.value);
                 setConfirmOpen(true);
               }}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
             >
-              {filteredTimezones.map(tz => (
+              {allTimezones.map(tz => (
                 <option key={tz.value} value={tz.value} className="bg-slate-900 text-white">
                   {tz.label}
                 </option>
