@@ -2,7 +2,22 @@ import React from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import TradeRow from './TradeRow';
 
-const TradeTable = ({ trades, sortKey, sortDir, onSort, onView, onEdit, onDelete, onChart, onShare }) => {
+const TradeTable = ({
+  trades,
+  selectedIds = [],
+  onSelectAll,
+  onSelectTrade,
+  sortKey,
+  sortDir,
+  onSort,
+  onView,
+  onEdit,
+  onDelete,
+  onChart,
+  onShare
+}) => {
+  const allSelected = trades.length > 0 && selectedIds.length === trades.length;
+
   const SortIcon = ({ colKey }) => {
     if (sortKey !== colKey) return <span className="text-slate-600 ml-1">⇅</span>;
     return sortDir === 'asc'
@@ -15,6 +30,14 @@ const TradeTable = ({ trades, sortKey, sortDir, onSort, onView, onEdit, onDelete
       <table className="w-full text-left journal-table">
         <thead>
           <tr className="border-b border-white/[0.06]">
+            <th className="w-10 text-center">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={onSelectAll}
+                className="w-4 h-4 rounded border-white/20 bg-black/40 text-blue-600 focus:ring-0 cursor-pointer"
+              />
+            </th>
             <th className="sortable" onClick={() => onSort('tradeDate')}>
               Date <SortIcon colKey="tradeDate" />
             </th>
@@ -47,6 +70,8 @@ const TradeTable = ({ trades, sortKey, sortDir, onSort, onView, onEdit, onDelete
             <TradeRow
               key={trade.id}
               trade={trade}
+              isSelected={selectedIds.includes(trade.id)}
+              onSelect={onSelectTrade}
               onView={onView}
               onEdit={onEdit}
               onDelete={onDelete}

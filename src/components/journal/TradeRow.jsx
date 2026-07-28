@@ -5,7 +5,7 @@ import { formatTimeInUserTimezone } from '../../utils/timezoneUtils';
 import { useUserPreferences } from '../../context/UserPreferencesContext';
 import Pill from '../shared/Pill';
 
-const TradeRow = ({ trade, showDate = true, onView, onEdit, onDelete, onChart, onShare, onlyView = false }) => {
+const TradeRow = ({ trade, isSelected = false, onSelect, showDate = true, onView, onEdit, onDelete, onChart, onShare, onlyView = false }) => {
   const { userTimezone } = useUserPreferences();
   const pl = Number(trade.profitLoss) || 0;
   const result = resultOf(trade);
@@ -17,7 +17,15 @@ const TradeRow = ({ trade, showDate = true, onView, onEdit, onDelete, onChart, o
   const closeTimeDisplay = trade.closeTime ? formatTimeInUserTimezone(trade.closeTime, userTimezone, trade.tradeDate) : '—';
 
   return (
-    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
+    <tr className={`border-b border-white/5 hover:bg-white/5 transition-colors ${isSelected ? 'bg-blue-600/10' : ''}`}>
+      <td className="p-3 w-10 text-center">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => onSelect?.(trade.id)}
+          className="w-4 h-4 rounded border-white/20 bg-black/40 text-blue-600 focus:ring-0 cursor-pointer"
+        />
+      </td>
       {showDate && (
         <>
           <td className="p-3 text-sm text-slate-300 whitespace-nowrap">{fmtDate(trade.tradeDate)}</td>

@@ -5,6 +5,7 @@ import {
   createTrade, 
   updateTradeById, 
   deleteTradeById, 
+  bulkDeleteTrades,
   getTradeById,
   importMt5Trades,
   importJsonTrades
@@ -71,6 +72,17 @@ export const useTrades = () => {
     }
   };
 
+  const removeTradesBulk = async (tradeIds) => {
+    if (!user || !tradeIds?.length) return;
+    try {
+      await bulkDeleteTrades(user.uid, tradeIds);
+      await fetchTrades();
+    } catch (error) {
+      console.error('Error deleting trades in bulk:', error);
+      throw error;
+    }
+  };
+
   const getTrade = async (id) => {
     if (!user) return null;
     try {
@@ -111,6 +123,7 @@ export const useTrades = () => {
     addTrade,
     editTrade,
     removeTrade,
+    removeTradesBulk,
     getTrade,
     importMt5,
     importJson

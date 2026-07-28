@@ -41,6 +41,21 @@ export const deleteTradeById = async (uid, id) => {
   await updateDoc(docRef, { isDeleted: true, deletedAt: new Date().toISOString() });
 };
 
+export const bulkDeleteTrades = async (uid, tradeIds = []) => {
+  if (!uid || !tradeIds.length) return;
+  const tradesCol = collection(db, 'users', uid, 'trades');
+  const now = new Date().toISOString();
+  for (let i = 0; i < tradeIds.length; i += 500) {
+    const chunk = tradeIds.slice(i, i + 500);
+    const batch = writeBatch(db);
+    chunk.forEach((id) => {
+      const ref = doc(tradesCol, id);
+      batch.update(ref, { isDeleted: true, deletedAt: now });
+    });
+    await batch.commit();
+  }
+};
+
 export const bulkAssignAccountToTrades = async (uid, tradeIds = [], targetAccountId) => {
   if (!uid || !tradeIds.length || !targetAccountId) return;
   const tradesCol = collection(db, 'users', uid, 'trades');

@@ -23,7 +23,7 @@ import ImportMt5TimezoneModal from './components/account/ImportMt5TimezoneModal'
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
-  const { trades, loading: tradesLoading, fetchTrades, addTrade, editTrade, removeTrade, getTrade, importMt5, importJson } = useTrades();
+  const { trades, loading: tradesLoading, fetchTrades, addTrade, editTrade, removeTrade, removeTradesBulk, getTrade, importMt5, importJson } = useTrades();
   const { theme, toggleTheme, isDark } = useTheme();
 
   const [currentView, setCurrentView] = useState('dashboard');
@@ -150,6 +150,9 @@ export default function App() {
             onView={handleViewTrade}
             onEdit={handleEditTrade}
             onDelete={handleDeleteTrade}
+            onDeleteBulk={async (ids) => {
+              await removeTradesBulk(ids);
+            }}
             onChart={handleChartTrade}
             onShare={(trade) => setSharingTrade(trade)}
             onNavigateToTrade={() => handleNavigate('trade-new')}
