@@ -76,12 +76,11 @@ const TradeRow = ({ trade, isSelected = false, onSelect, showDate = true, onView
             <Eye size={16} />
           </button>
 
-          <button onClick={() => onShare?.(trade)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Share Trade Card">
-            <Share2 size={16} />
-          </button>
-
           {!onlyView && (
             <>
+              <button onClick={() => onShare?.(trade)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Share Trade Card">
+                <Share2 size={16} />
+              </button>
               <button onClick={() => onChart?.(trade)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors" title="Chart">
                 <LineChart size={16} />
               </button>

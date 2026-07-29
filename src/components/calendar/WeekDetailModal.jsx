@@ -5,7 +5,7 @@ import { computeStats } from '../../utils/calculations';
 import { fmtMoney } from '../../utils/formatters';
 import TradeRow from '../journal/TradeRow';
 
-const WeekDetailModal = ({ weekNumber, dateRangeStr, trades = [], onClose, onView, onEdit, onDelete, onChart, onShare }) => {
+const WeekDetailModal = ({ weekNumber, dateRangeStr, trades = [], onClose, onView }) => {
   const stats = computeStats(trades);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ const WeekDetailModal = ({ weekNumber, dateRangeStr, trades = [], onClose, onVie
 
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-slate-950/50 backdrop-blur-sm animate-fadeIn" onClick={onClose}>
-      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
         
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-white/10 bg-white/[0.02]">
@@ -70,7 +70,7 @@ const WeekDetailModal = ({ weekNumber, dateRangeStr, trades = [], onClose, onVie
 
         {/* Trade Table */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="w-full bg-white/[0.02] border border-white/10 rounded-xl">
+          <div className="w-full overflow-x-auto bg-white/[0.02] border border-white/10 rounded-xl">
             <table className="w-full text-left journal-table">
               <thead>
                 <tr className="border-b border-white/10 text-slate-400 text-xs uppercase tracking-wider">
@@ -86,7 +86,7 @@ const WeekDetailModal = ({ weekNumber, dateRangeStr, trades = [], onClose, onVie
                   <th className="p-3">Plan</th>
                   <th className="p-3">Daily</th>
                   <th className="p-3">Weekly</th>
-                  <th className="p-3">Actions</th>
+                  <th className="p-3">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -95,11 +95,8 @@ const WeekDetailModal = ({ weekNumber, dateRangeStr, trades = [], onClose, onVie
                     key={trade.id} 
                     trade={trade} 
                     showDate={true}
+                    onlyView={true}
                     onView={handleView}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    onChart={onChart}
-                    onShare={onShare}
                   />
                 ))}
               </tbody>
