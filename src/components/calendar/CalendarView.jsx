@@ -50,51 +50,51 @@ export default function CalendarView({ trades, loading, onView, onEdit, onDelete
   const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
 
   return (
-    <div className="w-full space-y-3 animate-fadeIn">
-      {/* Compact Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+    <div className="space-y-4 animate-fadeIn">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 max-w-5xl mx-auto">
         <div>
-          <h1 className="text-xl font-bold text-white">Calendar</h1>
-          <p className="text-slate-400 text-xs mt-0.5">Monthly & Weekly performance breakdown</p>
+          <h1 className="text-2xl font-bold text-white">Calendar</h1>
+          <p className="text-slate-400 text-sm mt-1">Monthly & Weekly performance breakdown</p>
         </div>
 
         {/* Navigation Controls */}
-        <div className="flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-xl p-1 backdrop-blur-xl">
+        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-1.5 backdrop-blur-xl">
           <button
             onClick={handlePrev}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-all"
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-all"
             title="Previous Month"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={18} />
           </button>
           <button
             onClick={handleToday}
-            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all shadow-sm"
           >
             Today
           </button>
-          <span className="text-xs font-bold text-white px-1.5 font-mono">
+          <span className="text-sm font-bold text-white px-2 font-mono">
             {monthName} {year}
           </span>
           <button
             onClick={handleNext}
-            className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-all"
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-all"
             title="Next Month"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={18} />
           </button>
         </div>
       </div>
 
       {/* Calendar Grid Container */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin w-7 h-7 border-4 border-blue-500 border-t-transparent rounded-full" />
+        <div className="flex justify-center py-16">
+          <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
         </div>
       ) : trades.length === 0 ? (
-        <div className="text-center py-12 w-full glass-card">
-          <CalendarIcon size={32} className="mx-auto text-slate-500 mb-2" />
-          <p className="text-slate-400 text-sm">No trades logged yet</p>
+        <div className="text-center py-16 max-w-5xl mx-auto glass-card">
+          <CalendarIcon size={36} className="mx-auto text-slate-500 mb-3" />
+          <p className="text-slate-400">No trades logged yet</p>
         </div>
       ) : (
         <CalendarGrid 
