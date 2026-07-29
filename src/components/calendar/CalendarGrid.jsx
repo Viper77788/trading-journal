@@ -1,5 +1,5 @@
-import React from 'react';
-import { fmtMoney } from '../../utils/formatters';
+import React, { useMemo } from 'react';
+import { fmtMoney, resultOf } from '../../utils/formatters';
 
 const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -7,6 +7,51 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
 
   const totalSlots = firstWeekday + daysInMonth;
   const numWeeks = Math.ceil(totalSlots / 7);
+
+  // Calculate monthly overview stats
+  const monthlyStats = useMemo(() => {
+    let monthNetPl = 0;
+    let monthTradesCount = 0;
+    let winCount = 0;
+    let lossCount = 0;
+    let bestDayPl = -Infinity;
+    let bestDayDate = '';
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayTrades = tradesByDay.get(dateKey) || [];
+
+      if (dayTrades.length > 0) {
+        let dayPl = 0;
+        dayTrades.forEach(t => {
+          const pl = Number(t.profitLoss || 0);
+          dayPl += pl;
+          monthNetPl += pl;
+          monthTradesCount++;
+
+          const res = resultOf(t);
+          if (res === 'Win') winCount++;
+          else if (res === 'Loss') lossCount++;
+        });
+
+        if (dayPl > bestDayPl) {
+          bestDayPl = dayPl;
+          bestDayDate = `${new Date(year, month, day).toLocaleString('default', { month: 'short' })} ${day}`;
+        }
+      }
+    }
+
+    const totalDecisive = winCount + lossCount;
+    const winRate = totalDecisive > 0 ? (winCount / totalDecisive) * 100 : 0;
+
+    return {
+      netPl: monthNetPl,
+      totalTrades: monthTradesCount,
+      winRate,
+      bestDayDate: bestDayPl !== -Infinity ? bestDayDate : '—',
+      bestDayPl: bestDayPl !== -Infinity ? bestDayPl : 0
+    };
+  }, [year, month, daysInMonth, tradesByDay]);
 
   const weeks = [];
   let dayCounter = 1;
@@ -82,109 +127,143 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
     });
   }
 
+  // Dynamic height & padding tailored to numWeeks so the entire calendar fits 1 page without scrollbars
+  const cellHeightClass = numWeeks >= 6 ? 'min-h-[56px] p-1.5' : numWeeks >= 5 ? 'min-h-[64px] p-2' : 'min-h-[74px] p-2.5';
+  const textClass = numWeeks >= 6 ? 'text-[11px]' : 'text-xs';
+
   return (
-    <div className="w-full max-w-5xl mx-auto bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl">
-      {/* 8 Column Headers */}
-      <div className="grid grid-cols-8 gap-1.5 mb-2">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-          <div key={d} className="text-center text-xs font-semibold text-slate-400 p-1 uppercase tracking-wider">
-            {d}
-          </div>
-        ))}
-        <div className="text-center text-xs font-bold text-blue-400 p-1 uppercase tracking-wider bg-blue-500/10 rounded-lg border border-blue-500/20">
-          Week P&L
+    <div className="w-full space-y-4">
+      {/* Monthly Overview Performance Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-3.5">
+          <p className="text-xs text-slate-400 font-medium">Monthly Net P/L</p>
+          <p className={`text-lg font-bold font-mono mt-0.5 ${monthlyStats.netPl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {fmtMoney(monthlyStats.netPl)}
+          </p>
+        </div>
+
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-3.5">
+          <p className="text-xs text-slate-400 font-medium">Monthly Win Rate</p>
+          <p className="text-lg font-bold text-blue-400 mt-0.5">{monthlyStats.winRate.toFixed(0)}%</p>
+        </div>
+
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-3.5">
+          <p className="text-xs text-slate-400 font-medium">Total Monthly Trades</p>
+          <p className="text-lg font-bold text-white mt-0.5">{monthlyStats.totalTrades}</p>
+        </div>
+
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-3.5">
+          <p className="text-xs text-slate-400 font-medium">Best Day</p>
+          <p className="text-lg font-bold text-emerald-400 font-mono mt-0.5 truncate">
+            {monthlyStats.bestDayDate !== '—' ? `${monthlyStats.bestDayDate} (${fmtMoney(monthlyStats.bestDayPl)})` : '—'}
+          </p>
         </div>
       </div>
 
-      {/* Week Rows */}
-      <div className="space-y-1.5">
-        {weeks.map((week) => {
-          const isWeekProfit = week.weekNetPl > 0;
-          const isWeekLoss = week.weekNetPl < 0;
-          const hasWeekTrades = week.weekTradesCount > 0;
+      {/* Full-width Calendar Grid */}
+      <div className="w-full bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-2xl">
+        {/* 8 Column Headers */}
+        <div className="grid grid-cols-8 gap-1.5 mb-1.5">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+            <div key={d} className="text-center text-xs font-semibold text-slate-400 p-1 uppercase tracking-wider">
+              {d}
+            </div>
+          ))}
+          <div className="text-center text-xs font-bold text-blue-400 p-1 uppercase tracking-wider bg-blue-500/10 rounded-lg border border-blue-500/20">
+            Week P&L
+          </div>
+        </div>
 
-          return (
-            <div key={`week-row-${week.weekIndex}`} className="grid grid-cols-8 gap-1.5">
-              {week.days.map((slot) => {
-                if (slot.type === 'blank') {
+        {/* Week Rows */}
+        <div className="space-y-1.5">
+          {weeks.map((week) => {
+            const isWeekProfit = week.weekNetPl > 0;
+            const isWeekLoss = week.weekNetPl < 0;
+            const hasWeekTrades = week.weekTradesCount > 0;
+
+            return (
+              <div key={`week-row-${week.weekIndex}`} className="grid grid-cols-8 gap-1.5">
+                {week.days.map((slot) => {
+                  if (slot.type === 'blank') {
+                    return (
+                      <div
+                        key={slot.key}
+                        className={`border border-white/[0.03] bg-black/10 rounded-xl ${cellHeightClass}`}
+                      />
+                    );
+                  }
+
                   return (
                     <div
                       key={slot.key}
-                      className="p-2.5 border border-white/[0.03] bg-black/10 min-h-[82px] rounded-xl"
-                    />
-                  );
-                }
-
-                return (
-                  <div
-                    key={slot.key}
-                    className={`p-2.5 border border-white/[0.06] min-h-[82px] flex flex-col justify-between transition-all rounded-xl calendar-day ${
-                      slot.hasTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : 'bg-white/[0.02]'
-                    } ${slot.isProfit ? 'bg-emerald-500/10 border-emerald-500/20' : slot.isLoss ? 'bg-red-500/10 border-red-500/20' : ''}`}
-                    onClick={() => slot.hasTrades && onDayClick?.(slot.dateKey)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <span className={`text-xs font-bold ${slot.hasTrades ? 'text-white' : 'text-slate-500'}`}>{slot.day}</span>
-                    </div>
-
-                    {slot.hasTrades ? (
-                      <div className="mt-1 flex flex-col items-center justify-center space-y-1">
-                        <span className="text-[10px] font-medium bg-white/10 px-2 py-0.5 rounded-md text-slate-300 tracking-tight">
-                          {slot.dayTrades.length} {slot.dayTrades.length === 1 ? 'trade' : 'trades'}
-                        </span>
-                        <div className={`text-xs font-mono font-bold ${slot.isProfit ? 'text-emerald-400' : slot.isLoss ? 'text-red-400' : 'text-slate-400'}`}>
-                          {fmtMoney(slot.netPl)}
-                        </div>
+                      className={`border border-white/[0.06] flex flex-col justify-between transition-all rounded-xl calendar-day ${cellHeightClass} ${
+                        slot.hasTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : 'bg-white/[0.02]'
+                      } ${slot.isProfit ? 'bg-emerald-500/10 border-emerald-500/20' : slot.isLoss ? 'bg-red-500/10 border-red-500/20' : ''}`}
+                      onClick={() => slot.hasTrades && onDayClick?.(slot.dateKey)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className={`${textClass} font-bold ${slot.hasTrades ? 'text-white' : 'text-slate-500'}`}>{slot.day}</span>
                       </div>
-                    ) : (
-                      <div className="h-6" />
-                    )}
-                  </div>
-                );
-              })}
 
-              {/* 8th Column: Weekly Summary Cell */}
-              <div
-                className={`p-2.5 border min-h-[82px] flex flex-col justify-between rounded-xl transition-all font-semibold ${
-                  hasWeekTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : ''
-                } ${
-                  isWeekProfit
-                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                    : isWeekLoss
-                    ? 'bg-red-500/15 border-red-500/30 text-red-400 shadow-md shadow-red-500/5'
-                    : 'bg-white/[0.02] border-white/[0.04] text-slate-500'
-                }`}
-                onClick={() =>
-                  hasWeekTrades &&
-                  onWeekClick?.({
-                    weekNumber: week.weekIndex + 1,
-                    dateRangeStr: week.dateRangeStr,
-                    trades: week.weekTrades
-                  })
-                }
-              >
-                <div className="flex justify-between items-start">
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
-                    Week {week.weekIndex + 1}
-                  </span>
-                </div>
-
-                {hasWeekTrades ? (
-                  <div className="mt-1 flex flex-col items-center justify-center space-y-1">
-                    <span className="text-[10px] font-medium bg-white/10 px-2 py-0.5 rounded-md text-slate-300 tracking-tight">
-                      {week.weekTradesCount} {week.weekTradesCount === 1 ? 'trade' : 'trades'}
-                    </span>
-                    <div className={`text-xs font-mono font-bold ${isWeekProfit ? 'text-emerald-400' : isWeekLoss ? 'text-red-400' : 'text-slate-400'}`}>
-                      {fmtMoney(week.weekNetPl)}
+                      {slot.hasTrades ? (
+                        <div className="flex flex-col items-center justify-center space-y-0.5">
+                          <span className="text-[9px] font-medium bg-white/10 px-1.5 py-0.2 rounded text-slate-300 tracking-tight">
+                            {slot.dayTrades.length} {slot.dayTrades.length === 1 ? 'trade' : 'trades'}
+                          </span>
+                          <div className={`${textClass} font-mono font-bold ${slot.isProfit ? 'text-emerald-400' : slot.isLoss ? 'text-red-400' : 'text-slate-400'}`}>
+                            {fmtMoney(slot.netPl)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-3" />
+                      )}
                     </div>
+                  );
+                })}
+
+                {/* 8th Column: Weekly Summary Cell */}
+                <div
+                  className={`border flex flex-col justify-between rounded-xl transition-all font-semibold ${cellHeightClass} ${
+                    hasWeekTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : ''
+                  } ${
+                    isWeekProfit
+                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : isWeekLoss
+                      ? 'bg-red-500/15 border-red-500/30 text-red-400 shadow-md shadow-red-500/5'
+                      : 'bg-white/[0.02] border-white/[0.04] text-slate-500'
+                  }`}
+                  onClick={() =>
+                    hasWeekTrades &&
+                    onWeekClick?.({
+                      weekNumber: week.weekIndex + 1,
+                      dateRangeStr: week.dateRangeStr,
+                      trades: week.weekTrades
+                    })
+                  }
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] font-bold tracking-wider uppercase text-slate-400">
+                      Week {week.weekIndex + 1}
+                    </span>
                   </div>
-                ) : (
-                  <div className="text-[11px] text-center text-slate-600 my-auto">—</div>
-                )}
+
+                  {hasWeekTrades ? (
+                    <div className="flex flex-col items-center justify-center space-y-0.5">
+                      <span className="text-[9px] font-medium bg-white/10 px-1.5 py-0.2 rounded text-slate-300 tracking-tight">
+                        {week.weekTradesCount} {week.weekTradesCount === 1 ? 'trade' : 'trades'}
+                      </span>
+                      <div className={`${textClass} font-mono font-bold ${isWeekProfit ? 'text-emerald-400' : isWeekLoss ? 'text-red-400' : 'text-slate-400'}`}>
+                        {fmtMoney(week.weekNetPl)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-center text-slate-600 my-auto">—</div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

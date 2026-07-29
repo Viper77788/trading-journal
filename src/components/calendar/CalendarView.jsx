@@ -50,12 +50,12 @@ export default function CalendarView({ trades, loading, onView, onEdit, onDelete
   const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="w-full space-y-4 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 max-w-5xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
         <div>
           <h1 className="text-2xl font-bold text-white">Calendar</h1>
-          <p className="text-slate-400 text-sm mt-1">Monthly & Weekly performance breakdown</p>
+          <p className="text-slate-400 text-sm mt-0.5">Monthly & Weekly performance breakdown</p>
         </div>
 
         {/* Navigation Controls */}
@@ -92,7 +92,7 @@ export default function CalendarView({ trades, loading, onView, onEdit, onDelete
           <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
         </div>
       ) : trades.length === 0 ? (
-        <div className="text-center py-16 max-w-5xl mx-auto glass-card">
+        <div className="text-center py-16 w-full glass-card">
           <CalendarIcon size={36} className="mx-auto text-slate-500 mb-3" />
           <p className="text-slate-400">No trades logged yet</p>
         </div>
