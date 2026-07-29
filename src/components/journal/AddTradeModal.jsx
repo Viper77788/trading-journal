@@ -3,10 +3,14 @@ import { Calendar, Clock, Shield, AlertTriangle } from 'lucide-react';
 import MultiSelect from './MultiSelect';
 import { SETUP_OPTIONS, EMOTIONS_BEFORE, EMOTIONS_AFTER } from '../../constants';
 import { useAccount } from '../../context/AccountContext';
+import { useUserPreferences } from '../../context/UserPreferencesContext';
 import { checkCircuitBreaker } from '../../utils/aiAdvisor';
+import { timeToIsoInTimezone, formatTimeInUserTimezone } from '../../utils/timezoneUtils';
 
-const extractTime = (val) => {
+const extractTime = (val, userTz, dateStr) => {
   if (!val) return '';
+  const formatted = formatTimeInUserTimezone(val, userTz, dateStr);
+  if (formatted && formatted !== '—') return formatted;
   const s = String(val).trim();
   const m = s.match(/(\d{1,2}):(\d{2})/);
   if (m) {
@@ -17,6 +21,7 @@ const extractTime = (val) => {
 
 const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading, trades = [] }) => {
   const { accounts, activeAccountId } = useAccount();
+  const { userTimezone } = useUserPreferences();
 
   const [formData, setFormData] = useState({
     accountId: activeAccountId !== 'all' ? activeAccountId : (accounts[0]?.id || ''),
@@ -37,14 +42,14 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading, trades = 
         ...trade,
         accountId: trade.accountId || (activeAccountId !== 'all' ? activeAccountId : accounts[0]?.id || ''),
         setup: Array.isArray(trade.setup) ? trade.setup : (trade.setup ? trade.setup.split(',') : []),
-        tradeDate: trade.tradeDate ? new Date(trade.tradeDate).toISOString().split('T')[0] : '',
-        openTime: extractTime(trade.openTime),
-        closeTime: extractTime(trade.closeTime)
+        tradeDate: trade.tradeDate ? trade.tradeDate.split('T')[0] : '',
+        openTime: extractTime(trade.openTime, userTimezone, trade.tradeDate),
+        closeTime: extractTime(trade.closeTime, userTimezone, trade.tradeDate)
       });
     } else if (activeAccountId !== 'all') {
       setFormData(prev => ({ ...prev, accountId: activeAccountId }));
     }
-  }, [trade, activeAccountId, accounts]);
+  }, [trade, activeAccountId, accounts, userTimezone]);
 
   const handleChange = (field, value) => {
     if (isViewOnly) return;
@@ -67,8 +72,8 @@ const AddTradeModal = ({ trade, isViewOnly, onSave, onCancel, loading, trades = 
 
     const payload = {
       ...formData,
-      openTime: formData.openTime || null,
-      closeTime: formData.closeTime || null
+      openTime: formData.openTime ? timeToIsoInTimezone(formData.openTime, formData.tradeDate, userTimezone) : null,
+      closeTime: formData.closeTime ? timeToIsoInTimezone(formData.closeTime, formData.tradeDate, userTimezone) : null
     };
     onSave(payload);
   };

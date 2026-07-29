@@ -43,27 +43,77 @@ export const getAllSupportedTimezones = () => {
 };
 
 /**
+ * Converts a user-entered time string (HH:MM) in their selected userTimezone into a standardized UTC ISO string.
+ */
+export const timeToIsoInTimezone = (timeStr, dateStr, userTimezone = 'America/New_York') => {
+  if (!timeStr) return '';
+  const s = String(timeStr).trim();
+  if (!s) return '';
+
+  // If already full ISO timestamp containing T
+  if (s.includes('T')) {
+    const d = new Date(s);
+    return !isNaN(d.getTime()) ? d.toISOString() : s;
+  }
+
+  const match = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return s;
+
+  const hh = String(match[1]).padStart(2, '0');
+  const mm = String(match[2]).padStart(2, '0');
+  const dStr = dateStr ? String(dateStr).split('T')[0] : new Date().toISOString().split('T')[0];
+
+  const tz = (userTimezone === 'Exchange' || !userTimezone) ? 'America/New_York' : userTimezone;
+
+  try {
+    const dummyUtc = new Date(`${dStr}T${hh}:${mm}:00Z`);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    });
+
+    const parts = formatter.formatToParts(dummyUtc);
+    const getPart = name => parts.find(p => p.type === name)?.value;
+
+    const tzYear = getPart('year');
+    const tzMonth = getPart('month');
+    const tzDay = getPart('day');
+    let tzHour = getPart('hour');
+    if (tzHour === '24') tzHour = '00';
+
+    const tzAsUtc = new Date(`${tzYear}-${tzMonth}-${tzDay}T${tzHour}:${getPart('minute')}:00Z`);
+    const offsetMs = dummyUtc.getTime() - tzAsUtc.getTime();
+
+    const targetLocalAsUtc = new Date(`${dStr}T${hh}:${mm}:00Z`);
+    const finalUtc = new Date(targetLocalAsUtc.getTime() + offsetMs);
+    return finalUtc.toISOString();
+  } catch (err) {
+    return new Date(`${dStr}T${hh}:${mm}:00-04:00`).toISOString();
+  }
+};
+
+/**
  * Parses trade entry/exit time treating manual inputs as America/New_York (UTC-4)
  */
 const parseBaseNyTimestamp = (timestamp, tradeDate) => {
   if (!timestamp) return null;
 
-  // If already full ISO string (e.g. from MT5 import)
+  // If already full ISO string (e.g. 2026-07-28T13:35:00.000Z)
   if (typeof timestamp === 'string' && timestamp.includes('T')) {
     const d = new Date(timestamp);
     if (!isNaN(d.getTime())) return d;
   }
 
-  // If HH:MM time string, combine with tradeDate in NY local time
+  // If HH:MM time string, combine with tradeDate in NY local time (-04:00 EDT)
   if (typeof timestamp === 'string') {
     const match = timestamp.trim().match(/^(\d{1,2}):(\d{2})/);
     if (match) {
-      const dateStr = tradeDate || new Date().toISOString().split('T')[0];
+      const dateStr = tradeDate ? String(tradeDate).split('T')[0] : new Date().toISOString().split('T')[0];
       const hh = String(match[1]).padStart(2, '0');
       const mm = String(match[2]).padStart(2, '0');
-      
-      // Parse as America/New_York time
-      // Construct ISO string with -04:00 offset (EDT) or -05:00 offset (EST)
+
       const nyIso = `${dateStr}T${hh}:${mm}:00-04:00`;
       const d = new Date(nyIso);
       if (!isNaN(d.getTime())) return d;

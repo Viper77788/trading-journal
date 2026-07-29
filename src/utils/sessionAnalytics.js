@@ -15,17 +15,28 @@ export const getNyLocalHour = (trade) => {
   let dateObj = null;
 
   if (trade.openTime) {
-    if (String(trade.openTime).includes('T')) {
-      dateObj = new Date(trade.openTime);
-    } else if (trade.tradeDate) {
-      // Combine YYYY-MM-DD and HH:MM
-      dateObj = new Date(`${trade.tradeDate}T${trade.openTime}:00`);
+    const timeStr = String(trade.openTime).trim();
+    if (timeStr.includes('T')) {
+      // Full ISO string (e.g. 2026-07-28T13:35:00.000Z)
+      dateObj = new Date(timeStr);
+    } else {
+      // Legacy HH:MM string (e.g. "09:35") - parse as NY local time (-04:00 EDT)
+      const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
+      if (match) {
+        const dStr = trade.tradeDate ? String(trade.tradeDate).split('T')[0] : new Date().toISOString().split('T')[0];
+        const hh = String(match[1]).padStart(2, '0');
+        const mm = String(match[2]).padStart(2, '0');
+        dateObj = new Date(`${dStr}T${hh}:${mm}:00-04:00`);
+      }
     }
   }
 
   if (!dateObj || isNaN(dateObj.getTime())) {
     if (trade.createdAt) dateObj = new Date(trade.createdAt);
-    else if (trade.tradeDate) dateObj = new Date(trade.tradeDate);
+    else if (trade.tradeDate) {
+      const dStr = String(trade.tradeDate).split('T')[0];
+      dateObj = new Date(`${dStr}T09:00:00-04:00`);
+    }
   }
 
   if (!dateObj || isNaN(dateObj.getTime())) return 9; // Fallback default 9 AM NY
@@ -61,10 +72,27 @@ export const classifySession = (trade) => {
 export const classifyDuration = (trade) => {
   if (!trade.openTime || !trade.closeTime) return 'Unspecified';
 
-  const startMs = new Date(String(trade.openTime).includes('T') ? trade.openTime : `${trade.tradeDate}T${trade.openTime}:00`).getTime();
-  const endMs = new Date(String(trade.closeTime).includes('T') ? trade.closeTime : `${trade.tradeDate}T${trade.closeTime}:00`).getTime();
+  const parseTimeMs = (val, dateStr) => {
+    const s = String(val).trim();
+    if (s.includes('T')) {
+      const d = new Date(s);
+      return !isNaN(d.getTime()) ? d.getTime() : null;
+    }
+    const match = s.match(/^(\d{1,2}):(\d{2})/);
+    if (match) {
+      const dStr = dateStr ? String(dateStr).split('T')[0] : new Date().toISOString().split('T')[0];
+      const hh = String(match[1]).padStart(2, '0');
+      const mm = String(match[2]).padStart(2, '0');
+      const d = new Date(`${dStr}T${hh}:${mm}:00-04:00`);
+      return !isNaN(d.getTime()) ? d.getTime() : null;
+    }
+    return null;
+  };
 
-  if (isNaN(startMs) || isNaN(endMs) || endMs < startMs) return 'Unspecified';
+  const startMs = parseTimeMs(trade.openTime, trade.tradeDate);
+  const endMs = parseTimeMs(trade.closeTime, trade.tradeDate);
+
+  if (!startMs || !endMs || endMs < startMs) return 'Unspecified';
 
   const diffMins = (endMs - startMs) / (1000 * 60);
 
