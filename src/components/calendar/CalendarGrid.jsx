@@ -1,7 +1,7 @@
 import React from 'react';
 import { fmtMoney } from '../../utils/formatters';
 
-const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
+const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstWeekday = new Date(year, month, 1).getDay();
 
@@ -15,6 +15,9 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
     const daysInWeek = [];
     let weekNetPl = 0;
     let weekTradesCount = 0;
+    const weekTrades = [];
+    let startDay = null;
+    let endDay = null;
 
     for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
       const slotIndex = weekIdx * 7 + dayOfWeek;
@@ -26,11 +29,17 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
         });
       } else {
         const day = dayCounter++;
+        if (startDay === null) startDay = day;
+        endDay = day;
+
         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayTrades = tradesByDay.get(dateKey) || [];
 
         let netPl = 0;
-        dayTrades.forEach(t => { netPl += Number(t.profitLoss || 0); });
+        dayTrades.forEach(t => {
+          netPl += Number(t.profitLoss || 0);
+          weekTrades.push(t);
+        });
 
         weekNetPl += netPl;
         weekTradesCount += dayTrades.length;
@@ -49,11 +58,27 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
       }
     }
 
+    let dateRangeStr = '';
+    if (startDay !== null && endDay !== null) {
+      const startDate = new Date(year, month, startDay);
+      const endDate = new Date(year, month, endDay);
+      const startMonth = startDate.toLocaleString('default', { month: 'short' });
+      const endMonth = endDate.toLocaleString('default', { month: 'short' });
+
+      if (startMonth === endMonth) {
+        dateRangeStr = `${startMonth} ${startDay} – ${endDay}, ${year}`;
+      } else {
+        dateRangeStr = `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
+      }
+    }
+
     weeks.push({
       weekIndex: weekIdx,
       days: daysInWeek,
       weekNetPl,
-      weekTradesCount
+      weekTradesCount,
+      weekTrades,
+      dateRangeStr
     });
   }
 
@@ -76,6 +101,7 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
         {weeks.map((week) => {
           const isWeekProfit = week.weekNetPl > 0;
           const isWeekLoss = week.weekNetPl < 0;
+          const hasWeekTrades = week.weekTradesCount > 0;
 
           return (
             <div key={`week-row-${week.weekIndex}`} className="grid grid-cols-8 gap-1.5">
@@ -95,7 +121,7 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
                     className={`p-2.5 border border-white/[0.06] min-h-[82px] flex flex-col justify-between transition-all rounded-xl calendar-day ${
                       slot.hasTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : 'bg-white/[0.02]'
                     } ${slot.isProfit ? 'bg-emerald-500/10 border-emerald-500/20' : slot.isLoss ? 'bg-red-500/10 border-red-500/20' : ''}`}
-                    onClick={() => slot.hasTrades && onDayClick(slot.dateKey)}
+                    onClick={() => slot.hasTrades && onDayClick?.(slot.dateKey)}
                   >
                     <div className="flex justify-between items-start">
                       <span className={`text-xs font-bold ${slot.hasTrades ? 'text-white' : 'text-slate-500'}`}>{slot.day}</span>
@@ -120,12 +146,22 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
               {/* 8th Column: Weekly Summary Cell */}
               <div
                 className={`p-2.5 border min-h-[82px] flex flex-col justify-between rounded-xl transition-all font-semibold ${
+                  hasWeekTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : ''
+                } ${
                   isWeekProfit
                     ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
                     : isWeekLoss
                     ? 'bg-red-500/15 border-red-500/30 text-red-400 shadow-md shadow-red-500/5'
                     : 'bg-white/[0.02] border-white/[0.04] text-slate-500'
                 }`}
+                onClick={() =>
+                  hasWeekTrades &&
+                  onWeekClick?.({
+                    weekNumber: week.weekIndex + 1,
+                    dateRangeStr: week.dateRangeStr,
+                    trades: week.weekTrades
+                  })
+                }
               >
                 <div className="flex justify-between items-start">
                   <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
@@ -133,7 +169,7 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick }) => {
                   </span>
                 </div>
 
-                {week.weekTradesCount > 0 ? (
+                {hasWeekTrades ? (
                   <div className="mt-1 flex flex-col items-center justify-center space-y-1">
                     <span className="text-[10px] font-medium bg-white/10 px-2 py-0.5 rounded-md text-slate-300 tracking-tight">
                       {week.weekTradesCount} {week.weekTradesCount === 1 ? 'trade' : 'trades'}

@@ -2,11 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import CalendarGrid from './CalendarGrid';
 import DayDetailModal from './DayDetailModal';
+import WeekDetailModal from './WeekDetailModal';
 
 export default function CalendarView({ trades, loading, onView, onEdit, onDelete, onChart }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedWeek, setSelectedWeek] = useState(null);
 
   const tradesByDay = useMemo(() => {
     const map = new Map();
@@ -99,7 +101,8 @@ export default function CalendarView({ trades, loading, onView, onEdit, onDelete
           year={year} 
           month={month} 
           tradesByDay={tradesByDay} 
-          onDayClick={setSelectedDay} 
+          onDayClick={setSelectedDay}
+          onWeekClick={setSelectedWeek}
         />
       )}
 
@@ -109,6 +112,20 @@ export default function CalendarView({ trades, loading, onView, onEdit, onDelete
           dateKey={selectedDay}
           trades={tradesByDay.get(selectedDay)}
           onClose={() => setSelectedDay(null)}
+          onView={onView}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onChart={onChart}
+        />
+      )}
+
+      {/* Week Detail Modal */}
+      {selectedWeek && (
+        <WeekDetailModal
+          weekNumber={selectedWeek.weekNumber}
+          dateRangeStr={selectedWeek.dateRangeStr}
+          trades={selectedWeek.trades}
+          onClose={() => setSelectedWeek(null)}
           onView={onView}
           onEdit={onEdit}
           onDelete={onDelete}
