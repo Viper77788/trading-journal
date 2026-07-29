@@ -82,10 +82,37 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
     });
   }
 
+  // Dynamic sizing based on number of weeks (4, 5, or 6 weeks)
+  let cellMinHeight = 'min-h-[64px]';
+  let cellPadding = 'p-2';
+  let containerPadding = 'p-4';
+  let rowSpacing = 'space-y-1.5';
+  let fontSizeDay = 'text-xs';
+  let fontSizeBadge = 'text-[9.5px]';
+  let fontSizePnl = 'text-xs';
+
+  if (numWeeks >= 6) {
+    cellMinHeight = 'min-h-[46px]';
+    cellPadding = 'p-1';
+    containerPadding = 'p-2.5';
+    rowSpacing = 'space-y-0.5';
+    fontSizeDay = 'text-[10px]';
+    fontSizeBadge = 'text-[8.5px]';
+    fontSizePnl = 'text-[10px]';
+  } else if (numWeeks === 5) {
+    cellMinHeight = 'min-h-[54px]';
+    cellPadding = 'p-1.5';
+    containerPadding = 'p-3';
+    rowSpacing = 'space-y-1';
+    fontSizeDay = 'text-[11px]';
+    fontSizeBadge = 'text-[9px]';
+    fontSizePnl = 'text-[11px]';
+  }
+
   return (
-    <div className="w-full max-w-5xl mx-auto bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-2xl p-3.5 shadow-2xl">
+    <div className={`w-full max-w-5xl mx-auto bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-2xl ${containerPadding} shadow-2xl transition-all`}>
       {/* 8 Column Headers */}
-      <div className="grid grid-cols-8 gap-1 mb-1.5">
+      <div className="grid grid-cols-8 gap-1 mb-1">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
           <div key={d} className="text-center text-[11px] font-semibold text-slate-400 p-0.5 uppercase tracking-wider">
             {d}
@@ -97,7 +124,7 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
       </div>
 
       {/* Week Rows */}
-      <div className="space-y-1">
+      <div className={rowSpacing}>
         {weeks.map((week) => {
           const isWeekProfit = week.weekNetPl > 0;
           const isWeekLoss = week.weekNetPl < 0;
@@ -110,7 +137,7 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
                   return (
                     <div
                       key={slot.key}
-                      className="p-1.5 border border-white/[0.03] bg-black/10 min-h-[62px] rounded-lg"
+                      className={`${cellPadding} border border-white/[0.03] bg-black/10 ${cellMinHeight} rounded-lg`}
                     />
                   );
                 }
@@ -118,26 +145,26 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
                 return (
                   <div
                     key={slot.key}
-                    className={`p-1.5 border border-white/[0.06] min-h-[62px] flex flex-col justify-between transition-all rounded-lg calendar-day ${
+                    className={`${cellPadding} border border-white/[0.06] ${cellMinHeight} flex flex-col justify-between transition-all rounded-lg calendar-day ${
                       slot.hasTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : 'bg-white/[0.02]'
                     } ${slot.isProfit ? 'bg-emerald-500/10 border-emerald-500/20' : slot.isLoss ? 'bg-red-500/10 border-red-500/20' : ''}`}
                     onClick={() => slot.hasTrades && onDayClick?.(slot.dateKey)}
                   >
                     <div className="flex justify-between items-start">
-                      <span className={`text-[11px] font-bold ${slot.hasTrades ? 'text-white' : 'text-slate-500'}`}>{slot.day}</span>
+                      <span className={`${fontSizeDay} font-bold ${slot.hasTrades ? 'text-white' : 'text-slate-500'}`}>{slot.day}</span>
                     </div>
 
                     {slot.hasTrades ? (
                       <div className="flex flex-col items-center justify-center space-y-0.5">
-                        <span className="text-[9px] font-medium bg-white/10 px-1.5 py-0.2 rounded text-slate-300 tracking-tight">
+                        <span className={`${fontSizeBadge} font-medium bg-white/10 px-1 py-0.1 rounded text-slate-300 tracking-tight`}>
                           {slot.dayTrades.length} {slot.dayTrades.length === 1 ? 'trade' : 'trades'}
                         </span>
-                        <div className={`text-[11px] font-mono font-bold leading-tight ${slot.isProfit ? 'text-emerald-400' : slot.isLoss ? 'text-red-400' : 'text-slate-400'}`}>
+                        <div className={`${fontSizePnl} font-mono font-bold leading-none ${slot.isProfit ? 'text-emerald-400' : slot.isLoss ? 'text-red-400' : 'text-slate-400'}`}>
                           {fmtMoney(slot.netPl)}
                         </div>
                       </div>
                     ) : (
-                      <div className="h-4" />
+                      <div className="h-3" />
                     )}
                   </div>
                 );
@@ -145,7 +172,7 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
 
               {/* 8th Column: Weekly Summary Cell */}
               <div
-                className={`p-1.5 border min-h-[62px] flex flex-col justify-between rounded-lg transition-all font-semibold ${
+                className={`${cellPadding} border ${cellMinHeight} flex flex-col justify-between rounded-lg transition-all font-semibold ${
                   hasWeekTrades ? 'cursor-pointer hover:border-white/30 hover:scale-[1.02] shadow-sm' : ''
                 } ${
                   isWeekProfit
@@ -164,17 +191,17 @@ const CalendarGrid = ({ year, month, tradesByDay, onDayClick, onWeekClick }) => 
                 }
               >
                 <div className="flex justify-between items-start">
-                  <span className="text-[9px] font-bold tracking-wider uppercase text-slate-400">
+                  <span className={`${fontSizeBadge} font-bold tracking-wider uppercase text-slate-400`}>
                     W{week.weekIndex + 1}
                   </span>
                 </div>
 
                 {hasWeekTrades ? (
                   <div className="flex flex-col items-center justify-center space-y-0.5">
-                    <span className="text-[9px] font-medium bg-white/10 px-1.5 py-0.2 rounded text-slate-300 tracking-tight">
+                    <span className={`${fontSizeBadge} font-medium bg-white/10 px-1 py-0.1 rounded text-slate-300 tracking-tight`}>
                       {week.weekTradesCount} {week.weekTradesCount === 1 ? 'trade' : 'trades'}
                     </span>
-                    <div className={`text-[11px] font-mono font-bold leading-tight ${isWeekProfit ? 'text-emerald-400' : isWeekLoss ? 'text-red-400' : 'text-slate-400'}`}>
+                    <div className={`${fontSizePnl} font-mono font-bold leading-none ${isWeekProfit ? 'text-emerald-400' : isWeekLoss ? 'text-red-400' : 'text-slate-400'}`}>
                       {fmtMoney(week.weekNetPl)}
                     </div>
                   </div>

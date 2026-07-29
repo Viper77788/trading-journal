@@ -50,7 +50,7 @@ export default function CalendarView({ trades, loading, onView, onEdit, onDelete
   const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
 
   return (
-    <div className="space-y-4 animate-fadeIn">
+    <div className="space-y-3 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 max-w-5xl mx-auto">
         <div>
