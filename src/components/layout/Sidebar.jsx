@@ -1,19 +1,23 @@
 import React from 'react';
 import {
   LayoutDashboard, BookOpen, CalendarDays, PlusCircle,
-  BarChart3, LineChart, Sun, Moon, Shield, Trash2, Target, Settings
+  BarChart3, LineChart, Sun, Moon, Shield, Trash2, Target,
+  Settings, FileText, TrendingUp, NotebookPen
 } from 'lucide-react';
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'journal', label: 'Journal', icon: BookOpen },
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { id: 'trade-new', label: 'Add Trade', icon: PlusCircle },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { id: 'propfirm', label: 'Prop Firm', icon: Shield },
-  { id: 'playbook', label: 'Playbook', icon: Target },
-  { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'trash', label: 'Trash Bin', icon: Trash2 },
+  { id: 'dashboard',    label: 'Dashboard',        icon: LayoutDashboard },
+  { id: 'journal',      label: 'Journal',           icon: BookOpen },
+  { id: 'calendar',     label: 'Calendar',          icon: CalendarDays },
+  { id: 'trade-new',    label: 'Add Trade',         icon: PlusCircle },
+  { id: 'analytics',   label: 'Analytics',          icon: BarChart3 },
+  { id: 'dailyjournal', label: 'Daily Journal',     icon: NotebookPen,  badge: 'NEW' },
+  { id: 'reports',      label: 'Reports',           icon: FileText,     badge: 'NEW' },
+  { id: 'progress',     label: 'Progress Tracker',  icon: TrendingUp,   badge: 'NEW' },
+  { id: 'playbook',     label: 'Playbook',          icon: Target },
+  { id: 'propfirm',    label: 'Prop Firm',          icon: Shield },
+  { id: 'settings',    label: 'Settings',           icon: Settings },
+  { id: 'trash',        label: 'Trash Bin',         icon: Trash2 },
 ];
 
 export default function Sidebar({ currentView, onNavigate, onToggleTheme, isDark }) {
@@ -43,7 +47,12 @@ export default function Sidebar({ currentView, onNavigate, onToggleTheme, isDark
               }`}
             >
               <Icon size={20} />
-              <span>{item.label}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}

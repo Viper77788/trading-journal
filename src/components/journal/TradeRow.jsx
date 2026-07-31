@@ -4,6 +4,7 @@ import { resultOf, fmtMoney, fmtDate, setupArray, isYes } from '../../utils/form
 import { formatTimeInUserTimezone } from '../../utils/timezoneUtils';
 import { useUserPreferences } from '../../context/UserPreferencesContext';
 import Pill from '../shared/Pill';
+import { computeTradeScore, gradeColor } from '../../utils/tradeScoring';
 
 const TradeRow = ({ trade, isSelected = false, onSelect, showDate = true, onView, onEdit, onDelete, onChart, onShare, onlyView = false }) => {
   const { userTimezone } = useUserPreferences();
@@ -69,6 +70,15 @@ const TradeRow = ({ trade, isSelected = false, onSelect, showDate = true, onView
         <Pill variant={isYes(trade.previousWeeklyDirection) ? 'yes' : 'no'}>
           {isYes(trade.previousWeeklyDirection) ? 'Yes' : 'No'}
         </Pill>
+      </td>
+      <td className="p-3">
+        {/* Trade Score Badge */}
+        <span
+          className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold border ${gradeColor(computeTradeScore(trade).grade)}`}
+          title={`Trade Score: ${computeTradeScore(trade).score}/100`}
+        >
+          {computeTradeScore(trade).grade}
+        </span>
       </td>
       <td className="p-3">
         <div className="flex items-center gap-1.5">

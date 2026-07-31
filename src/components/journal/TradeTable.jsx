@@ -62,6 +62,7 @@ const TradeTable = ({
             <th className="sortable" onClick={() => onSort('previousWeeklyDirection')}>
               Weekly <SortIcon colKey="previousWeeklyDirection" />
             </th>
+            <th>Score</th>
             <th>Actions</th>
           </tr>
         </thead>

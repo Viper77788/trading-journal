@@ -20,6 +20,9 @@ import UnassignedTradesModal from './components/account/UnassignedTradesModal';
 import PlaybookView from './components/playbook/PlaybookView';
 import TradeShareCardModal from './components/share/TradeShareCardModal';
 import ImportMt5TimezoneModal from './components/account/ImportMt5TimezoneModal';
+import ReportsView from './components/reports/ReportsView';
+import DailyJournalView from './components/dailyjournal/DailyJournalView';
+import ProgressTrackerView from './components/progress/ProgressTrackerView';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
@@ -101,7 +104,7 @@ export default function App() {
       return;
     }
     setCurrentView(view);
-    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics' || view === 'trash' || view === 'playbook') {
+    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics' || view === 'trash' || view === 'playbook' || view === 'reports' || view === 'dailyjournal' || view === 'progress') {
       await fetchTrades();
     }
   };
@@ -182,6 +185,12 @@ export default function App() {
         );
       case 'analytics':
         return <AnalyticsView trades={trades} loading={tradesLoading} />;
+      case 'reports':
+        return <ReportsView trades={trades} loading={tradesLoading} />;
+      case 'dailyjournal':
+        return <DailyJournalView trades={trades} loading={tradesLoading} />;
+      case 'progress':
+        return <ProgressTrackerView trades={trades} loading={tradesLoading} />;
       case 'propfirm':
         return <PropFirmView trades={trades} loading={tradesLoading} />;
       case 'playbook':
