@@ -13,10 +13,13 @@ export function UserPreferencesProvider({ children }) {
   const [isTimezoneUnconfigured, setIsTimezoneUnconfigured] = useState(true);
   const [loading, setLoading] = useState(true);
 
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+
   useEffect(() => {
     if (!user) {
       setUserTimezone(getBrowserTimezone());
       setIsTimezoneUnconfigured(true);
+      setGeminiApiKey('');
       setLoading(false);
       return;
     }
@@ -25,13 +28,18 @@ export function UserPreferencesProvider({ children }) {
       setLoading(true);
       const localKey = `tj-timezone-${user.uid}`;
       const localSetKey = `tj-tzsetat-${user.uid}`;
+      const localApiKey = `tj-geminikey-${user.uid}`;
       const localTz = localStorage.getItem(localKey);
       const localSet = localStorage.getItem(localSetKey);
+      const localKeyVal = localStorage.getItem(localApiKey);
 
       if (localTz) {
         setUserTimezone(localTz);
         setTimezoneSetAt(localSet || null);
         setIsTimezoneUnconfigured(false);
+      }
+      if (localKeyVal) {
+        setGeminiApiKey(localKeyVal);
       }
 
       try {
@@ -46,9 +54,13 @@ export function UserPreferencesProvider({ children }) {
             localStorage.setItem(localKey, data.timezone);
             if (data.timezoneSetAt) localStorage.setItem(localSetKey, data.timezoneSetAt);
           }
+          if (data.geminiApiKey !== undefined) {
+            setGeminiApiKey(data.geminiApiKey);
+            localStorage.setItem(localApiKey, data.geminiApiKey);
+          }
         }
       } catch (err) {
-        console.warn('Firestore timezone load fallback to local storage:', err?.message);
+        console.warn('Firestore preferences load fallback:', err?.message);
       } finally {
         setLoading(false);
       }
@@ -75,6 +87,20 @@ export function UserPreferencesProvider({ children }) {
     }
   };
 
+  const updateGeminiApiKey = async (newKey) => {
+    const trimmed = (newKey || '').trim();
+    setGeminiApiKey(trimmed);
+    if (user) {
+      localStorage.setItem(`tj-geminikey-${user.uid}`, trimmed);
+      try {
+        const docRef = doc(db, `users/${user.uid}/settings`, 'preferences');
+        await setDoc(docRef, { geminiApiKey: trimmed }, { merge: true });
+      } catch (err) {
+        console.warn('Firestore gemini key save fallback:', err?.message);
+      }
+    }
+  };
+
   const confirmBrowserTimezone = () => {
     updateTimezone(userTimezone || getBrowserTimezone());
   };
@@ -87,6 +113,8 @@ export function UserPreferencesProvider({ children }) {
         isTimezoneUnconfigured,
         updateTimezone,
         confirmBrowserTimezone,
+        geminiApiKey,
+        updateGeminiApiKey,
         loading
       }}
     >

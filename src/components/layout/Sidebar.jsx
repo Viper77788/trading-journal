@@ -2,7 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard, BookOpen, CalendarDays, PlusCircle,
   BarChart3, LineChart, Sun, Moon, Shield, Trash2, Target,
-  Settings, FileText, TrendingUp, NotebookPen
+  Settings, FileText, TrendingUp, NotebookPen, Bot
 } from 'lucide-react';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { id: 'calendar',     label: 'Calendar',          icon: CalendarDays },
   { id: 'trade-new',    label: 'Add Trade',         icon: PlusCircle },
   { id: 'analytics',   label: 'Analytics',          icon: BarChart3 },
+  { id: 'copilot',      label: 'Viper Copilot',     icon: Bot,          badge: 'AI' },
   { id: 'dailyjournal', label: 'Daily Journal',     icon: NotebookPen,  badge: 'NEW' },
   { id: 'reports',      label: 'Reports',           icon: FileText,     badge: 'NEW' },
   { id: 'progress',     label: 'Progress Tracker',  icon: TrendingUp,   badge: 'NEW' },
