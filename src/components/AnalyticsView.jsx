@@ -86,26 +86,26 @@ export default function AnalyticsView() {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#94A3B8', font: { size: 12 } },
+        ticks: { color: '#8A99AD', font: { size: 12 } },
       },
       y: {
-        grid: { color: 'rgba(148, 163, 184, 0.1)' },
-        ticks: { color: '#94A3B8', font: { size: 12 } },
+        grid: { color: 'rgba(138, 153, 173, 0.1)' },
+        ticks: { color: '#8A99AD', font: { size: 12 } },
       },
     },
   };
 
   return (
     <div className="space-y-6 w-full">
-      {/* Win / Loss Streak #131B2E Dark Cards */}
+      {/* Win / Loss Streak #111620 Lucid Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex items-center justify-between">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex items-center justify-between">
           <div>
-            <span className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
+            <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
               Current Active Streak
             </span>
             <div
-              className={`text-3xl font-bold font-mono mt-2 ${
+              className={`text-2xl font-bold font-mono mt-2 tracking-tight ${
                 streaks.currentStreak >= 0 ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
@@ -117,59 +117,59 @@ export default function AnalyticsView() {
             </div>
           </div>
           <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-[#F8FAFC]"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-[#FFFFFF]"
             style={{
               backgroundColor: streaks.currentStreak >= 0 ? '#386641' : '#BC4749',
             }}
           >
-            <Flame size={22} />
+            <Flame size={20} />
           </div>
         </div>
 
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex items-center justify-between">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex items-center justify-between">
           <div>
-            <span className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
+            <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
               Max Consecutive Wins
             </span>
-            <div className="text-3xl font-bold font-mono text-emerald-400 mt-2">
+            <div className="text-2xl font-bold font-mono text-emerald-400 mt-2 tracking-tight">
               {streaks.maxWinStreak} Wins
             </div>
           </div>
           <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-[#F8FAFC]"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-[#FFFFFF]"
             style={{ backgroundColor: '#386641' }}
           >
-            <Trophy size={22} />
+            <Trophy size={20} />
           </div>
         </div>
 
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex items-center justify-between">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex items-center justify-between">
           <div>
-            <span className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
+            <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
               Max Consecutive Losses
             </span>
-            <div className="text-3xl font-bold font-mono text-rose-400 mt-2">
+            <div className="text-2xl font-bold font-mono text-rose-400 mt-2 tracking-tight">
               {streaks.maxLossStreak} Losses
             </div>
           </div>
           <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-[#F8FAFC]"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-[#FFFFFF]"
             style={{ backgroundColor: '#BC4749' }}
           >
-            <AlertOctagon size={22} />
+            <AlertOctagon size={20} />
           </div>
         </div>
       </div>
 
       {/* Charts Row: Cumulative Equity Curve + R-Multiple Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-bold text-[#F8FAFC]">
+              <h3 className="text-base font-bold tracking-tight text-[#FFFFFF]">
                 Cumulative Net P&L Curve
               </h3>
-              <p className="text-sm text-[#94A3B8]">
+              <p className="text-xs font-medium text-[#8A99AD] mt-0.5">
                 Green nodes = Winning trades (#386641) • Red nodes = Stops (#BC4749)
               </p>
             </div>
@@ -182,18 +182,18 @@ export default function AnalyticsView() {
           </div>
         </div>
 
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2">
-                <BarChart3 size={18} className="text-emerald-400" />
+              <h3 className="text-base font-bold tracking-tight text-[#FFFFFF] flex items-center gap-2">
+                <BarChart3 size={17} className="text-emerald-400" />
                 R-Multiple Distribution
               </h3>
-              <p className="text-sm text-[#94A3B8]">
+              <p className="text-xs font-medium text-[#8A99AD] mt-0.5">
                 Realized R-Multiples across GC & MGCZ6 executions
               </p>
             </div>
-            <span className="font-mono text-base font-bold text-[#F8FAFC]">
+            <span className="font-mono text-base font-bold text-[#FFFFFF]">
               Avg: {analytics.avgRMultiple}R
             </span>
           </div>
@@ -205,12 +205,12 @@ export default function AnalyticsView() {
 
       {/* Liquidity Session Window Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-5 bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md">
-          <h3 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2 mb-1">
-            <Clock size={18} className="text-emerald-400" />
+        <div className="lg:col-span-5 bg-[#111620] rounded-xl p-6 border border-slate-800/60">
+          <h3 className="text-base font-bold tracking-tight text-[#FFFFFF] flex items-center gap-2 mb-1">
+            <Clock size={17} className="text-emerald-400" />
             Session Window P&L
           </h3>
-          <p className="text-sm text-[#94A3B8] mb-4">
+          <p className="text-xs font-medium text-[#8A99AD] mb-4">
             1:00 AM–4:00 AM (London) vs. 8:00 AM–11:00 AM (NY Open)
           </p>
           <div className="h-[220px]">
@@ -218,15 +218,15 @@ export default function AnalyticsView() {
           </div>
         </div>
 
-        <div className="lg:col-span-7 bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md">
-          <h3 className="text-base font-bold text-[#F8FAFC] mb-4 flex items-center gap-2">
-            <Clock size={18} className="text-emerald-400" />
+        <div className="lg:col-span-7 bg-[#111620] rounded-xl p-6 border border-slate-800/60">
+          <h3 className="text-base font-bold tracking-tight text-[#FFFFFF] mb-4 flex items-center gap-2">
+            <Clock size={17} className="text-emerald-400" />
             Liquidity Window Performance Matrix
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-800/80 text-[#94A3B8] text-sm uppercase">
+                <tr className="border-b border-slate-800/60 text-[#8A99AD] text-xs font-semibold uppercase tracking-wider">
                   <th className="py-3.5 px-4">Session Window</th>
                   <th className="py-3.5 px-4 text-center">Trades</th>
                   <th className="py-3.5 px-4 text-center">Win Rate</th>
@@ -234,18 +234,18 @@ export default function AnalyticsView() {
                   <th className="py-3.5 px-4 text-right">Net P&L</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/70 font-mono text-sm">
+              <tbody className="divide-y divide-slate-800/60 font-mono text-sm">
                 {sessionStats.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="py-4 px-4 font-sans font-semibold text-[#F8FAFC]">
+                  <tr key={s.id} className="hover:bg-slate-800/80 transition-colors">
+                    <td className="py-3.5 px-4 font-sans font-semibold text-[#FFFFFF]">
                       {s.label}
                     </td>
-                    <td className="py-4 px-4 text-center text-[#94A3B8]">
+                    <td className="py-3.5 px-4 text-center text-[#8A99AD]">
                       {s.trades}
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center">
                       <span
-                        className="px-2.5 py-1 rounded-md text-sm font-bold text-[#F8FAFC]"
+                        className="px-2.5 py-0.5 rounded-md text-xs font-bold text-[#FFFFFF]"
                         style={{
                           backgroundColor: s.winRate >= 50 ? '#386641' : '#BC4749',
                         }}
@@ -253,11 +253,11 @@ export default function AnalyticsView() {
                         {s.winRate}%
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center text-[#F8FAFC]">
+                    <td className="py-3.5 px-4 text-center text-[#FFFFFF]">
                       {s.avgR > 0 ? `+${s.avgR}R` : `${s.avgR}R`}
                     </td>
                     <td
-                      className={`py-4 px-4 text-right font-bold ${
+                      className={`py-3.5 px-4 text-right font-bold ${
                         s.netPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
                       }`}
                     >
@@ -272,19 +272,19 @@ export default function AnalyticsView() {
       </div>
 
       {/* 14-Rule Compliance Breakdown Grid */}
-      <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md">
+      <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2">
-              <CheckCircle2 size={18} className="text-emerald-400" />
+            <h3 className="text-base font-bold tracking-tight text-[#FFFFFF] flex items-center gap-2">
+              <CheckCircle2 size={17} className="text-emerald-400" />
               14-Rule Strategy Adherence
             </h3>
-            <p className="text-sm text-[#94A3B8]">
+            <p className="text-xs font-medium text-[#8A99AD] mt-0.5">
               Rule-by-rule pass percentage across logged executions
             </p>
           </div>
           <span
-            className="px-3 py-1.5 rounded-md text-sm font-mono font-bold text-[#F8FAFC]"
+            className="px-2.5 py-1 rounded-md text-xs font-mono font-bold text-[#FFFFFF]"
             style={{ backgroundColor: '#386641' }}
           >
             Overall Compliance: {analytics.avgComplianceScore}%
@@ -295,11 +295,11 @@ export default function AnalyticsView() {
           {ruleStats.map((rule) => (
             <div
               key={rule.id}
-              className="p-4 rounded-xl bg-[#0B0F17] border border-slate-800/80 flex flex-col gap-2"
+              className="p-4 rounded-xl bg-[#090C10] border border-slate-800/60 flex flex-col gap-2"
             >
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-[#F8FAFC] truncate pr-2">
-                  <strong className="font-mono text-[#94A3B8]">#{rule.number}.</strong>{' '}
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <span className="font-medium text-[#FFFFFF] truncate pr-2">
+                  <strong className="font-mono text-[#8A99AD]">#{rule.number}.</strong>{' '}
                   {rule.label}
                 </span>
                 <span
@@ -310,7 +310,7 @@ export default function AnalyticsView() {
                   {rule.pct}%
                 </span>
               </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-[#111620] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{

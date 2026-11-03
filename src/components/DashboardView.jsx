@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Search,
   Sparkles,
+  ArrowUpRight,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
@@ -19,6 +20,7 @@ export default function DashboardView({
   onOpenLogModal,
   onEditTrade,
   onOpenSessionReview,
+  onNavigateAnalytics,
 }) {
   const {
     filteredTrades,
@@ -44,176 +46,334 @@ export default function DashboardView({
   });
 
   const { dailyLossTracker } = analytics;
+  const pfBarPct = Math.min(100, Math.round((analytics.profitFactor / 3) * 100));
+  const rBarPct = Math.min(
+    100,
+    Math.max(8, Math.round((Math.max(0, analytics.avgRMultiple) / 2.5) * 100))
+  );
 
   return (
     <div className="flex-1 flex flex-col gap-6 w-full">
-      {/* TOP SUMMARY BAR: 5 Prominent Macro Metrics in #131B2E Dark Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 w-full">
-        {/* 1. Win Rate */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
-          <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider">
-            <span>Win Rate</span>
-            <Award size={18} className="text-emerald-400" />
-          </div>
-          <div className="my-3">
-            <span className="text-3xl font-bold font-mono text-[#F8FAFC]">
-              {analytics.winRate}%
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm text-[#94A3B8]">
-            <span>
-              {analytics.wins}W / {analytics.losses}L
-            </span>
-            <span className="font-mono font-semibold text-[#F8FAFC]">
-              {analytics.totalTrades} Trades
-            </span>
-          </div>
-        </div>
-
-        {/* 2. Net P&L */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
-          <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider">
-            <span>Net P&L</span>
-            <TrendingUp
-              size={18}
-              className={analytics.totalNetPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}
-            />
-          </div>
-          <div className="my-3">
-            <span
-              className={`text-3xl font-bold font-mono ${
-                analytics.totalNetPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
-              }`}
-            >
-              {formatUSD(analytics.totalNetPnl)}
-            </span>
-          </div>
-          <div className="text-sm text-[#94A3B8]">
-            14-Rule Avg:{' '}
-            <strong className="font-mono text-[#F8FAFC]">
-              {analytics.avgComplianceScore}%
-            </strong>
-          </div>
-        </div>
-
-        {/* 3. Profit Factor */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
-          <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider">
-            <span>Profit Factor</span>
-            <Activity size={18} className="text-sky-400" />
-          </div>
-          <div className="my-3">
-            <span className="text-3xl font-bold font-mono text-[#F8FAFC]">
-              {analytics.profitFactor}
-            </span>
-          </div>
-          <div className="text-sm text-[#94A3B8]">
-            Active Streak:{' '}
-            <strong
-              className={`font-mono ${
-                analytics.streaks.currentStreak >= 0 ? 'text-emerald-400' : 'text-rose-400'
-              }`}
-            >
-              {analytics.streaks.currentStreak > 0
-                ? `+${analytics.streaks.currentStreak}W`
-                : analytics.streaks.currentStreak < 0
-                ? `${analytics.streaks.currentStreak}L`
-                : '0'}
-            </strong>
-          </div>
-        </div>
-
-        {/* 4. Avg R-Multiple */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
-          <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider">
-            <span>Avg R-Multiple</span>
-            <span
-              className="w-3 h-3 rounded-full"
-              style={{
-                backgroundColor:
-                  analytics.avgRMultiple >= 1.5 ? '#386641' : '#BC4749',
-              }}
-            />
-          </div>
-          <div className="my-3">
-            <span className="text-3xl font-bold font-mono text-[#F8FAFC]">
-              {analytics.avgRMultiple > 0
-                ? `+${analytics.avgRMultiple}R`
-                : `${analytics.avgRMultiple}R`}
-            </span>
-          </div>
-          <div className="text-sm text-[#94A3B8]">
-            Target Benchmark: <strong className="font-mono text-[#F8FAFC]">+1.50R</strong>
-          </div>
-        </div>
-
-        {/* 5. Daily Loss Limit ($600 Cap Utilization Bar) */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
-          <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider">
-            <span>Daily Loss Cap</span>
-            {dailyLossTracker.riskStatusPass ? (
-              <ShieldCheck size={18} className="text-emerald-400" />
-            ) : (
-              <ShieldAlert size={18} className="text-rose-400" />
-            )}
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold font-mono text-[#F8FAFC]">
-              -${dailyLossTracker.latestDayLossUsed.toFixed(0)}{' '}
-              <span className="text-sm font-normal text-[#94A3B8]">
-                / ${dailyLossCap}
+      {/* LUCID-STYLE SPACIOUS METRIC & ACCOUNT CARDS (#111620, rounded-xl, p-6) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5 w-full">
+        {/* 1. Win Rate & Consistency Card */}
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
+                Win Rate
               </span>
-            </span>
-            <span
-              className="text-sm font-mono font-bold px-2.5 py-1 rounded-md text-[#F8FAFC]"
-              style={{
-                backgroundColor: dailyLossTracker.riskStatusPass
-                  ? '#386641'
-                  : '#BC4749',
-              }}
-            >
-              {dailyLossTracker.dailyLossUtilizationPct}%
-            </span>
+              <span
+                className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-emerald-300 border border-emerald-500/30"
+                style={{ backgroundColor: 'rgba(56, 102, 65, 0.35)' }}
+              >
+                {analytics.wins}W / {analytics.losses}L
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between">
+              <span className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
+                {analytics.winRate}%
+              </span>
+              <span className="text-xs font-medium text-[#8A99AD]">
+                {analytics.totalTrades} Executions
+              </span>
+            </div>
+
+            {/* Thin Consistency Progress Bar */}
+            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.max(6, analytics.winRate)}%`,
+                  backgroundColor:
+                    analytics.winRate >= 50 ? '#386641' : '#BC4749',
+                }}
+              />
+            </div>
           </div>
-          <div className="w-full h-2.5 bg-[#0B0F17] rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{
-                width: `${Math.max(4, dailyLossTracker.dailyLossUtilizationPct)}%`,
-                backgroundColor:
-                  dailyLossTracker.dailyLossUtilizationPct >= 80
-                    ? '#BC4749'
-                    : '#386641',
-              }}
-            />
+
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-[#8A99AD]">
+              Benchmark: <strong className="text-[#FFFFFF]">55.0%</strong>
+            </span>
+            <button
+              type="button"
+              onClick={onNavigateAnalytics}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+            >
+              <span>Stats</span>
+              <ArrowUpRight size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Total Net P&L & Rule Compliance Card */}
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
+                Total Net P&L
+              </span>
+              <span
+                className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
+                style={{
+                  backgroundColor:
+                    analytics.totalNetPnl >= 0 ? '#386641' : '#BC4749',
+                }}
+              >
+                {analytics.totalNetPnl >= 0 ? 'PROFIT' : 'DRAWDOWN'}
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between">
+              <span
+                className={`text-2xl font-bold font-mono tracking-tight ${
+                  analytics.totalNetPnl >= 0
+                    ? 'text-emerald-400'
+                    : 'text-rose-400'
+                }`}
+              >
+                {formatUSD(analytics.totalNetPnl)}
+              </span>
+              <span className="text-xs font-mono text-[#8A99AD]">
+                GC / MGCZ6
+              </span>
+            </div>
+
+            {/* Thin Rule Adherence Bar */}
+            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.max(6, analytics.avgComplianceScore)}%`,
+                  backgroundColor:
+                    analytics.avgComplianceScore >= 75 ? '#386641' : '#BC4749',
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-[#8A99AD]">
+              14-Rule Avg:{' '}
+              <strong className="font-mono text-[#FFFFFF]">
+                {analytics.avgComplianceScore}%
+              </strong>
+            </span>
+            <button
+              type="button"
+              onClick={onOpenSessionReview}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+            >
+              <span>Audit</span>
+              <ArrowUpRight size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* 3. Profit Factor & Streak Card */}
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
+                Profit Factor
+              </span>
+              <Activity size={15} className="text-emerald-400" />
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between">
+              <span className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
+                {analytics.profitFactor}
+              </span>
+              <span
+                className={`text-xs font-mono font-semibold ${
+                  analytics.streaks.currentStreak >= 0
+                    ? 'text-emerald-400'
+                    : 'text-rose-400'
+                }`}
+              >
+                Streak:{' '}
+                {analytics.streaks.currentStreak > 0
+                  ? `+${analytics.streaks.currentStreak}W`
+                  : analytics.streaks.currentStreak < 0
+                  ? `${analytics.streaks.currentStreak}L`
+                  : '0'}
+              </span>
+            </div>
+
+            {/* Thin Efficiency Bar */}
+            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.max(8, pfBarPct)}%`,
+                  backgroundColor:
+                    analytics.profitFactor >= 1.5 ? '#386641' : '#BC4749',
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-[#8A99AD]">
+              Target: <strong className="font-mono text-[#FFFFFF]">&gt;1.80</strong>
+            </span>
+            <button
+              type="button"
+              onClick={onNavigateAnalytics}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+            >
+              <span>Curve</span>
+              <ArrowUpRight size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* 4. Avg R-Multiple Card */}
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
+                Avg R-Multiple
+              </span>
+              <span
+                className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
+                style={{
+                  backgroundColor:
+                    analytics.avgRMultiple >= 1.5 ? '#386641' : '#BC4749',
+                }}
+              >
+                {analytics.avgRMultiple >= 1.5 ? 'ON TARGET' : 'BELOW 1.5R'}
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between">
+              <span className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
+                {analytics.avgRMultiple > 0
+                  ? `+${analytics.avgRMultiple}R`
+                  : `${analytics.avgRMultiple}R`}
+              </span>
+              <span className="text-xs font-mono text-[#8A99AD]">
+                Target +1.50R
+              </span>
+            </div>
+
+            {/* Thin R-Multiple Progress Bar */}
+            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${rBarPct}%`,
+                  backgroundColor:
+                    analytics.avgRMultiple >= 1.5 ? '#386641' : '#BC4749',
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-[#8A99AD]">
+              Window: <strong className="text-[#FFFFFF]">1–4 / 8–11 AM</strong>
+            </span>
+            <button
+              type="button"
+              onClick={onNavigateAnalytics}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+            >
+              <span>R-Dist</span>
+              <ArrowUpRight size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* 5. Lucid Flex $600 Daily Loss Cap Card */}
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
+                Daily Loss Limit
+              </span>
+              <span
+                className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
+                style={{
+                  backgroundColor: dailyLossTracker.riskStatusPass
+                    ? '#386641'
+                    : '#BC4749',
+                }}
+              >
+                {dailyLossTracker.dailyLossUtilizationPct}% USED
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between">
+              <span className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
+                -${dailyLossTracker.latestDayLossUsed.toFixed(0)}
+              </span>
+              <span className="text-xs font-mono text-[#8A99AD]">
+                Cap: -${dailyLossCap}
+              </span>
+            </div>
+
+            {/* Thin Daily Loss Utilization Bar */}
+            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.max(4, dailyLossTracker.dailyLossUtilizationPct)}%`,
+                  backgroundColor:
+                    dailyLossTracker.dailyLossUtilizationPct >= 80
+                      ? '#BC4749'
+                      : '#386641',
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-[#8A99AD]">
+              Account: <strong className="text-[#FFFFFF]">Lucid Flex</strong>
+            </span>
+            <button
+              type="button"
+              onClick={onOpenLogModal}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+            >
+              <span>+ Log</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* SPACIOUS, HIGH-READABILITY DARK EXECUTIONS TABLE */}
-      <div className="flex-1 flex flex-col bg-[#131B2E] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden w-full">
-        {/* Table Header Bar */}
-        <div className="px-6 py-5 border-b border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* LUCID-STYLE EXECUTIONS TABLE CONTAINER (#111620, rounded-xl, border-slate-800/60) */}
+      <div className="flex-1 flex flex-col bg-[#111620] rounded-xl border border-slate-800/60 overflow-hidden w-full">
+        {/* Table Control & Filter Header */}
+        <div className="px-6 py-5 border-b border-slate-800/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-[#F8FAFC] tracking-tight">
-              Gold Futures Executions
-            </h2>
-            <p className="text-sm text-[#94A3B8] mt-1">
-              Showing {visibleTrades.length} logged trades • Zone badges:{' '}
-              <span className="font-mono font-semibold text-emerald-400">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold tracking-tight text-[#FFFFFF]">
+                Executed Futures Trades
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-[#090C10] text-[#8A99AD] border border-slate-800/60">
+                {visibleTrades.length} Rows
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
+              Click any execution row to inspect its 14-Rule Strategy Audit •{' '}
+              <span className="font-mono text-emerald-400">
                 #386641 Support
               </span>{' '}
               &{' '}
-              <span className="font-mono font-semibold text-rose-400">
+              <span className="font-mono text-rose-400">
                 #BC4749 Resistance
               </span>
             </p>
           </div>
 
-          {/* Filter & Action Controls */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Session Window Filter */}
-            <div className="flex items-center bg-[#0B0F17] p-1 rounded-xl border border-slate-800/80 text-sm">
+          {/* Filter & Search Bar */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Liquidity Window Filter Pills */}
+            <div className="flex items-center bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
               {[
                 { id: 'All', label: 'All Windows' },
                 { id: '1:00 AM–4:00 AM', label: '1–4 AM' },
@@ -224,10 +384,10 @@ export default function DashboardView({
                   key={w.id}
                   type="button"
                   onClick={() => setSessionFilter(w.id)}
-                  className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     sessionFilter === w.id
-                      ? 'bg-[#131B2E] text-[#F8FAFC] shadow-sm border border-slate-700/70'
-                      : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+                      ? 'bg-[#111620] text-[#FFFFFF] border border-slate-700/70 shadow-xs'
+                      : 'text-[#8A99AD] hover:text-[#FFFFFF]'
                   }`}
                 >
                   {w.label}
@@ -238,62 +398,44 @@ export default function DashboardView({
             {/* Search Input */}
             <div className="relative">
               <Search
-                size={16}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A99AD]"
               />
               <input
                 type="text"
-                placeholder="Search contract or note..."
+                placeholder="Search contract, account, note..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 rounded-xl bg-[#0B0F17] border border-slate-800/80 text-sm text-[#F8FAFC] placeholder-[#94A3B8] focus:outline-none focus:border-[#386641]"
+                className="pl-9 pr-4 py-2 rounded-xl bg-[#090C10] border border-slate-800/60 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-[#386641]"
               />
             </div>
-
-            {/* Toggle AI Review Drawer */}
-            <button
-              type="button"
-              onClick={onOpenSessionReview}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#0B0F17] hover:bg-slate-800/70 text-[#F8FAFC] border border-slate-800/80 transition-colors"
-            >
-              <Sparkles size={16} className="text-emerald-400" />
-              <span>AI Session Review</span>
-            </button>
-
-            {/* Fast Log Button */}
-            <button
-              type="button"
-              onClick={onOpenLogModal}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-[#F8FAFC] shadow-sm transition-opacity hover:opacity-95"
-              style={{ backgroundColor: '#386641' }}
-            >
-              <Plus size={16} />
-              <span>Fast Log Trade</span>
-            </button>
           </div>
         </div>
 
-        {/* Spacious Table with >=14px (text-sm) Typography */}
+        {/* High-Contrast Spacious Table (py-3.5 px-4 cells, hover:bg-slate-800/80) */}
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800/80 bg-[#0B0F17]/60 text-sm font-semibold text-[#94A3B8]">
-                <th className="py-4 px-6">Date & Time</th>
-                <th className="py-4 px-5">Session Window</th>
-                <th className="py-4 px-5">Contract</th>
-                <th className="py-4 px-5">Direction & Zone</th>
-                <th className="py-4 px-5 text-right">Net P&L</th>
-                <th className="py-4 px-5 text-right">R-Multiple</th>
-                <th className="py-4 px-5 text-center">Compliance</th>
-                <th className="py-4 px-5">Execution Status</th>
-                <th className="py-4 px-6 text-right">Actions</th>
+              <tr className="border-b border-slate-800/60 bg-[#090C10]/60 text-xs font-semibold uppercase tracking-wider text-[#8A99AD]">
+                <th className="py-3.5 px-4">Date & Time</th>
+                <th className="py-3.5 px-4">Session Window</th>
+                <th className="py-3.5 px-4">Contract & Account</th>
+                <th className="py-3.5 px-4">Direction & Zone</th>
+                <th className="py-3.5 px-4 text-right">Net P&L</th>
+                <th className="py-3.5 px-4 text-right">R-Multiple</th>
+                <th className="py-3.5 px-4 text-center">Compliance</th>
+                <th className="py-3.5 px-4">Behavioral Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/70 text-sm">
+            <tbody className="divide-y divide-slate-800/60 text-sm">
               {visibleTrades.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-[#94A3B8] text-sm">
-                    No trades found for this filter. Click "Fast Log Trade" to record an execution.
+                  <td
+                    colSpan={9}
+                    className="py-16 text-center text-[#8A99AD] text-sm font-medium"
+                  >
+                    No executions match the current filter. Click "Fast Log Trade" to record a trade.
                   </td>
                 </tr>
               ) : (
@@ -314,28 +456,28 @@ export default function DashboardView({
                         setLastSubmittedTrade(t);
                         onOpenSessionReview?.();
                       }}
-                      className="hover:bg-slate-800/50 transition-colors cursor-pointer"
+                      className="hover:bg-slate-800/80 transition-colors cursor-pointer"
                       style={{
-                        borderLeft: `4px solid ${accentColor}`,
+                        borderLeft: `3px solid ${accentColor}`,
                       }}
                     >
                       {/* Date & Time */}
-                      <td className="py-4 px-6 whitespace-nowrap">
-                        <div className="font-mono font-semibold text-[#F8FAFC] text-sm">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-mono font-semibold text-[#FFFFFF] text-sm">
                           {t.date}
                         </div>
-                        <div className="font-mono text-sm text-[#94A3B8] mt-0.5">
-                          {t.time} NY
+                        <div className="font-mono text-xs text-[#8A99AD] mt-0.5">
+                          {t.time} EST
                         </div>
                       </td>
 
                       {/* Session Window */}
-                      <td className="py-4 px-5 whitespace-nowrap">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-md font-mono text-sm font-medium ${
+                          className={`inline-flex items-center px-2.5 py-1 rounded-md font-mono text-xs font-medium ${
                             t.sessionWindow === 'Outside Window'
                               ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                              : 'bg-slate-800/90 text-[#F8FAFC] border border-slate-700/70'
+                              : 'bg-[#090C10] text-[#FFFFFF] border border-slate-800/80'
                           }`}
                         >
                           {t.sessionWindow}
@@ -343,20 +485,20 @@ export default function DashboardView({
                       </td>
 
                       {/* Contract & Account */}
-                      <td className="py-4 px-5 whitespace-nowrap">
-                        <div className="font-mono font-bold text-[#F8FAFC] text-sm">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-mono font-bold text-[#FFFFFF] text-sm uppercase">
                           {t.contract}
                         </div>
-                        <div className="text-sm text-[#94A3B8] mt-0.5">
+                        <div className="text-xs font-medium text-[#8A99AD] mt-0.5">
                           {t.accountType}
                         </div>
                       </td>
 
                       {/* Direction & Zone Badges */}
-                      <td className="py-4 px-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
                           <span
-                            className="px-2.5 py-1 rounded-md text-sm font-bold text-[#F8FAFC]"
+                            className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide text-[#FFFFFF]"
                             style={{
                               backgroundColor:
                                 t.direction === 'Long' ? '#386641' : '#BC4749',
@@ -367,13 +509,22 @@ export default function DashboardView({
 
                           {(isSupport || isResistance) && (
                             <span
-                              className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-sm font-mono font-semibold text-[#F8FAFC]"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-medium text-[#FFFFFF] border"
                               style={{
                                 backgroundColor: isSupport
-                                  ? '#386641'
-                                  : '#BC4749',
+                                  ? 'rgba(56, 102, 65, 0.25)'
+                                  : 'rgba(188, 71, 73, 0.25)',
+                                borderColor: isSupport ? '#386641' : '#BC4749',
                               }}
                             >
+                              <span
+                                className="w-2 h-2 rounded-full"
+                                style={{
+                                  backgroundColor: isSupport
+                                    ? '#386641'
+                                    : '#BC4749',
+                                }}
+                              />
                               {isSupport ? 'Support #386641' : 'Resistance #BC4749'}
                             </span>
                           )}
@@ -381,7 +532,7 @@ export default function DashboardView({
                       </td>
 
                       {/* Net P&L */}
-                      <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-base">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold text-base">
                         <span
                           className={isWin ? 'text-emerald-400' : 'text-rose-400'}
                         >
@@ -390,16 +541,16 @@ export default function DashboardView({
                       </td>
 
                       {/* R-Multiple */}
-                      <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-sm text-[#F8FAFC]">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold text-sm text-[#FFFFFF]">
                         {Number(t.rMultiple) > 0
                           ? `+${t.rMultiple}R`
                           : `${t.rMultiple}R`}
                       </td>
 
                       {/* Compliance Grade */}
-                      <td className="py-4 px-5 text-center whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-sm font-bold text-[#F8FAFC]"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-xs font-bold text-[#FFFFFF]"
                           style={{
                             backgroundColor:
                               t.complianceGrade === 'A'
@@ -414,22 +565,22 @@ export default function DashboardView({
                       </td>
 
                       {/* Execution Status / Leak Tags */}
-                      <td className="py-4 px-5">
-                        <div className="flex flex-wrap gap-2">
+                      <td className="py-3.5 px-4">
+                        <div className="flex flex-wrap gap-1.5">
                           {(t.leakTags || []).length === 0 ? (
                             <span
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold text-[#F8FAFC]"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-emerald-300 border border-emerald-500/30"
                               style={{
-                                backgroundColor: '#386641',
+                                backgroundColor: 'rgba(56, 102, 65, 0.3)',
                               }}
                             >
-                              ✓ Clean Execution
+                              ✓ Clean
                             </span>
                           ) : (
                             t.leakTags.map((tag) => (
                               <span
                                 key={tag}
-                                className="px-2.5 py-1 rounded-md text-sm font-semibold text-[#F8FAFC]"
+                                className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#FFFFFF]"
                                 style={{
                                   backgroundColor: '#BC4749',
                                 }}
@@ -443,36 +594,36 @@ export default function DashboardView({
 
                       {/* Actions */}
                       <td
-                        className="py-4 px-6 text-right whitespace-nowrap"
+                        className="py-3.5 px-4 text-right whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="inline-flex items-center gap-1.5">
+                        <div className="inline-flex items-center gap-1">
                           {t.tradingViewUrl && (
                             <a
                               href={t.tradingViewUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-2 rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800"
+                              className="p-1.5 rounded-lg text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors"
                               title="Open TradingView Chart"
                             >
-                              <ExternalLink size={16} />
+                              <ExternalLink size={15} />
                             </a>
                           )}
                           <button
                             type="button"
                             onClick={() => onEditTrade(t)}
-                            className="p-2 rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800"
+                            className="p-1.5 rounded-lg text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors cursor-pointer"
                             title="Edit trade"
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={15} />
                           </button>
                           <button
                             type="button"
                             onClick={() => deleteTrade(t.id)}
-                            className="p-2 rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10"
+                            className="p-1.5 rounded-lg text-[#8A99AD] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                             title="Delete trade"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>

@@ -95,18 +95,20 @@ export function ViperCopilotAuditContent() {
       {/* Scope Switcher: Selected Trade vs Full Session Batch */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold text-[#F8FAFC] flex items-center gap-3">
-            <span>4-Point Automated Strategy & Risk Audit</span>
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-bold tracking-tight text-[#FFFFFF]">
+              4-Point Automated Strategy & Risk Audit
+            </h3>
             <span
-              className="px-2.5 py-1 rounded-md text-sm font-mono font-semibold text-[#F8FAFC]"
+              className="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
               style={{ backgroundColor: '#386641' }}
             >
               {auditTarget
                 ? `Inspecting: ${auditTarget.contract} on ${auditTarget.date} (${formatUSD(auditTarget.netPnl)})`
                 : `All Session Trades (${analytics.totalTrades} Logged)`}
             </span>
-          </h3>
-          <p className="text-sm text-[#94A3B8] mt-1">
+          </div>
+          <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
             Direct, objective evaluation of 14-rule adherence, $600 daily loss guardrail, and behavioral leaks.
           </p>
         </div>
@@ -115,92 +117,105 @@ export function ViperCopilotAuditContent() {
           <button
             type="button"
             onClick={() => setLastSubmittedTrade(null)}
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#131B2E] hover:bg-slate-800 text-[#F8FAFC] border border-slate-800/80"
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#111620] hover:bg-slate-800/80 text-[#FFFFFF] border border-slate-800/60 cursor-pointer"
           >
             Switch to Full Session Audit
           </button>
         )}
       </div>
 
-      {/* 4 Dark #131B2E Audit Cards */}
+      {/* 4 Lucid #111620 Audit Cards (rounded-xl, p-6, border-slate-800/60) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* 1. Compliance Score */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider mb-3">
+            <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-3">
               <span>1. Compliance Score</span>
-              <CheckCircle2 size={18} className="text-emerald-400" />
+              <CheckCircle2 size={16} className="text-emerald-400" />
             </div>
-            <div className="text-3xl font-bold font-mono text-[#F8FAFC]">
+            <div className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
               {activeComplianceScore}%
             </div>
-            <p className="text-sm text-[#94A3B8] mt-1">
-              {activeRulesFollowedCount} of 14 strategy rules followed
-            </p>
+            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${activeComplianceScore}%`,
+                  backgroundColor:
+                    activeComplianceScore >= 75 ? '#386641' : '#BC4749',
+                }}
+              />
+            </div>
           </div>
-          <div className="w-full h-2.5 bg-[#0B0F17] rounded-full overflow-hidden mt-4">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${activeComplianceScore}%`,
-                backgroundColor: activeComplianceScore >= 75 ? '#386641' : '#BC4749',
-              }}
-            />
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 text-xs font-medium text-[#8A99AD]">
+            {activeRulesFollowedCount} of 14 strategy rules followed
           </div>
         </div>
 
         {/* 2. Risk Status ($600 Daily Loss Cap) */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider mb-3">
+            <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-3">
               <span>2. Risk Status (${dailyCap} Cap)</span>
               {isRiskPassed ? (
-                <ShieldCheck size={18} className="text-emerald-400" />
+                <ShieldCheck size={16} className="text-emerald-400" />
               ) : (
-                <ShieldAlert size={18} className="text-rose-400" />
+                <ShieldAlert size={16} className="text-rose-400" />
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <span
-                className="px-2.5 py-1 rounded-md text-sm font-mono font-bold text-[#F8FAFC]"
+                className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold text-[#FFFFFF]"
                 style={{
                   backgroundColor: isRiskPassed ? '#386641' : '#BC4749',
                 }}
               >
                 {isRiskPassed ? 'PASS' : 'FAIL'}
               </span>
-              <span className="text-xl font-bold font-mono text-[#F8FAFC]">
+              <span className="text-xl font-bold font-mono text-[#FFFFFF] tracking-tight">
                 -${dailyLossUsed.toFixed(0)} / -${dailyCap}
               </span>
             </div>
+            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.max(
+                    4,
+                    analytics.dailyLossTracker.dailyLossUtilizationPct
+                  )}%`,
+                  backgroundColor: isRiskPassed ? '#386641' : '#BC4749',
+                }}
+              />
+            </div>
           </div>
-          <p className="text-sm text-[#94A3B8] mt-4">
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 text-xs font-medium text-[#8A99AD]">
             {analytics.dailyLossTracker.breachedDaysCount === 0
               ? 'Daily loss cap respected across all sessions'
               : `${analytics.dailyLossTracker.breachedDaysCount} session(s) breached cap`}
-          </p>
+          </div>
         </div>
 
         {/* 3. Behavioral Red Flags */}
-        <div className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between">
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider mb-3">
+            <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-3">
               <span>3. Behavioral Red Flags</span>
-              <AlertTriangle size={18} className="text-amber-400" />
+              <AlertTriangle size={16} className="text-amber-400" />
             </div>
             {analytics.sortedLeaks.length === 0 ? (
               <div
-                className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold text-[#F8FAFC]"
+                className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold text-[#FFFFFF]"
                 style={{ backgroundColor: '#386641' }}
               >
                 ✓ Zero Behavioral Leaks
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {analytics.sortedLeaks.map((item) => (
                   <span
                     key={item.tag}
-                    className="px-2.5 py-1 rounded-md text-sm font-mono font-semibold text-[#F8FAFC]"
+                    className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
                     style={{ backgroundColor: '#BC4749' }}
                   >
                     {item.tag} ({item.count}x)
@@ -209,24 +224,24 @@ export function ViperCopilotAuditContent() {
               </div>
             )}
           </div>
-          <p className="text-sm text-[#94A3B8] mt-4">
+          <div className="pt-3.5 mt-4 border-t border-slate-800/60 text-xs font-medium text-[#8A99AD]">
             {analytics.topLeak
               ? `Primary leak impact: ${formatUSD(analytics.topLeak.netImpact)}`
               : 'No emotional or stop-moving leaks detected'}
-          </p>
+          </div>
         </div>
 
         {/* 4. Actionable Adjustment */}
         <div
-          className="bg-[#131B2E] rounded-2xl p-5 border border-slate-800/80 shadow-md flex flex-col justify-between"
-          style={{ borderLeft: '4px solid #386641' }}
+          className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between"
+          style={{ borderLeft: '3px solid #386641' }}
         >
           <div>
-            <div className="flex items-center justify-between text-sm font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">
+            <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-2.5">
               <span>4. Actionable Adjustment</span>
-              <Crosshair size={18} className="text-emerald-400" />
+              <Crosshair size={16} className="text-emerald-400" />
             </div>
-            <p className="text-sm text-[#F8FAFC] font-medium leading-relaxed">
+            <p className="text-sm text-[#FFFFFF] font-medium leading-relaxed">
               {analytics.actionableAdjustment}
             </p>
           </div>
@@ -234,18 +249,23 @@ export function ViperCopilotAuditContent() {
       </div>
 
       {/* Interactive Copilot Q&A Bar */}
-      <div className="bg-[#131B2E] rounded-2xl border border-slate-800/80 shadow-md p-5 space-y-4">
+      <div className="bg-[#111620] rounded-xl border border-slate-800/60 p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#F8FAFC]"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#FFFFFF]"
               style={{ backgroundColor: '#386641' }}
             >
               <Bot size={16} />
             </div>
-            <span className="text-sm font-bold text-[#F8FAFC]">
-              Ask Viper Copilot
-            </span>
+            <div>
+              <span className="text-sm font-bold text-[#FFFFFF] block">
+                Ask Viper Copilot
+              </span>
+              <span className="text-xs text-[#8A99AD]">
+                Query rule compliance, session timing, or #386641 / #BC4749 zone performance
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -258,7 +278,7 @@ export function ViperCopilotAuditContent() {
                 key={chip}
                 type="button"
                 onClick={() => handleAsk(chip)}
-                className="px-3.5 py-1.5 rounded-xl bg-[#0B0F17] hover:bg-slate-800/70 text-[#F8FAFC] border border-slate-800/80 text-sm font-medium transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-[#090C10] hover:bg-slate-800/80 text-[#FFFFFF] border border-slate-800/60 text-xs font-medium transition-colors cursor-pointer"
               >
                 {chip}
               </button>
@@ -273,8 +293,8 @@ export function ViperCopilotAuditContent() {
                 key={i}
                 className={`p-3.5 rounded-xl text-sm whitespace-pre-line leading-relaxed ${
                   item.role === 'user'
-                    ? 'bg-slate-800 text-[#F8FAFC] font-semibold ml-8'
-                    : 'bg-[#0B0F17] border border-slate-800/80 text-[#F8FAFC] mr-4 font-mono'
+                    ? 'bg-slate-800/90 text-[#FFFFFF] font-semibold ml-8'
+                    : 'bg-[#090C10] border border-slate-800/60 text-[#FFFFFF] mr-4 font-mono'
                 }`}
               >
                 {item.text}
@@ -296,11 +316,11 @@ export function ViperCopilotAuditContent() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask Viper Copilot to analyze a session, rule, or zone..."
-            className="flex-1 bg-[#0B0F17] border border-slate-800/80 rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-[#94A3B8] focus:outline-none focus:border-[#386641]"
+            className="flex-1 bg-[#090C10] border border-slate-800/60 rounded-xl px-4 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-[#386641]"
           />
           <button
             type="submit"
-            className="px-5 py-2.5 rounded-xl text-sm font-bold text-[#F8FAFC] flex items-center gap-2 transition-opacity hover:opacity-95"
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] flex items-center gap-2 transition-opacity hover:opacity-95 cursor-pointer"
             style={{ backgroundColor: '#386641' }}
           >
             <Send size={15} />
@@ -322,43 +342,43 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
           <button
             type="button"
             onClick={onToggle}
-            className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-[#131B2E] text-[#F8FAFC] border border-slate-800/80 shadow-xl hover:bg-slate-800/80 text-sm font-bold transition-all"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#111620] text-[#FFFFFF] border border-slate-800/60 shadow-xl hover:bg-slate-800/80 text-sm font-semibold transition-all cursor-pointer"
           >
             <span
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#F8FAFC]"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#FFFFFF]"
               style={{ backgroundColor: '#386641' }}
             >
-              <Bot size={16} />
+              <Bot size={15} />
             </span>
             <span>AI Session Review</span>
             <span
-              className="px-2.5 py-1 rounded-md font-mono text-sm text-[#F8FAFC]"
+              className="px-2 py-0.5 rounded-md font-mono text-xs text-[#FFFFFF]"
               style={{ backgroundColor: '#386641' }}
             >
               {analytics.avgComplianceScore}%
             </span>
-            <ChevronUp size={16} className="text-[#94A3B8]" />
+            <ChevronUp size={15} className="text-[#8A99AD]" />
           </button>
         </div>
       )}
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/70 backdrop-blur-xs animate-fadeIn">
-          <div className="w-full max-h-[84vh] bg-[#0B0F17] border-t border-slate-800/80 rounded-t-3xl shadow-2xl overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/75 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-h-[84vh] bg-[#090C10] border-t border-slate-800/60 rounded-t-2xl shadow-2xl overflow-y-auto">
             <div className="w-full px-6 lg:px-8 py-6">
-              <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-800/80">
+              <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-800/60">
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-[#F8FAFC]"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-[#FFFFFF]"
                     style={{ backgroundColor: '#386641' }}
                   >
                     <Bot size={18} />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-[#F8FAFC]">
+                    <h2 className="text-base font-bold tracking-tight text-[#FFFFFF]">
                       Viper AI Session Review Drawer
                     </h2>
-                    <p className="text-sm text-[#94A3B8]">
+                    <p className="text-xs font-medium text-[#8A99AD]">
                       On-demand 14-Rule Compliance & Behavioral Leak Audit
                     </p>
                   </div>
@@ -366,7 +386,7 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
                 <button
                   type="button"
                   onClick={onToggle}
-                  className="p-2 rounded-xl text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800"
+                  className="p-2 rounded-xl text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 cursor-pointer"
                 >
                   <X size={20} />
                 </button>

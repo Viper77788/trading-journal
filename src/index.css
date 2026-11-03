@@ -1,38 +1,42 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --viper-bg: #0B0F17;
-  --viper-card: #131B2E;
-  --viper-text: #F8FAFC;
-  --viper-muted: #94A3B8;
-  --viper-support: #386641;
-  --viper-resistance: #BC4749;
+@layer base {
+  :root {
+    --bg-canvas: #090C10;
+    --bg-surface: #111620;
+    --text-primary: #FFFFFF;
+    --text-secondary: #8A99AD;
+    --zone-support: #386641;
+    --zone-resistance: #BC4749;
+  }
+
+  body {
+    background-color: #090C10;
+    color: #FFFFFF;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
 }
 
-body {
-  background-color: #0B0F17;
-  color: #F8FAFC;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-}
-
-/* Custom dark sleek scrollbars */
+/* Subtle dark scrollbar */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #0B0F17;
+  background: #090C10;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.25);
+  background: #1E293B;
   border-radius: 9999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.45);
+  background: #334155;
 }
