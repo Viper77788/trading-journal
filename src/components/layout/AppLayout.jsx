@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import TimezoneBanner from './TimezoneBanner';
+import ViperCopilotDrawer from '../copilot/ViperCopilotDrawer';
 
 export default function AppLayout({
   children,
@@ -65,6 +66,7 @@ export default function AppLayout({
           </div>
         </main>
       </div>
+      {currentView !== 'copilot' && <ViperCopilotDrawer trades={trades} />}
     </div>
   );
 }

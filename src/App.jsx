@@ -20,6 +20,7 @@ import UnassignedTradesModal from './components/account/UnassignedTradesModal';
 import PlaybookView from './components/playbook/PlaybookView';
 import TradeShareCardModal from './components/share/TradeShareCardModal';
 import ImportMt5TimezoneModal from './components/account/ImportMt5TimezoneModal';
+import ViperCopilotView from './components/copilot/ViperCopilotView';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, resetPassword, logout } = useAuth();
@@ -101,7 +102,7 @@ export default function App() {
       return;
     }
     setCurrentView(view);
-    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics' || view === 'trash' || view === 'playbook') {
+    if (view === 'dashboard' || view === 'journal' || view === 'calendar' || view === 'analytics' || view === 'trash' || view === 'playbook' || view === 'copilot') {
       await fetchTrades();
     }
   };
@@ -180,6 +181,8 @@ export default function App() {
             trades={trades}
           />
         );
+      case 'copilot':
+        return <ViperCopilotView trades={trades} loading={tradesLoading} />;
       case 'analytics':
         return <AnalyticsView trades={trades} loading={tradesLoading} />;
       case 'propfirm':

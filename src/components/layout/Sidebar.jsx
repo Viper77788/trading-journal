@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, BookOpen, CalendarDays, PlusCircle,
-  BarChart3, LineChart, Sun, Moon, Shield, Trash2, Target, Settings
+  BarChart3, LineChart, Sun, Moon, Shield, Trash2, Target, Settings, Bot
 } from 'lucide-react';
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { id: 'journal', label: 'Journal', icon: BookOpen },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'trade-new', label: 'Add Trade', icon: PlusCircle },
+  { id: 'copilot', label: 'Viper Copilot', icon: Bot, badge: '14-Rule' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'propfirm', label: 'Prop Firm', icon: Shield },
   { id: 'playbook', label: 'Playbook', icon: Target },
@@ -43,7 +44,12 @@ export default function Sidebar({ currentView, onNavigate, onToggleTheme, isDark
               }`}
             >
               <Icon size={20} />
-              <span>{item.label}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge && (
+                <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}
