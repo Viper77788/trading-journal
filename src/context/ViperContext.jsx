@@ -13,11 +13,11 @@ import {
 const ViperContext = createContext(null);
 
 const STORAGE_KEYS = {
-  TRADES: 'viper_futures_trades_v4',
-  RULES: 'viper_14_rules_v4',
-  ACCOUNT_FILTER: 'viper_account_filter_v4',
-  DAILY_CAP: 'viper_daily_loss_cap_v4',
-  STARTING_BALANCE: 'viper_starting_balance_v4',
+  TRADES: 'viper_futures_trades_v5',
+  RULES: 'viper_14_rules_v5',
+  ACCOUNT_FILTER: 'viper_account_filter_v5',
+  DAILY_CAP: 'viper_daily_loss_cap_v5',
+  STARTING_BALANCE: 'viper_starting_balance_v5',
 };
 
 function timeToMinutes(tStr) {
@@ -137,7 +137,7 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
 function getDefaultParsedSeedTrades() {
   const parsed = parseNinjaTraderOrdersCsv(SAMPLE_NINJATRADER_ORDERS_CSV, {
     accountProfileId: 'lucid-25k',
-    utcToCtOffsetHours: -6, // UTC -> CT (UTC-6) and +1h to ET (UTC-5)
+    utcToCtOffsetHours: -11.5, // IST (UTC+5:30) -> CT (UTC-6, -11.5h) and +1h to ET (UTC-5, -10.5h), so 19:45 -> 08:15 AM CT -> 09:15 AM EST
     includeCommissions: false,
   });
   return enrichTradesWithESTAndCooldown(parsed.trades, DEFAULT_14_RULES.length);

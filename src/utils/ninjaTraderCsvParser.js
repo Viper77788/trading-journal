@@ -228,15 +228,14 @@ export function formatShiftedUtcParts(shiftedMs, tzSuffix = 'EST') {
 }
 
 /**
- * Converts a raw UTC timestamp into Chicago Central Time (CT) first,
- * and then shifts +1h to Eastern Time (ET) so that morning trades
- * (e.g. 5:45 AM / 11:45 AM) display accurately in 12-hour AM/PM EST format.
+ * Converts a raw CSV timestamp (exported in local IST UTC+5:30 or UTC) into Chicago Central Time (CT) first,
+ * and then shifts +1h to Eastern Time (ET) so that 19:45 (7:45 PM IST) converts to 08:15 AM CT and 09:15 AM EST.
  *
- * @param {number} utcEpochMs - Raw timestamp parsed as UTC
- * @param {number} utcToCtOffsetHours - Offset from UTC to Chicago Central Time (default -6 for CST, or -5 for CDT)
+ * @param {number} rawEpochMs - Raw timestamp parsed as UTC milliseconds
+ * @param {number} utcToCtOffsetHours - Offset in hours from CSV source timezone to Chicago Central Time (default -11.5 for IST UTC+5:30 -> CT UTC-6:00, so ET = -10.5h)
  */
-export function convertUtcToCtAndEt(utcEpochMs, utcToCtOffsetHours = -6) {
-  const ctEpochMs = utcEpochMs + utcToCtOffsetHours * 3600 * 1000;
+export function convertUtcToCtAndEt(rawEpochMs, utcToCtOffsetHours = -11.5) {
+  const ctEpochMs = Math.round(rawEpochMs + utcToCtOffsetHours * 3600 * 1000);
   const etEpochMs = ctEpochMs + 1 * 3600 * 1000; // ET is always +1h from Chicago Central Time (CT)
 
   const ctParts = formatShiftedUtcParts(ctEpochMs, 'CT');
@@ -443,7 +442,7 @@ export function detectAccountProfile(rawAccountId = '') {
 export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
   const {
     accountProfileId = 'lucid-25k',
-    utcToCtOffsetHours = -6, // Default UTC -> Chicago Central Time (UTC-6) and +1h to Eastern Time (UTC-5)
+    utcToCtOffsetHours = -11.5, // Default IST (UTC+5:30) -> Chicago Central Time (UTC-6, -11.5h) and +1h to Eastern Time (UTC-5, -10.5h), so 19:45 -> 08:15 AM CT -> 09:15 AM EST
     includeCommissions = false,
     defaultRiskPerContract = 50,
   } = options;
@@ -677,9 +676,14 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
     const entryETParts = formatShiftedUtcParts(pos.firstEntryEtMs, 'EST');
     const exitETParts = formatShiftedUtcParts(pos.lastExitEtMs, 'EST');
 
-    const sessionWindow = resolveLiquidityWindowFromCTMinutes(
+    let sessionWindow = resolveLiquidityWindowFromCTMinutes(
       entryCTParts.totalMinutes
     );
+    if (sessionWindow === LIQUIDITY_WINDOWS.OUTSIDE) {
+      sessionWindow = resolveLiquidityWindowFromCTMinutes(
+        exitCTParts.totalMinutes
+      );
+    }
 
     const autoProfile = detectAccountProfile(pos.account);
     const effectiveProfile =

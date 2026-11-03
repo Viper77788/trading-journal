@@ -30,7 +30,7 @@ export default function NinjaTraderImportModal({
   const [csvText, setCsvText] = useState(SAMPLE_NINJATRADER_ORDERS_CSV);
   const [fileName, setFileName] = useState('Orders_LFE05072050930002.csv');
   const [accountProfileId, setAccountProfileId] = useState('lucid-25k');
-  const [utcToCtOffsetHours, setUtcToCtOffsetHours] = useState(-6);
+  const [utcToCtOffsetHours, setUtcToCtOffsetHours] = useState(-11.5);
   const [includeCommissions, setIncludeCommissions] = useState(false);
   const [replaceExisting, setReplaceExisting] = useState(true);
 
@@ -140,7 +140,7 @@ export default function NinjaTraderImportModal({
               </p>
             </div>
 
-            {/* 2. UTC -> CT -> ET (+1h) Timezone Conversion */}
+            {/* 2. IST / UTC -> CT -> ET (+1h) Timezone Conversion */}
             <div className="bg-[#090C10] p-4 rounded-xl border border-slate-800/60">
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#8A99AD] mb-2 flex items-center gap-1.5">
                 <Clock size={14} className="text-emerald-400" />
@@ -151,6 +151,12 @@ export default function NinjaTraderImportModal({
                 onChange={(e) => setUtcToCtOffsetHours(Number(e.target.value))}
                 className="w-full bg-[#111620] border border-slate-800/60 rounded-xl px-3 py-2 text-sm font-semibold text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
               >
+                <option value={-11.5}>
+                  IST (UTC+5:30) → CT (-11h 30m) &amp; ET (-10h 30m / 19:45 = 09:15 AM EST)
+                </option>
+                <option value={-10.5}>
+                  IST (UTC+5:30) → CDT (-10h 30m) &amp; EDT (-9h 30m)
+                </option>
                 <option value={-6}>
                   UTC Server Time → CT (UTC-6) &amp; ET (UTC-5 / +1h)
                 </option>
@@ -165,7 +171,7 @@ export default function NinjaTraderImportModal({
                 </option>
               </select>
               <p className="text-xs text-[#8A99AD] mt-2">
-                Converts UTC → <strong className="text-[#FFFFFF]">CT</strong> → <strong className="text-emerald-400">ET (+1h)</strong> so morning trades match active liquidity windows.
+                Converts <code className="text-[#FFFFFF]">19:45</code> (7:45 PM IST) → <strong className="text-[#FFFFFF]">08:15 AM CT</strong> → <strong className="text-emerald-400">09:15 AM EST</strong> (+1h).
               </p>
             </div>
 
