@@ -6,12 +6,15 @@ import {
   Shield,
   RotateCcw,
   Terminal,
+  Sparkles,
 } from 'lucide-react';
 import { useViper } from './context/ViperContext';
 import DashboardView from './components/DashboardView';
 import AnalyticsView from './components/AnalyticsView';
 import TradeLogModal from './components/TradeLogModal';
-import ViperCopilotSidebar from './components/ViperCopilotSidebar';
+import ViperCopilotBottomDrawer, {
+  ViperCopilotAuditContent,
+} from './components/ViperCopilotSidebar';
 
 export default function App() {
   const { accountFilter, setAccountFilter, resetDemoData, analytics } = useViper();
@@ -19,6 +22,7 @@ export default function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState(null);
+  const [isBottomDrawerOpen, setIsBottomDrawerOpen] = useState(false);
 
   const handleOpenNewTrade = () => {
     setEditingTrade(null);
@@ -32,91 +36,103 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F4F4F6] text-slate-900 flex flex-col">
-      {/* Deep Slate / Charcoal Top Command Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-[#121417] text-white border-b border-slate-800 shadow-lg">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+      {/* Clean Modern High-Contrast Header */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+        <div className="max-w-[1440px] mx-auto px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
           {/* Brand Logo */}
           <div className="flex items-center gap-3">
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-mono font-black text-white shadow-md"
+              className="w-9 h-9 rounded-xl flex items-center justify-center font-mono font-black text-white shadow-xs"
               style={{ backgroundColor: '#386641' }}
             >
               <Terminal size={18} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-extrabold tracking-tight text-white">
+                <span className="text-base font-extrabold tracking-tight text-slate-900">
                   VIPER
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-800 text-emerald-400 border border-slate-700">
+                <span
+                  className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase"
+                  style={{
+                    backgroundColor: 'rgba(56, 102, 65, 0.1)',
+                    color: '#386641',
+                  }}
+                >
                   GC / MGC Futures
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
-                14-Rule Strategy Auditing • Support (#386641) & Resistance (#BC4749) • Prop Risk Engine
+              <p className="text-[11px] text-slate-500 hidden sm:block">
+                Fast Futures Logger • 14-Rule Strategy Audit • $600 Daily Loss Guardrail
               </p>
             </div>
           </div>
 
-          {/* Primary Navigation Tabs */}
-          <div className="flex items-center gap-1.5 bg-[#181B20] p-1 rounded-xl border border-slate-800">
+          {/* Primary Navigation Tabs: Executions, Analytics, Review Session */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               type="button"
               onClick={() => setActiveView('dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 activeView === 'dashboard'
-                  ? 'bg-[#386641] text-white shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               <LayoutDashboard size={14} />
-              <span>Dashboard & Trades</span>
+              <span>Dashboard</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveView('analytics')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 activeView === 'analytics'
-                  ? 'bg-[#386641] text-white shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               <BarChart3 size={14} />
-              <span>Analytics & R-Distribution</span>
+              <span>Analytics</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveView('review')}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeView === 'review'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Sparkles size={14} style={{ color: '#386641' }} />
+              <span>Review Session</span>
             </button>
           </div>
 
-          {/* Right Controls: Prop Account Filter + Log Trade CTA */}
+          {/* Right Controls: Account Filter + Fast Log Button */}
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 bg-[#181B20] border border-slate-800 rounded-xl px-3 py-1.5">
-              <Shield size={13} className="text-emerald-400" />
-              <span className="text-[11px] text-slate-400 hidden md:inline">Prop Account:</span>
+            <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5">
+              <Shield size={13} style={{ color: '#386641' }} />
               <select
                 value={accountFilter}
                 onChange={(e) => setAccountFilter(e.target.value)}
-                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
               >
-                <option value="All" className="bg-[#121417]">
-                  All Accounts (Apex + Lucid Flex)
-                </option>
-                <option value="Lucid Flex" className="bg-[#121417]">
-                  Lucid Flex ($600 Daily Cap)
-                </option>
-                <option value="Apex" className="bg-[#121417]">
-                  Apex Trader Funding
-                </option>
+                <option value="All">All Accounts</option>
+                <option value="Lucid Flex">Lucid Flex ($600 Cap)</option>
+                <option value="Apex">Apex Trader Funding</option>
               </select>
             </div>
 
             <button
               type="button"
               onClick={handleOpenNewTrade}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md transition-all hover:opacity-95"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs transition-all hover:opacity-95"
               style={{ backgroundColor: '#386641' }}
             >
               <PlusCircle size={15} />
-              <span>Log Futures Trade</span>
+              <span>Fast Log Trade</span>
             </button>
 
             <button
@@ -126,7 +142,7 @@ export default function App() {
                   resetDemoData();
                 }
               }}
-              className="p-2 rounded-xl bg-[#181B20] hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-colors"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 border border-slate-200 transition-colors"
               title="Reset sample data"
             >
               <RotateCcw size={14} />
@@ -135,41 +151,48 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Workspace: Left = Active View, Right = Dedicated AI Copilot Sidebar */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6">
-        <div className="flex flex-col xl:flex-row items-start gap-6">
-          {/* Primary Module Viewport */}
-          <div className="flex-1 w-full min-w-0">
-            {activeView === 'dashboard' ? (
-              <DashboardView
-                onOpenLogModal={handleOpenNewTrade}
-                onEditTrade={handleEditTrade}
-              />
-            ) : (
-              <AnalyticsView />
-            )}
-          </div>
-
-          {/* Dedicated Right AI Copilot & 4-Point Automated Audit Sidebar */}
-          <ViperCopilotSidebar />
-        </div>
+      {/* Uncluttered Full-Width Main Workspace */}
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-8">
+        {activeView === 'dashboard' && (
+          <DashboardView
+            onOpenLogModal={handleOpenNewTrade}
+            onEditTrade={handleEditTrade}
+            onOpenSessionReview={() => setIsBottomDrawerOpen(true)}
+          />
+        )}
+        {activeView === 'analytics' && <AnalyticsView />}
+        {activeView === 'review' && <ViperCopilotAuditContent />}
       </main>
 
-      {/* Footer Status Bar */}
-      <footer className="bg-[#121417] text-slate-400 border-t border-slate-800 py-3 px-6 text-xs">
-        <div className="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2">
+      {/* Clean Minimal Footer */}
+      <footer className="bg-white border-t border-slate-200/80 py-4 px-6 text-xs text-slate-500">
+        <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-4">
-            <span className="font-mono font-bold text-white">VIPER v2.0</span>
-            <span>Support Zone: <strong className="font-mono text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: '#386641' }}>#386641</strong></span>
-            <span>Resistance Zone: <strong className="font-mono text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: '#BC4749' }}>#BC4749</strong></span>
+            <span className="font-mono font-bold text-slate-800">VIPER JOURNAL</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#386641' }} />
+              <span>Support #386641</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#BC4749' }} />
+              <span>Resistance #BC4749</span>
+            </span>
           </div>
-          <div className="font-mono text-[11px]">
-            14-Rule Compliance Avg: <strong className="text-white">{analytics.avgComplianceScore}%</strong> • LocalStorage Synced (Firebase-Ready)
+          <div className="font-mono text-[11px] text-slate-500">
+            14-Rule Compliance Avg: <strong className="text-slate-900">{analytics.avgComplianceScore}%</strong>
           </div>
         </div>
       </footer>
 
-      {/* Multi-Tab Trade Logging Modal */}
+      {/* On-Demand Collapsible Bottom AI Copilot Drawer (Hidden when already on Review tab) */}
+      {activeView !== 'review' && (
+        <ViperCopilotBottomDrawer
+          isOpen={isBottomDrawerOpen}
+          onToggle={() => setIsBottomDrawerOpen((prev) => !prev)}
+        />
+      )}
+
+      {/* Streamlined Single-Scroll Fast Trade Log Modal */}
       <TradeLogModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

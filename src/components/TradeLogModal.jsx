@@ -1,33 +1,45 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
-  CheckCircle2,
-  Shield,
   Clock,
-  Flame,
-  ExternalLink,
-  Edit3,
-  Check,
-  FileText,
   DollarSign,
-  Sliders,
+  CheckCircle2,
+  ExternalLink,
+  Check,
 } from 'lucide-react';
-import {
-  CONTRACTS,
-  ACCOUNT_TYPES,
-  SESSION_WINDOWS,
-  ZONE_TYPES,
-  BEHAVIORAL_LEAK_TAGS,
-} from '../constants/viperConstants';
 import { useViper } from '../context/ViperContext';
-import { computeRuleCompliance, formatUSD } from '../utils/viperAnalytics';
+import { DEFAULT_14_RULES } from '../constants/viperConstants';
+
+const CORE_3_PILLARS = [
+  {
+    id: 'pillar_window',
+    title: '1. Liquidity Window Aligned',
+    subtitle: 'Executed in 1:00–4:00 AM or 8:00–11:00 AM NY window',
+  },
+  {
+    id: 'pillar_zone',
+    title: '2. Zone & Candle Close Confirmed',
+    subtitle: 'Confirmed reaction at #386641 Support or #BC4749 Resistance',
+  },
+  {
+    id: 'pillar_risk',
+    title: '3. Risk & Stop Plan Respected',
+    subtitle: 'Within $600 daily loss cap with fixed initial stop',
+  },
+];
+
+const QUICK_LEAK_OPTIONS = [
+  'Clean',
+  'FOMO Entry',
+  'Early Exit',
+  'Moved Stop Loss',
+  'Oversizing',
+  'Revenge Trading',
+  'Session Outside Window',
+];
 
 export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) {
-  const { rules, addOrUpdateTrade, updateRuleLabel, dailyLossCap } = useViper();
-
-  const [activeTab, setActiveTab] = useState('execution');
-  const [editingRuleId, setEditingRuleId] = useState(null);
-  const [editingRuleText, setEditingRuleText] = useState('');
+  const { addOrUpdateTrade } = useViper();
 
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
@@ -39,14 +51,15 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
     zoneInteraction: 'Support (#386641)',
     entryPrice: '',
     stopLoss: '',
-    tp1: '',
-    tp2: '',
     exitPrice: '',
-    grossPnl: '',
-    commissions: '12.40',
     netPnl: '',
-    initialRisk: '200',
-    rulesChecked: rules.map((r) => r.id),
+    rMultiple: '',
+    pillars: {
+      pillar_window: true,
+      pillar_zone: true,
+      pillar_risk: true,
+    },
+    rulesCount: 14,
     leakTags: [],
     tradingViewUrl: '',
     notes: '',
@@ -54,12 +67,31 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
 
   useEffect(() => {
     if (initialTrade) {
+      const savedCount = Array.isArray(initialTrade.rulesChecked)
+        ? initialTrade.rulesChecked.length
+        : Math.round(((initialTrade.complianceScore || 100) / 100) * 14);
       setForm({
-        ...initialTrade,
-        rulesChecked: Array.isArray(initialTrade.rulesChecked)
-          ? initialTrade.rulesChecked
-          : [],
+        date: initialTrade.date || new Date().toISOString().slice(0, 10),
+        time: initialTrade.time || '08:30',
+        sessionWindow: initialTrade.sessionWindow || '8:00 AM–11:00 AM',
+        contract: initialTrade.contract || 'MGCZ6',
+        accountType: initialTrade.accountType || 'Lucid Flex',
+        direction: initialTrade.direction || 'Long',
+        zoneInteraction: initialTrade.zoneInteraction || 'Support (#386641)',
+        entryPrice: initialTrade.entryPrice ?? '',
+        stopLoss: initialTrade.stopLoss ?? '',
+        exitPrice: initialTrade.exitPrice ?? '',
+        netPnl: initialTrade.netPnl ?? '',
+        rMultiple: initialTrade.rMultiple ?? '',
+        pillars: initialTrade.pillars || {
+          pillar_window: savedCount >= 10,
+          pillar_zone: savedCount >= 12,
+          pillar_risk: savedCount >= 8,
+        },
+        rulesCount: savedCount,
         leakTags: Array.isArray(initialTrade.leakTags) ? initialTrade.leakTags : [],
+        tradingViewUrl: initialTrade.tradingViewUrl || '',
+        notes: initialTrade.notes || '',
       });
     } else {
       setForm({
@@ -72,612 +104,534 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
         zoneInteraction: 'Support (#386641)',
         entryPrice: '',
         stopLoss: '',
-        tp1: '',
-        tp2: '',
         exitPrice: '',
-        grossPnl: '',
-        commissions: '12.40',
         netPnl: '',
-        initialRisk: '200',
-        rulesChecked: rules.map((r) => r.id),
+        rMultiple: '',
+        pillars: {
+          pillar_window: true,
+          pillar_zone: true,
+          pillar_risk: true,
+        },
+        rulesCount: 14,
         leakTags: [],
         tradingViewUrl: '',
         notes: '',
       });
     }
-    setActiveTab('execution');
-  }, [initialTrade, isOpen, rules]);
-
-  // Auto-calculate Net P&L & R-Multiple preview
-  const derivedFinancials = useMemo(() => {
-    const gross = parseFloat(form.grossPnl);
-    const comm = parseFloat(form.commissions) || 0;
-    const net = !Number.isNaN(gross)
-      ? Math.round((gross - comm) * 100) / 100
-      : parseFloat(form.netPnl) || 0;
-    const risk = parseFloat(form.initialRisk) || 0;
-    const rMultiple = risk > 0 ? Math.round((net / risk) * 100) / 100 : 0;
-    return { net, rMultiple };
-  }, [form.grossPnl, form.commissions, form.netPnl, form.initialRisk]);
-
-  const liveCompliance = useMemo(() => {
-    return computeRuleCompliance(form.rulesChecked, rules.length);
-  }, [form.rulesChecked, rules.length]);
+  }, [initialTrade, isOpen]);
 
   if (!isOpen) return null;
 
-  const updateField = (key, val) => {
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Toggle one of the 3 quick pillars and automatically sync the 14-rule count slider
+  const togglePillar = (pillarId) => {
     setForm((prev) => {
-      const next = { ...prev, [key]: val };
-      if (key === 'grossPnl' || key === 'commissions') {
-        const g = parseFloat(key === 'grossPnl' ? val : prev.grossPnl);
-        const c = parseFloat(key === 'commissions' ? val : prev.commissions) || 0;
-        if (!Number.isNaN(g)) {
-          next.netPnl = (g - c).toFixed(2);
-        }
-      }
-      return next;
+      const nextPillars = { ...prev.pillars, [pillarId]: !prev.pillars[pillarId] };
+      const activeCount = Object.values(nextPillars).filter(Boolean).length;
+      const mappedRulesCount =
+        activeCount === 3 ? 14 : activeCount === 2 ? 10 : activeCount === 1 ? 5 : 0;
+      return {
+        ...prev,
+        pillars: nextPillars,
+        rulesCount: mappedRulesCount,
+      };
     });
   };
 
-  const toggleRule = (ruleId) => {
-    setForm((prev) => {
-      const exists = prev.rulesChecked.includes(ruleId);
-      const nextRules = exists
-        ? prev.rulesChecked.filter((id) => id !== ruleId)
-        : [...prev.rulesChecked, ruleId];
-      return { ...prev, rulesChecked: nextRules };
-    });
-  };
-
-  const toggleLeakTag = (tag) => {
+  const handleTagSelect = (tag) => {
+    if (tag === 'Clean') {
+      updateField('leakTags', []);
+      return;
+    }
     setForm((prev) => {
       const exists = prev.leakTags.includes(tag);
-      const nextTags = exists
+      const next = exists
         ? prev.leakTags.filter((t) => t !== tag)
         : [...prev.leakTags, tag];
-      return { ...prev, leakTags: nextTags };
+      return { ...prev, leakTags: next };
     });
   };
+
+  const compliancePct = Math.round((form.rulesCount / 14) * 100);
+  const complianceGrade =
+    compliancePct >= 85 ? 'A' : compliancePct >= 65 ? 'B' : 'C';
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const rulesChecked = DEFAULT_14_RULES.slice(0, form.rulesCount).map((r) => r.id);
+    const netVal = parseFloat(form.netPnl) || 0;
+    const rVal = parseFloat(form.rMultiple) || 0;
+
     addOrUpdateTrade({
-      ...form,
       id: initialTrade?.id,
-      netPnl: derivedFinancials.net,
-      rMultiple: derivedFinancials.rMultiple,
+      date: form.date,
+      time: form.time,
+      sessionWindow: form.sessionWindow,
+      contract: form.contract,
+      accountType: form.accountType,
+      direction: form.direction,
+      zoneInteraction: form.zoneInteraction,
+      entryPrice: form.entryPrice !== '' ? Number(form.entryPrice) : '',
+      stopLoss: form.stopLoss !== '' ? Number(form.stopLoss) : '',
+      exitPrice: form.exitPrice !== '' ? Number(form.exitPrice) : '',
+      grossPnl: netVal,
+      commissions: 0,
+      netPnl: netVal,
+      initialRisk: rVal !== 0 ? Math.round(Math.abs(netVal / rVal)) : 200,
+      rMultiple: rVal,
+      pillars: form.pillars,
+      rulesChecked,
+      complianceScore: compliancePct,
+      complianceGrade,
+      leakTags: form.leakTags,
+      tradingViewUrl: form.tradingViewUrl,
+      notes: form.notes,
     });
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl bg-[#121417] text-slate-100 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden my-auto">
-        {/* Top Header */}
-        <div className="px-6 py-4 bg-[#181B20] border-b border-slate-800 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="w-full max-w-3xl bg-white text-slate-900 rounded-2xl border border-slate-200 shadow-2xl overflow-hidden my-auto">
+        {/* Clean Light Header */}
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase text-white bg-[#386641]">
-                {form.contract}
+              <span
+                className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold text-white"
+                style={{ backgroundColor: '#386641' }}
+              >
+                FAST LOG
               </span>
-              <h2 className="text-lg font-bold text-white tracking-tight">
-                {initialTrade ? 'Edit Futures Execution & 14-Rule Audit' : 'Log Gold Futures Execution'}
+              <h2 className="text-lg font-bold text-slate-900">
+                {initialTrade ? 'Edit Futures Execution' : 'Log Gold Futures Trade'}
               </h2>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {form.accountType} • Daily Loss Limit: ${dailyLossCap} • Live Rule Compliance:{' '}
-              <strong className="text-white font-mono">
-                {liveCompliance.count}/14 ({liveCompliance.score}% — Grade {liveCompliance.grade})
-              </strong>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Streamlined 30-second execution logger • GC & MGCZ6
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="px-6 pt-3 bg-[#181B20] border-b border-slate-800 flex gap-2 overflow-x-auto">
-          {[
-            { id: 'execution', label: '1. Metadata, Prices & Financials', icon: DollarSign },
-            { id: 'rules', label: `2. 14-Rule Strategy Checklist (${liveCompliance.count}/14)`, icon: CheckCircle2 },
-            { id: 'psychology', label: `3. Behavioral Leaks & Notes (${form.leakTags.length})`, icon: Flame },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 transition-all whitespace-nowrap ${
-                  isActive
-                    ? 'border-[#386641] text-white bg-[#121417]'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Icon size={14} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          {/* SECTION 1: CORE TRADE INFO */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Clock size={14} className="text-slate-400" />
+                Section 1: Core Trade Info
+              </h3>
+            </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 max-h-[68vh] overflow-y-auto space-y-6">
-            {/* TAB 1: METADATA, EXECUTION PRICES & FINANCIALS */}
-            {activeTab === 'execution' && (
-              <div className="space-y-6">
-                {/* Metadata Grid */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                    <Clock size={13} /> Session & Contract Metadata
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Trade Date</label>
-                      <input
-                        type="date"
-                        value={form.date}
-                        onChange={(e) => updateField('date', e.target.value)}
-                        required
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#386641]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Execution Time (EST/NY)</label>
-                      <input
-                        type="time"
-                        value={form.time}
-                        onChange={(e) => updateField('time', e.target.value)}
-                        required
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#386641]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Liquidity Session Window</label>
-                      <select
-                        value={form.sessionWindow}
-                        onChange={(e) => updateField('sessionWindow', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#386641]"
-                      >
-                        {SESSION_WINDOWS.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Date */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => updateField('date', e.target.value)}
+                  required
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
 
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Futures Contract</label>
-                      <select
-                        value={form.contract}
-                        onChange={(e) => updateField('contract', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#386641]"
-                      >
-                        {CONTRACTS.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+              {/* Time */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Time (NY)</label>
+                <input
+                  type="time"
+                  value={form.time}
+                  onChange={(e) => updateField('time', e.target.value)}
+                  required
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
 
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Prop Firm Account</label>
-                      <select
-                        value={form.accountType}
-                        onChange={(e) => updateField('accountType', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#386641]"
-                      >
-                        {ACCOUNT_TYPES.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Direction</label>
-                      <div className="grid grid-cols-2 gap-2 bg-[#181B20] p-1 rounded-xl border border-slate-700">
-                        <button
-                          type="button"
-                          onClick={() => updateField('direction', 'Long')}
-                          className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                            form.direction === 'Long'
-                              ? 'text-white shadow'
-                              : 'text-slate-400 hover:text-white'
-                          }`}
-                          style={{
-                            backgroundColor: form.direction === 'Long' ? '#386641' : 'transparent',
-                          }}
-                        >
-                          LONG (BUY)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateField('direction', 'Short')}
-                          className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                            form.direction === 'Short'
-                              ? 'text-white shadow'
-                              : 'text-slate-400 hover:text-white'
-                          }`}
-                          style={{
-                            backgroundColor: form.direction === 'Short' ? '#BC4749' : 'transparent',
-                          }}
-                        >
-                          SHORT (SELL)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Support (#386641) / Resistance (#BC4749) Zone Selector */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    Support (#386641) & Resistance (#BC4749) Zone Interaction
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                    {ZONE_TYPES.map((z) => {
-                      const selected = form.zoneInteraction === z.id;
-                      return (
-                        <button
-                          key={z.id}
-                          type="button"
-                          onClick={() => updateField('zoneInteraction', z.id)}
-                          className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
-                            selected
-                              ? 'border-white bg-slate-800/90 text-white shadow-md'
-                              : 'border-slate-800 bg-[#181B20] text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          <span
-                            className="w-3.5 h-3.5 rounded-full shrink-0 border border-white/25"
-                            style={{ backgroundColor: z.hex }}
-                          />
-                          <span className="truncate">{z.id}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Execution Prices */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                    <Sliders size={13} /> Execution Prices (Entry, SL, TP1, TP2, Exit)
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Entry Price</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="2742.5"
-                        value={form.entryPrice}
-                        onChange={(e) => updateField('entryPrice', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Stop Loss</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="2738.5"
-                        value={form.stopLoss}
-                        onChange={(e) => updateField('stopLoss', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Target 1 (TP1)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="2748.5"
-                        value={form.tp1}
-                        onChange={(e) => updateField('tp1', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Target 2 (TP2)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="2752.5"
-                        value={form.tp2}
-                        onChange={(e) => updateField('tp2', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Exit Price</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="2751.3"
-                        value={form.exitPrice}
-                        onChange={(e) => updateField('exitPrice', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Financials */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                    <Shield size={13} /> Financials & R-Multiple Calculation
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Gross P&L ($)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="440.00"
-                        value={form.grossPnl}
-                        onChange={(e) => updateField('grossPnl', e.target.value)}
-                        required
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Commissions ($)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="12.40"
-                        value={form.commissions}
-                        onChange={(e) => updateField('commissions', e.target.value)}
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Initial Risk ($)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="200.00"
-                        value={form.initialRisk}
-                        onChange={(e) => updateField('initialRisk', e.target.value)}
-                        required
-                        className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-[#181B20] border border-slate-800 flex flex-col justify-center">
-                      <span className="text-[10px] text-slate-400 uppercase">Net P&L ($)</span>
-                      <span
-                        className="text-sm font-mono font-bold mt-0.5"
-                        style={{
-                          color: derivedFinancials.net >= 0 ? '#4ade80' : '#f87171',
-                        }}
-                      >
-                        {formatUSD(derivedFinancials.net)}
-                      </span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-[#181B20] border border-slate-800 flex flex-col justify-center">
-                      <span className="text-[10px] text-slate-400 uppercase">Realized R-Multiple</span>
-                      <span className="text-sm font-mono font-bold text-white mt-0.5">
-                        {derivedFinancials.rMultiple > 0 ? `+${derivedFinancials.rMultiple}R` : `${derivedFinancials.rMultiple}R`}
-                      </span>
-                    </div>
-                  </div>
+              {/* Contract Pill Selector */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Contract</label>
+                <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  {['MGCZ6', 'GC'].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => updateField('contract', c)}
+                      className={`py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+                        form.contract === c
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
 
-            {/* TAB 2: 14-RULE STRATEGY CHECKLIST */}
-            {activeTab === 'rules' && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-[#181B20] p-3.5 rounded-xl border border-slate-800">
-                  <div>
-                    <h4 className="text-xs font-bold text-white">14-Rule Technical Strategy Scorecard</h4>
-                    <p className="text-[11px] text-slate-400">
-                      Rules 1–7 are core strategy locks. Rules 8–14 can be customized by clicking the edit icon.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
+              {/* Account Selector */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Account</label>
+                <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  {['Lucid Flex', 'Apex'].map((acc) => (
                     <button
+                      key={acc}
                       type="button"
-                      onClick={() => updateField('rulesChecked', rules.map((r) => r.id))}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200"
+                      onClick={() => updateField('accountType', acc)}
+                      className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        form.accountType === acc
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
                     >
-                      Check All 14
+                      {acc}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => updateField('rulesChecked', [])}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-400"
-                    >
-                      Clear
-                    </button>
-                  </div>
+                  ))}
                 </div>
+              </div>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                  {rules.map((rule) => {
-                    const checked = form.rulesChecked.includes(rule.id);
-                    const isEditing = editingRuleId === rule.id;
+            {/* Session Window + Direction + Zone Anchor Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              {/* Session Selector */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Liquidity Session Window
+                </label>
+                <select
+                  value={form.sessionWindow}
+                  onChange={(e) => updateField('sessionWindow', e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-[#386641]"
+                >
+                  <option value="1:00 AM–4:00 AM">1:00 AM–4:00 AM (London)</option>
+                  <option value="8:00 AM–11:00 AM">8:00 AM–11:00 AM (NY Open)</option>
+                  <option value="Outside Window">Outside Window</option>
+                </select>
+              </div>
 
+              {/* Direction */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Direction</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => updateField('direction', 'Long')}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      form.direction === 'Long'
+                        ? 'text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    style={{
+                      backgroundColor: form.direction === 'Long' ? '#386641' : 'transparent',
+                    }}
+                  >
+                    Long
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateField('direction', 'Short')}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      form.direction === 'Short'
+                        ? 'text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    style={{
+                      backgroundColor: form.direction === 'Short' ? '#BC4749' : 'transparent',
+                    }}
+                  >
+                    Short
+                  </button>
+                </div>
+              </div>
+
+              {/* Zone Badge Anchor */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Zone Reaction Anchor
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  {[
+                    { id: 'Support (#386641)', short: '#386641 Sup', dot: '#386641' },
+                    { id: 'Resistance (#BC4749)', short: '#BC4749 Res', dot: '#BC4749' },
+                    { id: 'No Zone', short: 'None', dot: '#94a3b8' },
+                  ].map((z) => {
+                    const active = form.zoneInteraction === z.id;
                     return (
-                      <div
-                        key={rule.id}
-                        className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-2 ${
-                          checked
-                            ? 'bg-[#386641]/15 border-[#386641]/60 text-white'
-                            : 'bg-[#181B20] border-slate-800 text-slate-400'
+                      <button
+                        key={z.id}
+                        type="button"
+                        onClick={() => updateField('zoneInteraction', z.id)}
+                        className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                          active
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800'
                         }`}
                       >
-                        <div
-                          onClick={() => !isEditing && toggleRule(rule.id)}
-                          className="flex items-center gap-2.5 flex-1 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {}}
-                            className="w-4 h-4 rounded accent-[#386641] cursor-pointer"
-                          />
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editingRuleText}
-                              onChange={(e) => setEditingRuleText(e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex-1 bg-black/40 border border-slate-600 rounded px-2 py-1 text-xs text-white"
-                            />
-                          ) : (
-                            <span className="text-xs font-medium leading-snug">
-                              <strong className="font-mono text-slate-300">#{rule.number}.</strong> {rule.label}
-                            </span>
-                          )}
-                        </div>
-
-                        {!rule.isCore && (
-                          <div className="shrink-0">
-                            {isEditing ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (editingRuleText.trim()) {
-                                    updateRuleLabel(rule.id, editingRuleText.trim());
-                                  }
-                                  setEditingRuleId(null);
-                                }}
-                                className="p-1 text-emerald-400 hover:text-emerald-300"
-                                title="Save custom rule"
-                              >
-                                <Check size={14} />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingRuleId(rule.id);
-                                  setEditingRuleText(rule.label);
-                                }}
-                                className="p-1 text-slate-500 hover:text-slate-200"
-                                title="Customize rule label"
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: z.dot }}
+                        />
+                        <span className="truncate">{z.short}</span>
+                      </button>
                     );
                   })}
                 </div>
               </div>
-            )}
-
-            {/* TAB 3: BEHAVIORAL LEAKS & NOTES */}
-            {activeTab === 'psychology' && (
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    Behavioral Leak Tags (Multi-Select)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {BEHAVIORAL_LEAK_TAGS.map((tag) => {
-                      const active = form.leakTags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => toggleLeakTag(tag)}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                            active
-                              ? 'text-white border-[#BC4749] shadow-sm'
-                              : 'bg-[#181B20] text-slate-400 border-slate-800 hover:text-white'
-                          }`}
-                          style={{
-                            backgroundColor: active ? '#BC4749' : undefined,
-                          }}
-                        >
-                          {active ? '⚠️ ' : '+ '}
-                          {tag}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
-                    <ExternalLink size={13} /> TradingView Chart URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://www.tradingview.com/x/..."
-                    value={form.tradingViewUrl}
-                    onChange={(e) => updateField('tradingViewUrl', e.target.value)}
-                    className="w-full bg-[#181B20] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
-                    <FileText size={13} /> Execution & Post-Trade Markdown Notes
-                  </label>
-                  <textarea
-                    rows={4}
-                    placeholder="Document #386641 support / #BC4749 resistance reaction, candle close confirmation, and session execution notes..."
-                    value={form.notes}
-                    onChange={(e) => updateField('notes', e.target.value)}
-                    className="w-full bg-[#181B20] border border-slate-700 rounded-xl p-3.5 text-xs text-white leading-relaxed resize-none"
-                  />
-                </div>
-              </div>
-            )}
+            </div>
           </div>
 
-          {/* Modal Footer */}
-          <div className="px-6 py-4 bg-[#181B20] border-t border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-slate-400">Compliance Grade:</span>
-              <span
-                className="px-2.5 py-1 rounded-lg font-mono font-bold text-white"
-                style={{
-                  backgroundColor:
-                    liveCompliance.grade === 'A'
-                      ? '#386641'
-                      : liveCompliance.grade === 'B'
-                      ? '#ca8a04'
-                      : '#BC4749',
-                }}
-              >
-                Grade {liveCompliance.grade} ({liveCompliance.score}%)
-              </span>
+          <hr className="border-slate-200" />
+
+          {/* SECTION 2: PRICES & P&L */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <DollarSign size={14} className="text-slate-400" />
+              Section 2: Prices & P&L
+            </h3>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Entry Price
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="2742.5"
+                  value={form.entryPrice}
+                  onChange={(e) => updateField('entryPrice', e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Stop Loss
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="2738.5"
+                  value={form.stopLoss}
+                  onChange={(e) => updateField('stopLoss', e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Exit Price
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="2751.3"
+                  value={form.exitPrice}
+                  onChange={(e) => updateField('exitPrice', e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-800 mb-1">
+                  Net P&L ($) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="427.60"
+                  value={form.netPnl}
+                  onChange={(e) => updateField('netPnl', e.target.value)}
+                  required
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-800 mb-1">
+                  R-Multiple *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="2.14"
+                  value={form.rMultiple}
+                  onChange={(e) => updateField('rMultiple', e.target.value)}
+                  required
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-slate-200" />
+
+          {/* SECTION 3: SIMPLIFIED CHECKLIST & LEAKS */}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <CheckCircle2 size={14} className="text-slate-400" />
+                Section 3: Simplified Strategy Checklist & Leaks
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">14-Rule Score:</span>
+                <span
+                  className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold text-white"
+                  style={{
+                    backgroundColor:
+                      complianceGrade === 'A'
+                        ? '#386641'
+                        : complianceGrade === 'B'
+                        ? '#ca8a04'
+                        : '#BC4749',
+                  }}
+                >
+                  {form.rulesCount}/14 ({compliancePct}% • Grade {complianceGrade})
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:opacity-95"
-                style={{ backgroundColor: '#386641' }}
-              >
-                {initialTrade ? 'Update Trade & Audit' : 'Submit Trade & Run AI Audit'}
-              </button>
+            {/* 3 Quick Pillar Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {CORE_3_PILLARS.map((p) => {
+                const checked = form.pillars[p.id];
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => togglePillar(p.id)}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      checked
+                        ? 'bg-[#386641]/5 border-[#386641] text-slate-900'
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    <div
+                      className="w-4 h-4 rounded mt-0.5 flex items-center justify-center shrink-0 text-white"
+                      style={{
+                        backgroundColor: checked ? '#386641' : '#cbd5e1',
+                      }}
+                    >
+                      {checked && <Check size={12} />}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">{p.title}</div>
+                      <div className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                        {p.subtitle}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Fine-tune 14-Rule Compliance Slider */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="text-xs">
+                <span className="font-semibold text-slate-700">
+                  Exact 14-Rule Compliance Slider:
+                </span>{' '}
+                <span className="text-slate-500">
+                  Adjust if specific sub-rules were missed ({form.rulesCount} of 14 rules followed)
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="14"
+                value={form.rulesCount}
+                onChange={(e) => updateField('rulesCount', Number(e.target.value))}
+                className="w-full sm:w-48 accent-[#386641] cursor-pointer"
+              />
+            </div>
+
+            {/* Simple Behavioral Leak Tag Selector */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-2">
+                Execution & Behavioral Tags
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_LEAK_OPTIONS.map((tag) => {
+                  const isCleanChip = tag === 'Clean';
+                  const selected = isCleanChip
+                    ? form.leakTags.length === 0
+                    : form.leakTags.includes(tag);
+
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleTagSelect(tag)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                        selected
+                          ? isCleanChip
+                            ? 'bg-[#386641]/10 text-[#386641] border-[#386641]'
+                            : 'bg-[#BC4749]/10 text-[#BC4749] border-[#BC4749]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Optional Note & Chart URL in a compact 2-column row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                  <ExternalLink size={12} /> TradingView Chart Link (Optional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://www.tradingview.com/x/..."
+                  value={form.tradingViewUrl}
+                  onChange={(e) => updateField('tradingViewUrl', e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Quick Execution Note (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Clean #386641 bounce on 15m candle close..."
+                  value={form.notes}
+                  onChange={(e) => updateField('notes', e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Submit Footer */}
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-95"
+              style={{ backgroundColor: '#386641' }}
+            >
+              {initialTrade ? 'Save Changes' : 'Log Trade'}
+            </button>
           </div>
         </form>
       </div>
