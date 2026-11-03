@@ -1,19 +1,13 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { AuthProvider } from './context/AuthContext';
-import { AccountProvider } from './context/AccountContext';
-import { UserPreferencesProvider } from './context/UserPreferencesContext';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import App from './App';
+import { ViperProvider } from './context/ViperContext';
 import './index.css';
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <AuthProvider>
-      <UserPreferencesProvider>
-        <AccountProvider>
-          <App />
-        </AccountProvider>
-      </UserPreferencesProvider>
-    </AuthProvider>
-  </StrictMode>
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <ViperProvider>
+      <App />
+    </ViperProvider>
+  </React.StrictMode>
 );
