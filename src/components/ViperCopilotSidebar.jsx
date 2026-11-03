@@ -40,17 +40,17 @@ export function ViperCopilotAuditContent() {
     if (q.includes('revenge') || q.includes('15')) {
       return `1. 15-Minute Revenge Trading Guard: ${
         analytics.revengeTradesCount > 0
-          ? `🚨 ${analytics.revengeTradesCount} execution(s) entered < 15 minutes after the previous trade's Fill Time close.`
+          ? `🚨 ${analytics.revengeTradesCount} execution(s) entered < 15 minutes after the previous trade's Fill Time exit.`
           : '✓ PASS — All consecutive trades respected the 15-minute cooldown gap.'
       }
 2. Compliance Score Impact: ${analytics.avgComplianceScore}% session average (Rule #14 automatically penalized on < 15m gap entries).
-3. Account Risk Status ($25k Base): ${isRiskPassed ? 'PASS' : 'FAIL'} (-$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Loss Cap used).
+3. Account Risk Status ($25k Lucid Flex LFE05072050930002): ${isRiskPassed ? 'PASS' : 'FAIL'} (-$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Loss Cap used).
 4. Actionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
     if (q.includes('14') || q.includes('rule') || q.includes('compliance')) {
       const lowest = analytics.weakestRule;
-      return `1. Compliance Score: ${analytics.avgComplianceScore}% average across ${analytics.totalTrades} trades.${
+      return `1. Compliance Score: ${analytics.avgComplianceScore}% average across ${analytics.totalTrades} trades (${analytics.totalContractsTraded}x total lots).${
         lowest ? ` Lowest checkpoint: Rule #${lowest.number} (${lowest.label}) at ${lowest.pct}%.` : ''
       }
 2. Risk Status ($25k Account): ${isRiskPassed ? 'PASS' : 'FAIL'} — -$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Cap used.
@@ -68,27 +68,14 @@ export function ViperCopilotAuditContent() {
 4. Actionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
-    if (q.includes('window') || q.includes('session') || q.includes('timezone')) {
+    if (q.includes('window') || q.includes('session') || q.includes('est')) {
       const sLines = analytics.sessionStats
         .map(
           (s) =>
             `• ${s.label}: ${s.trades} trades | ${s.winRate}% WR | ${s.avgR}R avg | ${formatUSD(s.netPnl)}`
         )
         .join('\n');
-      return `Session Liquidity Window Breakdown (Chicago CT / New York ET):\n${sLines}\n\nActionable Adjustment: ${analytics.actionableAdjustment}`;
-    }
-
-    if (q.includes('zone') || q.includes('386641') || q.includes('bc4749')) {
-      const zLines = analytics.zoneStats
-        .filter((z) => z.trades > 0)
-        .map(
-          (z) =>
-            `• ${z.id}: ${z.trades} trades | ${z.winRate}% WR | ${formatUSD(z.netPnl)}`
-        )
-        .join('\n');
-      return `#386641 Support & #BC4749 Resistance Zone Performance:\n${
-        zLines || 'No zone trades logged yet.'
-      }`;
+      return `EST Session Performance Breakdown:\n${sLines}\n\nActionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
     return `1. Compliance Score: ${analytics.avgComplianceScore}% (WR: ${analytics.winRate}% • PF: ${analytics.profitFactor} • Avg R: ${analytics.avgRMultiple}R)
@@ -128,20 +115,13 @@ export function ViperCopilotAuditContent() {
               4-Point Automated Strategy & Behavioral Leak Audit
             </h3>
             <span
-              className="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
-              style={{
-                backgroundColor:
-                  auditTarget?.isRevengeTrade ? '#BC4749' : '#386641',
-              }}
+              className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF] ${
+                auditTarget?.isRevengeTrade ? 'bg-rose-600' : 'bg-emerald-600'
+              }`}
             >
               {auditTarget
-                ? `Inspecting: ${auditTarget.contract} on ${auditTarget.date} (${formatUSD(auditTarget.netPnl)})${
-                    auditTarget.timeGapFromPrevMins !== null &&
-                    auditTarget.timeGapFromPrevMins !== undefined
-                      ? ` • ${auditTarget.timeGapFromPrevMins}m gap`
-                      : ''
-                  }`
-                : `All Session Trades (${analytics.totalTrades} Logged)`}
+                ? `Inspecting: ${auditTarget.quantity || 1}x ${auditTarget.contract} on ${auditTarget.date} at ${auditTarget.timeEST || auditTarget.time} (${formatUSD(auditTarget.netPnl)})`
+                : `All Session Trades (${analytics.totalTrades} Trades • ${analytics.totalContractsTraded}x Lots)`}
             </span>
           </div>
           <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
@@ -174,11 +154,11 @@ export function ViperCopilotAuditContent() {
             </div>
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
-                className="h-full rounded-full transition-all"
+                className={`h-full rounded-full transition-all ${
+                  activeComplianceScore >= 75 ? 'bg-emerald-500' : 'bg-rose-500'
+                }`}
                 style={{
                   width: `${activeComplianceScore}%`,
-                  backgroundColor:
-                    activeComplianceScore >= 75 ? '#386641' : '#BC4749',
                 }}
               />
             </div>
@@ -201,10 +181,9 @@ export function ViperCopilotAuditContent() {
             </div>
             <div className="flex items-center gap-2.5">
               <span
-                className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold text-[#FFFFFF]"
-                style={{
-                  backgroundColor: isRiskPassed ? '#386641' : '#BC4749',
-                }}
+                className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-bold text-[#FFFFFF] ${
+                  isRiskPassed ? 'bg-emerald-600' : 'bg-rose-600'
+                }`}
               >
                 {isRiskPassed ? 'PASS' : 'FAIL'}
               </span>
@@ -214,13 +193,14 @@ export function ViperCopilotAuditContent() {
             </div>
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
-                className="h-full rounded-full transition-all"
+                className={`h-full rounded-full transition-all ${
+                  isRiskPassed ? 'bg-emerald-500' : 'bg-rose-500'
+                }`}
                 style={{
                   width: `${Math.max(
                     4,
                     analytics.dailyLossTracker.dailyLossUtilizationPct
                   )}%`,
-                  backgroundColor: isRiskPassed ? '#386641' : '#BC4749',
                 }}
               />
             </div>
@@ -244,10 +224,7 @@ export function ViperCopilotAuditContent() {
               <AlertTriangle size={16} className="text-amber-400" />
             </div>
             {analytics.sortedLeaks.length === 0 ? (
-              <div
-                className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold text-[#FFFFFF]"
-                style={{ backgroundColor: '#386641' }}
-              >
+              <div className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-[#FFFFFF]">
                 ✓ Zero Behavioral Leaks
               </div>
             ) : (
@@ -255,8 +232,7 @@ export function ViperCopilotAuditContent() {
                 {analytics.sortedLeaks.map((item) => (
                   <span
                     key={item.tag}
-                    className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
-                    style={{ backgroundColor: '#BC4749' }}
+                    className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40"
                   >
                     {item.tag === REVENGE_GAP_LABEL
                       ? `🚨 ${item.tag} (${item.count}x)`
@@ -274,10 +250,7 @@ export function ViperCopilotAuditContent() {
         </div>
 
         {/* 4. Actionable Adjustment */}
-        <div
-          className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between"
-          style={{ borderLeft: '3px solid #386641' }}
-        >
+        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 border-l-4 border-l-emerald-500 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-2.5">
               <span>4. Actionable Adjustment</span>
@@ -294,10 +267,7 @@ export function ViperCopilotAuditContent() {
       <div className="bg-[#111620] rounded-xl border border-slate-800/60 p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#FFFFFF]"
-              style={{ backgroundColor: '#386641' }}
-            >
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-[#FFFFFF]">
               <Bot size={16} />
             </div>
             <div>
@@ -305,7 +275,7 @@ export function ViperCopilotAuditContent() {
                 Ask Viper Copilot
               </span>
               <span className="text-xs text-[#8A99AD]">
-                Query 15m Revenge Trading Guard, 14-rule compliance, or CT/ET session windows
+                Query 15m Revenge Trading Guard, 14-rule compliance, or EST session performance
               </span>
             </div>
           </div>
@@ -314,8 +284,7 @@ export function ViperCopilotAuditContent() {
             {[
               'Audit 15-Minute Revenge Rule',
               'Audit 14-Rule Compliance',
-              'Compare 1–4 AM vs 8–11 AM CT Windows',
-              'Inspect #386641 & #BC4749 Zones',
+              'Review EST Session Performance',
             ].map((chip) => (
               <button
                 key={chip}
@@ -359,12 +328,11 @@ export function ViperCopilotAuditContent() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask Viper Copilot about 15m cooldowns, NinjaTrader imports, or rule compliance..."
-            className="flex-1 bg-[#090C10] border border-slate-800/60 rounded-xl px-4 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-[#386641]"
+            className="flex-1 bg-[#090C10] border border-slate-800/60 rounded-xl px-4 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-emerald-500"
           />
           <button
             type="submit"
-            className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] flex items-center gap-2 transition-opacity hover:opacity-95 cursor-pointer"
-            style={{ backgroundColor: '#386641' }}
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] bg-emerald-600 hover:bg-emerald-500 flex items-center gap-2 transition-colors cursor-pointer"
           >
             <Send size={15} />
             <span>Ask</span>
@@ -387,24 +355,15 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
             onClick={onToggle}
             className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#111620] text-[#FFFFFF] border border-slate-800/60 shadow-xl hover:bg-slate-800/80 text-sm font-semibold transition-all cursor-pointer"
           >
-            <span
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#FFFFFF]"
-              style={{ backgroundColor: '#386641' }}
-            >
+            <span className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-[#FFFFFF]">
               <Bot size={15} />
             </span>
             <span>AI Session Review</span>
-            <span
-              className="px-2 py-0.5 rounded-md font-mono text-xs text-[#FFFFFF]"
-              style={{ backgroundColor: '#386641' }}
-            >
+            <span className="px-2 py-0.5 rounded-md font-mono text-xs bg-emerald-600 text-[#FFFFFF]">
               {analytics.avgComplianceScore}%
             </span>
             {analytics.revengeTradesCount > 0 && (
-              <span
-                className="px-2 py-0.5 rounded-md font-mono text-xs text-[#FFFFFF]"
-                style={{ backgroundColor: '#BC4749' }}
-              >
+              <span className="px-2 py-0.5 rounded-md font-mono text-xs bg-rose-600 text-[#FFFFFF]">
                 🚨 {analytics.revengeTradesCount} &lt;15m
               </span>
             )}
@@ -419,10 +378,7 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
             <div className="w-full px-6 lg:px-8 py-6">
               <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-800/60">
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-[#FFFFFF]"
-                    style={{ backgroundColor: '#386641' }}
-                  >
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-[#FFFFFF]">
                     <Bot size={18} />
                   </div>
                   <div>

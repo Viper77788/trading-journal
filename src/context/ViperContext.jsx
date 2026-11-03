@@ -1,40 +1,45 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import {
-  DEFAULT_14_RULES,
-  INITIAL_SEED_TRADES,
-} from '../constants/viperConstants';
+import { DEFAULT_14_RULES } from '../constants/viperConstants';
 import { computeRuleCompliance, computeViperAnalytics } from '../utils/viperAnalytics';
 import {
-  shiftTimeStringHours,
+  formatTime12hEST,
+  parseNinjaTraderOrdersCsv,
+  SAMPLE_NINJATRADER_ORDERS_CSV,
   REVENGE_GAP_LABEL,
 } from '../utils/ninjaTraderCsvParser';
 
 const ViperContext = createContext(null);
 
 const STORAGE_KEYS = {
-  TRADES: 'viper_futures_trades_v2',
-  RULES: 'viper_14_rules_v2',
-  ACCOUNT_FILTER: 'viper_account_filter_v2',
-  DAILY_CAP: 'viper_daily_loss_cap_v2',
-  STARTING_BALANCE: 'viper_starting_balance_v2',
-  DISPLAY_TIMEZONE: 'viper_display_tz_v2',
+  TRADES: 'viper_futures_trades_v3',
+  RULES: 'viper_14_rules_v3',
+  ACCOUNT_FILTER: 'viper_account_filter_v3',
+  DAILY_CAP: 'viper_daily_loss_cap_v3',
+  STARTING_BALANCE: 'viper_starting_balance_v3',
 };
 
 function timeToMinutes(tStr) {
   if (!tStr) return null;
   const parts = String(tStr).split(':').map(Number);
   if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return null;
-  return parts[0] * 60 + parts[1] + (parts[2] && !Number.isNaN(parts[2]) ? parts[2] / 60 : 0);
+  return (
+    parts[0] * 60 +
+    parts[1] +
+    (parts[2] && !Number.isNaN(parts[2]) ? parts[2] / 60 : 0)
+  );
 }
 
 /**
  * Re-evaluates consecutive trades on the same date for the 15-Minute Revenge Trading Rule
- * and ensures CT / ET time fields are always populated.
+ * and ensures all timestamps are formatted in 12-hour EST with AM/PM.
  */
-function enrichTradesWithCooldownAndTimezones(tradesList, totalRulesCount = 14) {
+function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
   const chronological = [...tradesList].sort((a, b) => {
-    const dtA = `${a.date || ''}T${a.timeCT || a.time || '00:00'}`;
-    const dtB = `${b.date || ''}T${b.timeCT || b.time || '00:00'}`;
+    if (a.entryEpochMs && b.entryEpochMs) {
+      return a.entryEpochMs - b.entryEpochMs;
+    }
+    const dtA = `${a.date || ''}T${a.time || '00:00'}`;
+    const dtB = `${b.date || ''}T${b.time || '00:00'}`;
     return dtA.localeCompare(dtB);
   });
 
@@ -42,21 +47,29 @@ function enrichTradesWithCooldownAndTimezones(tradesList, totalRulesCount = 14) 
 
   chronological.forEach((trade, idx) => {
     const prev = idx > 0 ? chronological[idx - 1] : null;
-    const baseTimeCT = trade.timeCT || trade.time || '08:30';
-    const baseTimeET = trade.timeET || shiftTimeStringHours(baseTimeCT, 1);
+    const rawEntry24 = trade.time || '09:30';
+    const rawExit24 = trade.exitTime24 || rawEntry24;
+
+    const timeEST = trade.timeEST || formatTime12hEST(rawEntry24, false);
+    const exitTimeEST = trade.exitTimeEST || formatTime12hEST(rawExit24, false);
 
     let gapMins =
-      trade.timeGapFromPrevMins !== undefined && trade.timeGapFromPrevMins !== null
+      trade.timeGapFromPrevMins !== undefined &&
+      trade.timeGapFromPrevMins !== null
         ? Number(trade.timeGapFromPrevMins)
         : null;
 
     if (prev && prev.date === trade.date) {
-      const prevCloseStr = prev.exitTimeCT || prev.timeCT || prev.time;
-      const currEntryStr = baseTimeCT;
-      const prevM = timeToMinutes(prevCloseStr);
-      const currM = timeToMinutes(currEntryStr);
-      if (prevM !== null && currM !== null) {
-        gapMins = Math.round((currM - prevM) * 10) / 10;
+      if (prev.exitEpochMs && trade.entryEpochMs) {
+        gapMins =
+          Math.round(((trade.entryEpochMs - prev.exitEpochMs) / 60000) * 10) /
+          10;
+      } else {
+        const prevM = timeToMinutes(prev.exitTime24 || prev.time);
+        const currM = timeToMinutes(rawEntry24);
+        if (prevM !== null && currM !== null) {
+          gapMins = Math.round((currM - prevM) * 10) / 10;
+        }
       }
     } else {
       gapMins = null;
@@ -77,13 +90,18 @@ function enrichTradesWithCooldownAndTimezones(tradesList, totalRulesCount = 14) 
       rulesChecked = rulesChecked.filter((id) => id !== 'r14');
     }
 
-    const { score, grade } = computeRuleCompliance(rulesChecked, totalRulesCount);
+    const { score, grade } = computeRuleCompliance(
+      rulesChecked,
+      totalRulesCount
+    );
 
     updatedById.set(trade.id, {
       ...trade,
-      time: baseTimeCT.slice(0, 5),
-      timeCT: baseTimeCT,
-      timeET: baseTimeET,
+      quantity: Math.max(1, Number(trade.quantity) || 1),
+      time: rawEntry24.slice(0, 5),
+      exitTime24: rawExit24.slice(0, 5),
+      timeEST,
+      exitTimeEST,
       timeGapFromPrevMins: gapMins,
       isRevengeTrade,
       leakTags,
@@ -93,23 +111,37 @@ function enrichTradesWithCooldownAndTimezones(tradesList, totalRulesCount = 14) 
     });
   });
 
-  // Return in reverse-chronological display order (newest first)
+  // Display newest executions first
   return [...chronological]
     .reverse()
     .map((t) => updatedById.get(t.id) || t);
+}
+
+function getDefaultParsedSeedTrades() {
+  const parsed = parseNinjaTraderOrdersCsv(SAMPLE_NINJATRADER_ORDERS_CSV, {
+    accountProfileId: 'lucid-25k',
+    timezoneOffsetHours: 0,
+    includeCommissions: false,
+  });
+  return enrichTradesWithESTAndCooldown(parsed.trades, DEFAULT_14_RULES.length);
 }
 
 export function ViperProvider({ children }) {
   const [trades, setTrades] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.TRADES);
-      const parsed = saved ? JSON.parse(saved) : INITIAL_SEED_TRADES;
-      return enrichTradesWithCooldownAndTimezones(parsed, DEFAULT_14_RULES.length);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return enrichTradesWithESTAndCooldown(
+            parsed,
+            DEFAULT_14_RULES.length
+          );
+        }
+      }
+      return getDefaultParsedSeedTrades();
     } catch {
-      return enrichTradesWithCooldownAndTimezones(
-        INITIAL_SEED_TRADES,
-        DEFAULT_14_RULES.length
-      );
+      return getDefaultParsedSeedTrades();
     }
   });
 
@@ -134,10 +166,6 @@ export function ViperProvider({ children }) {
   const [startingBalance, setStartingBalance] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.STARTING_BALANCE);
     return saved ? Number(saved) : 25000;
-  });
-
-  const [displayTimezone, setDisplayTimezone] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.DISPLAY_TIMEZONE) || 'BOTH';
   });
 
   const [lastSubmittedTrade, setLastSubmittedTrade] = useState(null);
@@ -170,10 +198,6 @@ export function ViperProvider({ children }) {
     localStorage.setItem(STORAGE_KEYS.STARTING_BALANCE, String(startingBalance));
   }, [startingBalance]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DISPLAY_TIMEZONE, displayTimezone);
-  }, [displayTimezone]);
-
   const filteredTrades = useMemo(() => {
     if (accountFilter === 'All') return trades;
     return trades.filter((t) => t.accountType === accountFilter);
@@ -201,15 +225,17 @@ export function ViperProvider({ children }) {
         ? Math.round((net / risk) * 100) / 100
         : Number(tradePayload.rMultiple) || 0;
 
-    const rawTimeCT = tradePayload.timeCT || tradePayload.time || '08:30';
-    const rawTimeET = tradePayload.timeET || shiftTimeStringHours(rawTimeCT, 1);
+    const rawEntry24 = tradePayload.time || '09:30';
+    const rawExit24 = tradePayload.exitTime24 || rawEntry24;
 
     const candidate = {
       ...tradePayload,
       id: tradePayload.id || `viper-${Date.now()}`,
-      time: rawTimeCT.slice(0, 5),
-      timeCT: rawTimeCT,
-      timeET: rawTimeET,
+      quantity: Math.max(1, Number(tradePayload.quantity) || 1),
+      time: rawEntry24.slice(0, 5),
+      exitTime24: rawExit24.slice(0, 5),
+      timeEST: formatTime12hEST(rawEntry24, false),
+      exitTimeEST: formatTime12hEST(rawExit24, false),
       grossPnl: gross,
       commissions: comm,
       netPnl: net,
@@ -223,7 +249,7 @@ export function ViperProvider({ children }) {
       const nextList = exists
         ? prev.map((item) => (item.id === candidate.id ? candidate : item))
         : [candidate, ...prev];
-      const enrichedList = enrichTradesWithCooldownAndTimezones(
+      const enrichedList = enrichTradesWithESTAndCooldown(
         nextList,
         rules.length
       );
@@ -251,10 +277,7 @@ export function ViperProvider({ children }) {
       const existingIds = new Set(baseList.map((t) => t.id));
       const newUnique = importedTrades.filter((t) => !existingIds.has(t.id));
       const combined = [...newUnique, ...baseList];
-      const enriched = enrichTradesWithCooldownAndTimezones(
-        combined,
-        rules.length
-      );
+      const enriched = enrichTradesWithESTAndCooldown(combined, rules.length);
       const flaggedOrLatest =
         enriched.find((t) => t.isRevengeTrade) || enriched[0] || null;
       if (flaggedOrLatest) {
@@ -266,7 +289,7 @@ export function ViperProvider({ children }) {
 
   const deleteTrade = (id) => {
     setTrades((prev) =>
-      enrichTradesWithCooldownAndTimezones(
+      enrichTradesWithESTAndCooldown(
         prev.filter((t) => t.id !== id),
         rules.length
       )
@@ -283,12 +306,7 @@ export function ViperProvider({ children }) {
   };
 
   const resetDemoData = () => {
-    setTrades(
-      enrichTradesWithCooldownAndTimezones(
-        INITIAL_SEED_TRADES,
-        DEFAULT_14_RULES.length
-      )
-    );
+    setTrades(getDefaultParsedSeedTrades());
     setRules(DEFAULT_14_RULES);
     setDailyLossCap(600);
     setStartingBalance(25000);
@@ -307,8 +325,6 @@ export function ViperProvider({ children }) {
         setDailyLossCap,
         startingBalance,
         setStartingBalance,
-        displayTimezone,
-        setDisplayTimezone,
         analytics,
         lastSubmittedTrade,
         setLastSubmittedTrade,

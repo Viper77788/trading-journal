@@ -10,25 +10,25 @@ import {
 import { useViper } from '../context/ViperContext';
 import { DEFAULT_14_RULES } from '../constants/viperConstants';
 import {
-  shiftTimeStringHours,
+  formatTime12hEST,
   REVENGE_GAP_LABEL,
 } from '../utils/ninjaTraderCsvParser';
 
 const CORE_3_PILLARS = [
   {
     id: 'pillar_window',
-    title: '1. Liquidity Window Aligned',
-    subtitle: 'Executed in 1–4 AM CT (2–5 AM ET) or 8–11 AM CT (9–12 PM ET)',
+    title: '1. Liquidity Session Aligned',
+    subtitle: 'Executed during planned EST market liquidity hours',
   },
   {
-    id: 'pillar_zone',
-    title: '2. Zone & Candle Close Confirmed',
-    subtitle: 'Confirmed reaction at #386641 Support or #BC4749 Resistance',
+    id: 'pillar_structure',
+    title: '2. Structural Candle Close Confirmed',
+    subtitle: 'Confirmed break and candle body close before entry',
   },
   {
     id: 'pillar_risk',
     title: '3. Risk & 15m Cooldown Respected',
-    subtitle: 'Within $600 daily loss cap and ≥ 15m gap after previous close',
+    subtitle: 'Within $600 daily loss cap and ≥ 15m gap after previous exit',
   },
 ];
 
@@ -47,15 +47,14 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
 
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
-    time: '08:30',
-    exitTimeCT: '08:50',
+    time: '09:30',
+    exitTime24: '09:45',
     sessionWindow: '8:00 AM–11:00 AM',
     contract: 'MGCZ6',
-    quantity: 2,
+    quantity: 5,
     accountId: 'LFE05072050930002',
     accountType: 'Lucid Flex',
     direction: 'Long',
-    zoneInteraction: 'Support (#386641)',
     entryPrice: '',
     stopLoss: '',
     exitPrice: '',
@@ -63,7 +62,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
     rMultiple: '',
     pillars: {
       pillar_window: true,
-      pillar_zone: true,
+      pillar_structure: true,
       pillar_risk: true,
     },
     rulesCount: 14,
@@ -79,15 +78,18 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
         : Math.round(((initialTrade.complianceScore || 100) / 100) * 14);
       setForm({
         date: initialTrade.date || new Date().toISOString().slice(0, 10),
-        time: (initialTrade.timeCT || initialTrade.time || '08:30').slice(0, 5),
-        exitTimeCT: (initialTrade.exitTimeCT || '08:50').slice(0, 5),
+        time: (initialTrade.time || '09:30').slice(0, 5),
+        exitTime24: (
+          initialTrade.exitTime24 ||
+          initialTrade.time ||
+          '09:45'
+        ).slice(0, 5),
         sessionWindow: initialTrade.sessionWindow || '8:00 AM–11:00 AM',
         contract: initialTrade.contract || 'MGCZ6',
-        quantity: initialTrade.quantity || 2,
+        quantity: initialTrade.quantity || 5,
         accountId: initialTrade.accountId || 'LFE05072050930002',
         accountType: initialTrade.accountType || 'Lucid Flex',
         direction: initialTrade.direction || 'Long',
-        zoneInteraction: initialTrade.zoneInteraction || 'Support (#386641)',
         entryPrice: initialTrade.entryPrice ?? '',
         stopLoss: initialTrade.stopLoss ?? '',
         exitPrice: initialTrade.exitPrice ?? '',
@@ -95,26 +97,27 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
         rMultiple: initialTrade.rMultiple ?? '',
         pillars: initialTrade.pillars || {
           pillar_window: savedCount >= 10,
-          pillar_zone: savedCount >= 12,
+          pillar_structure: savedCount >= 12,
           pillar_risk: savedCount >= 8,
         },
         rulesCount: savedCount,
-        leakTags: Array.isArray(initialTrade.leakTags) ? initialTrade.leakTags : [],
+        leakTags: Array.isArray(initialTrade.leakTags)
+          ? initialTrade.leakTags
+          : [],
         tradingViewUrl: initialTrade.tradingViewUrl || '',
         notes: initialTrade.notes || '',
       });
     } else {
       setForm({
         date: new Date().toISOString().slice(0, 10),
-        time: '08:30',
-        exitTimeCT: '08:50',
+        time: '09:30',
+        exitTime24: '09:45',
         sessionWindow: '8:00 AM–11:00 AM',
         contract: 'MGCZ6',
-        quantity: 2,
+        quantity: 5,
         accountId: 'LFE05072050930002',
         accountType: 'Lucid Flex',
         direction: 'Long',
-        zoneInteraction: 'Support (#386641)',
         entryPrice: '',
         stopLoss: '',
         exitPrice: '',
@@ -122,7 +125,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
         rMultiple: '',
         pillars: {
           pillar_window: true,
-          pillar_zone: true,
+          pillar_structure: true,
           pillar_risk: true,
         },
         rulesCount: 14,
@@ -141,10 +144,19 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
 
   const togglePillar = (pillarId) => {
     setForm((prev) => {
-      const nextPillars = { ...prev.pillars, [pillarId]: !prev.pillars[pillarId] };
+      const nextPillars = {
+        ...prev.pillars,
+        [pillarId]: !prev.pillars[pillarId],
+      };
       const activeCount = Object.values(nextPillars).filter(Boolean).length;
       const mappedRulesCount =
-        activeCount === 3 ? 14 : activeCount === 2 ? 10 : activeCount === 1 ? 5 : 0;
+        activeCount === 3
+          ? 14
+          : activeCount === 2
+          ? 10
+          : activeCount === 1
+          ? 5
+          : 0;
       return {
         ...prev,
         pillars: nextPillars,
@@ -171,11 +183,14 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
   const complianceGrade =
     compliancePct >= 85 ? 'A' : compliancePct >= 65 ? 'B' : 'C';
 
-  const previewET = shiftTimeStringHours(form.time, 1);
+  const previewEntryEST = formatTime12hEST(form.time, false);
+  const previewExitEST = formatTime12hEST(form.exitTime24 || form.time, false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const rulesChecked = DEFAULT_14_RULES.slice(0, form.rulesCount).map((r) => r.id);
+    const rulesChecked = DEFAULT_14_RULES.slice(0, form.rulesCount).map(
+      (r) => r.id
+    );
     const netVal = parseFloat(form.netPnl) || 0;
     const rVal = parseFloat(form.rMultiple) || 0;
 
@@ -183,22 +198,22 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
       id: initialTrade?.id,
       date: form.date,
       time: form.time,
-      timeCT: `${form.time}:00`,
-      timeET: `${previewET}:00`,
-      exitTimeCT: form.exitTimeCT ? `${form.exitTimeCT}:00` : `${form.time}:00`,
-      exitTimeET: form.exitTimeCT
-        ? `${shiftTimeStringHours(form.exitTimeCT, 1)}:00`
-        : `${previewET}:00`,
+      exitTime24: form.exitTime24 || form.time,
+      timeEST: previewEntryEST,
+      exitTimeEST: previewExitEST,
       sessionWindow: form.sessionWindow,
       contract: form.contract,
-      quantity: Number(form.quantity) || 1,
+      productDesc: form.contract.startsWith('MGC')
+        ? 'E-Micro Gold'
+        : 'Gold Futures',
+      lotType: form.contract.startsWith('M') ? 'Micro' : 'Mini/Std',
+      quantity: Math.max(1, Number(form.quantity) || 1),
       accountId:
         form.accountType === 'Lucid Flex'
           ? 'LFE05072050930002'
           : 'APEX-25093001',
       accountType: form.accountType,
       direction: form.direction,
-      zoneInteraction: form.zoneInteraction,
       entryPrice: form.entryPrice !== '' ? Number(form.entryPrice) : '',
       stopLoss: form.stopLoss !== '' ? Number(form.stopLoss) : '',
       exitPrice: form.exitPrice !== '' ? Number(form.exitPrice) : '',
@@ -225,18 +240,20 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
         <div className="px-6 py-5 bg-[#090C10] border-b border-slate-800/60 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <span
-                className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold text-[#FFFFFF]"
-                style={{ backgroundColor: '#386641' }}
-              >
+              <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-emerald-600 text-[#FFFFFF]">
                 FAST LOG
               </span>
               <h2 className="text-xl font-bold tracking-tight text-[#FFFFFF]">
-                {initialTrade ? 'Edit Futures Execution' : 'Log Gold Futures Trade'}
+                {initialTrade
+                  ? 'Edit Futures Execution'
+                  : 'Log Futures Execution'}
               </h2>
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-              Streamlined 30-second execution logger • Auto-converts CT → ET ({previewET} ET) & checks 15m Cooldown
+              12-Hour EST Timestamp:{' '}
+              <span className="font-mono text-emerald-400">
+                {previewEntryEST} → {previewExitEST}
+              </span>
             </p>
           </div>
           <button
@@ -248,12 +265,15 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[82vh] overflow-y-auto">
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 space-y-6 max-h-[82vh] overflow-y-auto"
+        >
           {/* SECTION 1: CORE TRADE INFO */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] flex items-center gap-2">
               <Clock size={15} className="text-emerald-400" />
-              Section 1: Core Trade Info (Chicago CT & New York ET)
+              Section 1: Core Trade Info (12-Hour EST AM/PM)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -267,45 +287,42 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   value={form.date}
                   onChange={(e) => updateField('date', e.target.value)}
                   required
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
-              {/* Fill Time (CT with ET preview) */}
+              {/* Entry Fill Time (EST) */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Fill Time (CT) → <span className="text-emerald-400 font-mono">{previewET} ET</span>
+                  Entry Time →{' '}
+                  <span className="text-emerald-400 font-mono">
+                    {previewEntryEST}
+                  </span>
                 </label>
                 <input
                   type="time"
                   value={form.time}
                   onChange={(e) => updateField('time', e.target.value)}
                   required
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
-              {/* Contract Pill Selector */}
+              {/* Exit Fill Time (EST) */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Contract ID
+                  Exit Time →{' '}
+                  <span className="text-emerald-400 font-mono">
+                    {previewExitEST}
+                  </span>
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
-                  {['MGCZ6', 'GC'].map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => updateField('contract', c)}
-                      className={`py-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                        form.contract === c
-                          ? 'bg-[#111620] text-[#FFFFFF] shadow-xs border border-slate-700/70'
-                          : 'text-[#8A99AD] hover:text-[#FFFFFF]'
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
+                <input
+                  type="time"
+                  value={form.exitTime24}
+                  onChange={(e) => updateField('exitTime24', e.target.value)}
+                  required
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
+                />
               </div>
 
               {/* Account Selector */}
@@ -332,118 +349,99 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
               </div>
             </div>
 
-            {/* Session Window + Direction + Zone Anchor Row */}
+            {/* Contract + Direction + Session Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-              {/* Session Selector */}
+              {/* Contract Selector */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Liquidity Session Window
+                  Contract ID
                 </label>
-                <select
-                  value={form.sessionWindow}
-                  onChange={(e) => updateField('sessionWindow', e.target.value)}
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-medium text-[#FFFFFF] focus:outline-none focus:border-[#386641]"
-                >
-                  <option value="1:00 AM–4:00 AM" className="bg-[#111620]">
-                    1:00–4:00 AM CT (2:00–5:00 AM ET)
-                  </option>
-                  <option value="8:00 AM–11:00 AM" className="bg-[#111620]">
-                    8:00–11:00 AM CT (9:00 AM–12:00 PM ET)
-                  </option>
-                  <option value="Outside Window" className="bg-[#111620]">
-                    Outside Window
-                  </option>
-                </select>
+                <div className="grid grid-cols-2 gap-1.5 bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
+                  {['MGCZ6', 'GC'].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => updateField('contract', c)}
+                      className={`py-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                        form.contract === c
+                          ? 'bg-[#111620] text-[#FFFFFF] shadow-xs border border-slate-700/70'
+                          : 'text-[#8A99AD] hover:text-[#FFFFFF]'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Direction */}
+              {/* Clean LONG / SHORT Direction Selector */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Direction (B/S)
+                  Direction
                 </label>
                 <div className="grid grid-cols-2 gap-2 bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
                   <button
                     type="button"
                     onClick={() => updateField('direction', 'Long')}
-                    className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                    className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                       form.direction === 'Long'
-                        ? 'text-[#FFFFFF] shadow-xs'
+                        ? 'bg-emerald-600 text-[#FFFFFF] shadow-xs'
                         : 'text-[#8A99AD] hover:text-[#FFFFFF]'
                     }`}
-                    style={{
-                      backgroundColor:
-                        form.direction === 'Long' ? '#386641' : 'transparent',
-                    }}
                   >
-                    Long (Buy)
+                    LONG
                   </button>
                   <button
                     type="button"
                     onClick={() => updateField('direction', 'Short')}
-                    className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                    className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                       form.direction === 'Short'
-                        ? 'text-[#FFFFFF] shadow-xs'
+                        ? 'bg-rose-600 text-[#FFFFFF] shadow-xs'
                         : 'text-[#8A99AD] hover:text-[#FFFFFF]'
                     }`}
-                    style={{
-                      backgroundColor:
-                        form.direction === 'Short' ? '#BC4749' : 'transparent',
-                    }}
                   >
-                    Short (Sell)
+                    SHORT
                   </button>
                 </div>
               </div>
 
-              {/* Zone Badge Anchor */}
+              {/* Session Window */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Zone Reaction Anchor
+                  EST Session Window
                 </label>
-                <div className="grid grid-cols-3 gap-1.5 bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
-                  {[
-                    { id: 'Support (#386641)', short: '#386641', dot: '#386641' },
-                    { id: 'Resistance (#BC4749)', short: '#BC4749', dot: '#BC4749' },
-                    { id: 'No Zone', short: 'None', dot: '#8A99AD' },
-                  ].map((z) => {
-                    const active = form.zoneInteraction === z.id;
-                    return (
-                      <button
-                        key={z.id}
-                        type="button"
-                        onClick={() => updateField('zoneInteraction', z.id)}
-                        className={`py-2 px-2 rounded-lg text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          active
-                            ? 'bg-[#111620] text-[#FFFFFF] shadow-xs border border-slate-700/70'
-                            : 'text-[#8A99AD] hover:text-[#FFFFFF]'
-                        }`}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: z.dot }}
-                        />
-                        <span className="truncate">{z.short}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <select
+                  value={form.sessionWindow}
+                  onChange={(e) => updateField('sessionWindow', e.target.value)}
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-medium text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="1:00 AM–4:00 AM" className="bg-[#111620]">
+                    01:00 AM–04:00 AM EST (London)
+                  </option>
+                  <option value="8:00 AM–11:00 AM" className="bg-[#111620]">
+                    08:00 AM–11:00 AM EST (NY Open)
+                  </option>
+                  <option value="Outside Window" className="bg-[#111620]">
+                    Extended / Afternoon Hours EST
+                  </option>
+                </select>
               </div>
             </div>
           </div>
 
           <hr className="border-slate-800/60" />
 
-          {/* SECTION 2: PRICES & P&L */}
+          {/* SECTION 2: PRICES, CONTRACT LOTS & P&L */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] flex items-center gap-2">
               <DollarSign size={15} className="text-emerald-400" />
-              Section 2: Execution Prices, Quantity & P&L
+              Section 2: Contract Lots, Execution Prices & P&L
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
               <div>
-                <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Filled Qty
+                <label className="block text-xs font-semibold text-[#FFFFFF] mb-1.5">
+                  Contract Lots *
                 </label>
                 <input
                   type="number"
@@ -451,7 +449,8 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   step="1"
                   value={form.quantity}
                   onChange={(e) => updateField('quantity', e.target.value)}
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-[#386641]"
+                  required
+                  className="w-full bg-[#090C10] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -462,10 +461,10 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 <input
                   type="number"
                   step="0.1"
-                  placeholder="2742.5"
+                  placeholder="3916.3"
                   value={form.entryPrice}
                   onChange={(e) => updateField('entryPrice', e.target.value)}
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -476,10 +475,10 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 <input
                   type="number"
                   step="0.1"
-                  placeholder="2738.5"
+                  placeholder="3918.3"
                   value={form.stopLoss}
                   onChange={(e) => updateField('stopLoss', e.target.value)}
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -490,10 +489,10 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 <input
                   type="number"
                   step="0.1"
-                  placeholder="2751.3"
+                  placeholder="3913.7"
                   value={form.exitPrice}
                   onChange={(e) => updateField('exitPrice', e.target.value)}
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -504,11 +503,11 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 <input
                   type="number"
                   step="0.01"
-                  placeholder="427.60"
+                  placeholder="280.00"
                   value={form.netPnl}
                   onChange={(e) => updateField('netPnl', e.target.value)}
                   required
-                  className="w-full bg-[#090C10] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -519,11 +518,11 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 <input
                   type="number"
                   step="0.01"
-                  placeholder="2.14"
+                  placeholder="1.80"
                   value={form.rMultiple}
                   onChange={(e) => updateField('rMultiple', e.target.value)}
                   required
-                  className="w-full bg-[#090C10] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
@@ -536,22 +535,20 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] flex items-center gap-2">
                 <CheckCircle2 size={15} className="text-emerald-400" />
-                Section 3: Simplified Strategy Checklist & Behavioral Leak Guard
+                Section 3: Strategy Checklist & Behavioral Leak Guard
               </h3>
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-medium text-[#8A99AD]">
                   14-Rule Score:
                 </span>
                 <span
-                  className="px-2.5 py-1 rounded-md text-xs font-mono font-bold text-[#FFFFFF]"
-                  style={{
-                    backgroundColor:
-                      complianceGrade === 'A'
-                        ? '#386641'
-                        : complianceGrade === 'B'
-                        ? '#b45309'
-                        : '#BC4749',
-                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold text-[#FFFFFF] ${
+                    complianceGrade === 'A'
+                      ? 'bg-emerald-600'
+                      : complianceGrade === 'B'
+                      ? 'bg-amber-600'
+                      : 'bg-rose-600'
+                  }`}
                 >
                   {form.rulesCount}/14 ({compliancePct}% · Grade {complianceGrade})
                 </span>
@@ -569,15 +566,14 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                     onClick={() => togglePillar(p.id)}
                     className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
                       checked
-                        ? 'bg-[#386641]/20 border-[#386641] text-[#FFFFFF]'
+                        ? 'bg-emerald-500/10 border-emerald-500/50 text-[#FFFFFF]'
                         : 'bg-[#090C10] border-slate-800/60 text-[#8A99AD] hover:bg-slate-800/80'
                     }`}
                   >
                     <div
-                      className="w-5 h-5 rounded-md mt-0.5 flex items-center justify-center shrink-0 text-[#FFFFFF]"
-                      style={{
-                        backgroundColor: checked ? '#386641' : '#1E293B',
-                      }}
+                      className={`w-5 h-5 rounded-md mt-0.5 flex items-center justify-center shrink-0 text-[#FFFFFF] ${
+                        checked ? 'bg-emerald-600' : 'bg-slate-800'
+                      }`}
                     >
                       {checked && <Check size={13} />}
                     </div>
@@ -610,7 +606,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 max="14"
                 value={form.rulesCount}
                 onChange={(e) => updateField('rulesCount', Number(e.target.value))}
-                className="w-full sm:w-56 accent-[#386641] cursor-pointer"
+                className="w-full sm:w-56 accent-emerald-500 cursor-pointer"
               />
             </div>
 
@@ -633,16 +629,11 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                       onClick={() => handleTagSelect(tag)}
                       className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
                         selected
-                          ? 'text-[#FFFFFF] border-transparent shadow-xs'
+                          ? isCleanChip
+                            ? 'bg-emerald-600 text-[#FFFFFF] border-transparent shadow-xs'
+                            : 'bg-rose-600 text-[#FFFFFF] border-transparent shadow-xs'
                           : 'bg-[#090C10] text-[#8A99AD] border-slate-800/60 hover:text-[#FFFFFF] hover:bg-slate-800/80'
                       }`}
-                      style={{
-                        backgroundColor: selected
-                          ? isCleanChip
-                            ? '#386641'
-                            : '#BC4749'
-                          : undefined,
-                      }}
                     >
                       {tag === REVENGE_GAP_LABEL ? `🚨 ${tag}` : tag}
                     </button>
@@ -662,7 +653,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   placeholder="https://www.tradingview.com/x/..."
                   value={form.tradingViewUrl}
                   onChange={(e) => updateField('tradingViewUrl', e.target.value)}
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
@@ -671,10 +662,10 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g., Clean #386641 bounce on 15m candle close..."
+                  placeholder="e.g., Clean structural candle close..."
                   value={form.notes}
                   onChange={(e) => updateField('notes', e.target.value)}
-                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD]/40 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
@@ -691,8 +682,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] shadow-sm transition-opacity hover:opacity-95 cursor-pointer"
-              style={{ backgroundColor: '#386641' }}
+              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer"
             >
               {initialTrade ? 'Save Changes' : 'Log Trade'}
             </button>

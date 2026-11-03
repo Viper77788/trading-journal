@@ -27,8 +27,6 @@ export default function App() {
     resetDemoData,
     analytics,
     dailyLossCap,
-    displayTimezone,
-    setDisplayTimezone,
   } = useViper();
 
   const [activeView, setActiveView] = useState('dashboard');
@@ -73,12 +71,12 @@ export default function App() {
     dashboard: {
       title: 'Trading Accounts & Executions',
       subtitle:
-        'Gold (GC) & Micro Gold (MGCZ6) execution log • $25k Lucid Flex ($600 Daily Cap) • 15m Revenge Guard.',
+        'Account LFE05072050930002 ($25k Lucid Flex • $600 Daily Cap) • 12-Hour EST (AM/PM) • 15m Revenge Guard.',
     },
     analytics: {
       title: 'Performance & R-Multiple Analytics',
       subtitle:
-        'Cumulative equity curve, R-multiple distribution, and liquidity window breakdown (CT & ET).',
+        'Cumulative equity curve, R-multiple distribution, and EST session performance breakdown.',
     },
     review: {
       title: 'Viper AI Copilot & 14-Rule Audit',
@@ -108,10 +106,7 @@ export default function App() {
           {/* Branded Logo Header (VIPER) */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-[#FFFFFF] shadow-sm border border-emerald-500/20"
-                style={{ backgroundColor: '#386641' }}
-              >
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-[#FFFFFF] shadow-sm border border-emerald-500/30">
                 <Terminal size={18} />
               </div>
               <div>
@@ -119,15 +114,12 @@ export default function App() {
                   <span className="text-lg font-bold tracking-tight text-[#FFFFFF]">
                     VIPER
                   </span>
-                  <span
-                    className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-emerald-300 border border-emerald-500/30"
-                    style={{ backgroundColor: 'rgba(56, 102, 65, 0.35)' }}
-                  >
+                  <span className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                     PRO
                   </span>
                 </div>
                 <p className="text-xs font-medium text-[#8A99AD]">
-                  Gold Futures Terminal
+                  Futures Execution Journal
                 </p>
               </div>
             </div>
@@ -146,25 +138,24 @@ export default function App() {
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                handleOpenNewTrade();
+                setIsImportModalOpen(true);
               }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] shadow-sm transition-all hover:opacity-95 cursor-pointer border border-emerald-500/20"
-              style={{ backgroundColor: '#386641' }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer"
             >
-              <PlusCircle size={16} />
-              <span>Fast Log Trade</span>
+              <Upload size={16} />
+              <span>Import NinjaTrader CSV</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                setIsImportModalOpen(true);
+                handleOpenNewTrade();
               }}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
             >
-              <Upload size={14} className="text-emerald-400" />
-              <span>Import NinjaTrader CSV</span>
+              <PlusCircle size={14} className="text-emerald-400" />
+              <span>Fast Log Trade</span>
             </button>
           </div>
 
@@ -236,10 +227,9 @@ export default function App() {
                   >
                     <div className="flex items-center gap-2.5">
                       <span
-                        className="w-2 h-2 rounded-full"
-                        style={{
-                          backgroundColor: active ? '#386641' : '#475569',
-                        }}
+                        className={`w-2 h-2 rounded-full ${
+                          active ? 'bg-emerald-400' : 'bg-slate-600'
+                        }`}
                       />
                       <span>{acc.label}</span>
                     </div>
@@ -256,14 +246,13 @@ export default function App() {
           {/* $25k Account Balance & Daily Loss Guardrail Card */}
           <div className="p-3.5 rounded-xl bg-[#090C10] border border-slate-800/60 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD]">
-              <span>$25K LUCID FLEX</span>
+              <span className="font-mono">LFE05072050930002</span>
               <span
-                className="px-2 py-0.5 rounded text-xs font-mono font-semibold text-[#FFFFFF]"
-                style={{
-                  backgroundColor: analytics.dailyLossTracker.riskStatusPass
-                    ? '#386641'
-                    : '#BC4749',
-                }}
+                className={`px-2 py-0.5 rounded text-xs font-mono font-semibold text-[#FFFFFF] ${
+                  analytics.dailyLossTracker.riskStatusPass
+                    ? 'bg-emerald-600'
+                    : 'bg-rose-600'
+                }`}
               >
                 {analytics.dailyLossTracker.riskStatusPass ? 'ACTIVE' : 'BREACH'}
               </span>
@@ -281,52 +270,40 @@ export default function App() {
             </div>
             <div className="w-full h-1.5 bg-[#111620] rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all"
+                className={`h-full rounded-full transition-all ${
+                  analytics.dailyLossTracker.dailyLossUtilizationPct >= 80
+                    ? 'bg-rose-500'
+                    : 'bg-emerald-500'
+                }`}
                 style={{
                   width: `${Math.max(
                     4,
                     analytics.dailyLossTracker.dailyLossUtilizationPct
                   )}%`,
-                  backgroundColor:
-                    analytics.dailyLossTracker.dailyLossUtilizationPct >= 80
-                      ? '#BC4749'
-                      : '#386641',
                 }}
               />
             </div>
           </div>
 
-          {/* Zone Legend & Reset */}
+          {/* Timezone Info & Reset */}
           <div className="flex items-center justify-between text-xs text-[#8A99AD]">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-xs"
-                  style={{ backgroundColor: '#386641' }}
-                />
-                <span>#386641</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-xs"
-                  style={{ backgroundColor: '#BC4749' }}
-                />
-                <span>#BC4749</span>
-              </span>
+            <div className="flex items-center gap-2 font-mono">
+              <Clock size={13} className="text-emerald-400" />
+              <span>12h EST (AM/PM)</span>
             </div>
             <button
               type="button"
               onClick={() => {
                 if (
                   window.confirm(
-                    'Reset journal to sample Gold (GC/MGCZ6) futures dataset?'
+                    'Reset journal to default LFE05072050930002 NinjaTrader Orders.csv dataset?'
                   )
                 ) {
                   resetDemoData();
                 }
               }}
               className="p-1.5 rounded-lg text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors cursor-pointer"
-              title="Reset sample data"
+              title="Reset to default Orders.csv data"
             >
               <RotateCcw size={14} />
             </button>
@@ -352,12 +329,9 @@ export default function App() {
                   <h1 className="text-2xl font-bold tracking-tight text-[#FFFFFF]">
                     {pageHeaderMeta.title}
                   </h1>
-                  <span
-                    className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold text-emerald-300 border border-emerald-500/30"
-                    style={{ backgroundColor: 'rgba(56, 102, 65, 0.3)' }}
-                  >
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    ACTIVE
+                    $25K LUCID FLEX
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-0.5">
@@ -366,39 +340,18 @@ export default function App() {
               </div>
             </div>
 
-            {/* Header Right Actions: Timezone Switcher + Import NinjaTrader CSV + Fast Log Trade */}
+            {/* Header Right Actions: Import NinjaTrader CSV + Fast Log Trade */}
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* Timezone Switcher (CT / ET / Both) */}
-              <div
-                className="hidden xl:flex items-center bg-[#111620] p-1 rounded-xl border border-slate-800/60"
-                title="NinjaTrader Exchange Time (Chicago CT) vs New York Time (ET = CT + 1h)"
-              >
-                <Clock size={14} className="text-emerald-400 ml-2 mr-1.5" />
-                {[
-                  { id: 'BOTH', label: 'CT + ET' },
-                  { id: 'CT', label: 'Chicago (CT)' },
-                  { id: 'ET', label: 'New York (ET)' },
-                ].map((tz) => (
-                  <button
-                    key={tz.id}
-                    type="button"
-                    onClick={() => setDisplayTimezone(tz.id)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                      displayTimezone === tz.id
-                        ? 'bg-slate-800 text-[#FFFFFF] shadow-xs'
-                        : 'text-[#8A99AD] hover:text-[#FFFFFF]'
-                    }`}
-                  >
-                    {tz.label}
-                  </button>
-                ))}
+              <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#111620] border border-slate-800/60 text-xs font-mono text-[#8A99AD]">
+                <Clock size={14} className="text-emerald-400" />
+                <span>Eastern Time (12h AM/PM EST)</span>
               </div>
 
               {/* Import NinjaTrader CSV Button */}
               <button
                 type="button"
                 onClick={() => setIsImportModalOpen(true)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold bg-[#111620] hover:bg-slate-800/80 text-[#FFFFFF] border border-slate-800/60 transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#111620] hover:bg-slate-800/80 text-[#FFFFFF] border border-slate-800/60 transition-colors cursor-pointer"
               >
                 <Upload size={15} className="text-emerald-400" />
                 <span>Import NinjaTrader CSV</span>
@@ -408,8 +361,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleOpenNewTrade}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#FFFFFF] shadow-sm transition-all hover:opacity-95 cursor-pointer border border-emerald-500/20"
-                style={{ backgroundColor: '#386641' }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#FFFFFF] bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer"
               >
                 <PlusCircle size={16} />
                 <span>Fast Log Trade</span>
