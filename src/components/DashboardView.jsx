@@ -46,9 +46,9 @@ export default function DashboardView({
   const { dailyLossTracker } = analytics;
 
   return (
-    <div className="space-y-8">
+    <div className="flex-1 flex flex-col gap-5 w-full">
       {/* TOP SUMMARY BAR: 5 Prominent Macro Metrics in Crisp High-Contrast Light Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
         {/* 1. Win Rate */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -196,8 +196,8 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* SPACIOUS, HIGH-CONTRAST EXECUTIONS TABLE */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+      {/* SPACIOUS, HIGH-CONTRAST FULL-SCREEN EXECUTIONS TABLE */}
+      <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden w-full">
         {/* Clean Table Header Bar */}
         <div className="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4">

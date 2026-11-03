@@ -35,10 +35,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F4F6] text-slate-900 flex flex-col">
-      {/* Clean Modern High-Contrast Header */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
-        <div className="max-w-[1440px] mx-auto px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div className="min-h-screen w-full bg-[#F4F4F6] text-slate-900 flex flex-col">
+      {/* Clean Modern High-Contrast Full-Width Header */}
+      <header className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
           {/* Brand Logo */}
           <div className="flex items-center gap-3">
             <div
@@ -151,8 +151,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Uncluttered Full-Width Main Workspace */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-8">
+      {/* Edge-to-Edge Full-Screen Workspace */}
+      <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-5 flex flex-col">
         {activeView === 'dashboard' && (
           <DashboardView
             onOpenLogModal={handleOpenNewTrade}
@@ -164,9 +164,9 @@ export default function App() {
         {activeView === 'review' && <ViperCopilotAuditContent />}
       </main>
 
-      {/* Clean Minimal Footer */}
-      <footer className="bg-white border-t border-slate-200/80 py-4 px-6 text-xs text-slate-500">
-        <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-2">
+      {/* Full-Width Minimal Footer */}
+      <footer className="w-full bg-white border-t border-slate-200/80 py-3 px-4 sm:px-6 lg:px-8 text-xs text-slate-500">
+        <div className="w-full flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-4">
             <span className="font-mono font-bold text-slate-800">VIPER JOURNAL</span>
             <span className="inline-flex items-center gap-1.5">
