@@ -89,22 +89,22 @@ export function computeViperAnalytics(
 
   // Session Window Breakdown
   const sessionStats = {
-    '1:00 AM–4:00 AM': {
-      label: '01:00 AM–04:00 AM EST (London)',
+    '1–4 AM CT / 2–5 AM ET': {
+      label: '1–4 AM CT / 2–5 AM ET (Asian/Early London)',
       trades: 0,
       wins: 0,
       netPnl: 0,
       rSum: 0,
     },
-    '8:00 AM–11:00 AM': {
-      label: '08:00 AM–11:00 AM EST (NY Open)',
+    '8–11 AM CT / 9–12 PM ET': {
+      label: '8–11 AM CT / 9–12 PM ET (New York Opening Window)',
       trades: 0,
       wins: 0,
       netPnl: 0,
       rSum: 0,
     },
     'Outside Window': {
-      label: 'Extended / Afternoon Hours EST',
+      label: 'Outside Window (Extended / Other Hours)',
       trades: 0,
       wins: 0,
       netPnl: 0,

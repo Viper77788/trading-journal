@@ -9,10 +9,15 @@ import {
   Send,
   X,
   ChevronUp,
+  Clock,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
-import { REVENGE_GAP_LABEL } from '../utils/ninjaTraderCsvParser';
+import {
+  normalizeLiquidityWindow,
+  REVENGE_GAP_LABEL,
+} from '../utils/ninjaTraderCsvParser';
+import { LiquidityWindowBadge } from './DashboardView';
 
 export function ViperCopilotAuditContent() {
   const { analytics, lastSubmittedTrade, setLastSubmittedTrade, rules } = useViper();
@@ -21,6 +26,9 @@ export function ViperCopilotAuditContent() {
   const chatBottomRef = useRef(null);
 
   const auditTarget = lastSubmittedTrade;
+  const targetWindow = auditTarget
+    ? normalizeLiquidityWindow(auditTarget.sessionWindow, auditTarget.time)
+    : null;
 
   const activeComplianceScore = auditTarget
     ? auditTarget.complianceScore
@@ -68,14 +76,14 @@ export function ViperCopilotAuditContent() {
 4. Actionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
-    if (q.includes('window') || q.includes('session') || q.includes('est')) {
+    if (q.includes('window') || q.includes('session') || q.includes('est') || q.includes('liquidity')) {
       const sLines = analytics.sessionStats
         .map(
           (s) =>
             `• ${s.label}: ${s.trades} trades | ${s.winRate}% WR | ${s.avgR}R avg | ${formatUSD(s.netPnl)}`
         )
         .join('\n');
-      return `EST Session Performance Breakdown:\n${sLines}\n\nActionable Adjustment: ${analytics.actionableAdjustment}`;
+      return `Liquidity Window Performance Breakdown (CT / ET):\n${sLines}\n\nActionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
     return `1. Compliance Score: ${analytics.avgComplianceScore}% (WR: ${analytics.winRate}% • PF: ${analytics.profitFactor} • Avg R: ${analytics.avgRMultiple}R)
@@ -110,9 +118,9 @@ export function ViperCopilotAuditContent() {
       {/* Scope Switcher: Selected Trade vs Full Session Batch */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h3 className="text-lg font-bold tracking-tight text-[#FFFFFF]">
-              4-Point Automated Strategy & Behavioral Leak Audit
+              4-Point Automated Strategy &amp; Behavioral Leak Audit
             </h3>
             <span
               className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF] ${
@@ -125,7 +133,7 @@ export function ViperCopilotAuditContent() {
             </span>
           </div>
           <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-            Direct, objective evaluation of 14-rule adherence, $25k Lucid Flex ($600 Daily Cap), and 15-minute Revenge Trading Guard.
+            Direct, objective evaluation of Liquidity Windows, 14-rule adherence, $25k Lucid Flex ($600 Daily Cap), and 15-minute Revenge Trading Guard.
           </p>
         </div>
 
@@ -139,6 +147,78 @@ export function ViperCopilotAuditContent() {
           </button>
         )}
       </div>
+
+      {/* Detailed Trade Expansion / Liquidity Window Banner when a Trade is Selected */}
+      {auditTarget && (
+        <div className="bg-[#111620] rounded-xl p-5 border border-slate-800/60 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] block mb-1">
+                Execution Timestamp (EST / CT)
+              </span>
+              <div className="font-mono text-sm font-bold text-[#FFFFFF]">
+                {auditTarget.date} •{' '}
+                <span className="text-emerald-400">
+                  {auditTarget.timeEST} → {auditTarget.exitTimeEST}
+                </span>
+              </div>
+              {auditTarget.timeCT && (
+                <div className="font-mono text-xs text-[#8A99AD] mt-0.5">
+                  Chicago Time: {auditTarget.timeCT} → {auditTarget.exitTimeCT}
+                </div>
+              )}
+            </div>
+
+            <div className="h-8 w-px bg-slate-800/80 hidden sm:block" />
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] block mb-1">
+                Liquidity Window
+              </span>
+              <LiquidityWindowBadge sessionWindow={targetWindow} />
+            </div>
+
+            <div className="h-8 w-px bg-slate-800/80 hidden sm:block" />
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] block mb-1">
+                Position &amp; Contract Lots
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${
+                    auditTarget.direction === 'Long'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                  }`}
+                >
+                  {auditTarget.direction === 'Long' ? 'LONG' : 'SHORT'}
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-[#090C10] border border-slate-800 font-mono text-xs font-bold text-[#FFFFFF]">
+                  {auditTarget.quantity}x {auditTarget.lotType || 'Micro'} ({auditTarget.contract})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-800/60">
+            <div className="text-right">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] block">
+                Realized Net P&amp;L
+              </span>
+              <span
+                className={`text-xl font-bold font-mono ${
+                  Number(auditTarget.netPnl) >= 0
+                    ? 'text-emerald-400'
+                    : 'text-rose-400'
+                }`}
+              >
+                {formatUSD(auditTarget.netPnl)} ({auditTarget.rMultiple > 0 ? `+${auditTarget.rMultiple}R` : `${auditTarget.rMultiple}R`})
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4 Lucid #111620 Audit Cards (rounded-xl, p-6, border-slate-800/60) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -275,7 +355,7 @@ export function ViperCopilotAuditContent() {
                 Ask Viper Copilot
               </span>
               <span className="text-xs text-[#8A99AD]">
-                Query 15m Revenge Trading Guard, 14-rule compliance, or EST session performance
+                Query Liquidity Windows (1–4 AM CT / 8–11 AM CT), 15m Revenge Guard, or 14-rule compliance
               </span>
             </div>
           </div>
@@ -284,7 +364,7 @@ export function ViperCopilotAuditContent() {
             {[
               'Audit 15-Minute Revenge Rule',
               'Audit 14-Rule Compliance',
-              'Review EST Session Performance',
+              'Review Liquidity Window Performance',
             ].map((chip) => (
               <button
                 key={chip}
@@ -327,7 +407,7 @@ export function ViperCopilotAuditContent() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask Viper Copilot about 15m cooldowns, NinjaTrader imports, or rule compliance..."
+            placeholder="Ask Viper Copilot about Liquidity Windows, 15m cooldowns, or rule compliance..."
             className="flex-1 bg-[#090C10] border border-slate-800/60 rounded-xl px-4 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-emerald-500"
           />
           <button
@@ -386,7 +466,7 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
                       Viper AI Session Review Drawer
                     </h2>
                     <p className="text-xs font-medium text-[#8A99AD]">
-                      On-demand 14-Rule Compliance, $600 Daily Loss Cap & 15m Revenge Trading Guard
+                      On-demand Liquidity Window Audit, 14-Rule Compliance, $600 Daily Loss Cap &amp; 15m Revenge Trading Guard
                     </p>
                   </div>
                 </div>

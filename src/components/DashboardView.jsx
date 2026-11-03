@@ -7,13 +7,58 @@ import {
   Search,
   ArrowUpRight,
   Upload,
+  Clock,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
+import { LIQUIDITY_WINDOWS } from '../constants/viperConstants';
 import {
   formatTime12hEST,
+  normalizeLiquidityWindow,
   REVENGE_GAP_LABEL,
 } from '../utils/ninjaTraderCsvParser';
+
+export function LiquidityWindowBadge({ sessionWindow }) {
+  if (sessionWindow === LIQUIDITY_WINDOWS.ASIAN_LONDON) {
+    return (
+      <div className="inline-flex flex-col items-start">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+          <Clock size={12} className="text-sky-400 shrink-0" />
+          <span>1–4 AM CT / 2–5 AM ET</span>
+        </span>
+        <span className="text-[11px] font-medium text-[#8A99AD] mt-0.5 pl-0.5">
+          Asian / Early London
+        </span>
+      </div>
+    );
+  }
+
+  if (sessionWindow === LIQUIDITY_WINDOWS.NY_OPEN) {
+    return (
+      <div className="inline-flex flex-col items-start">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          <Clock size={12} className="text-emerald-400 shrink-0" />
+          <span>8–11 AM CT / 9–12 PM ET</span>
+        </span>
+        <span className="text-[11px] font-medium text-[#8A99AD] mt-0.5 pl-0.5">
+          New York Opening Window
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-flex flex-col items-start">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-slate-800/70 text-[#8A99AD] border border-slate-700/60">
+        <Clock size={12} className="text-[#8A99AD] shrink-0" />
+        <span>Outside Window</span>
+      </span>
+      <span className="text-[11px] font-medium text-[#8A99AD]/70 mt-0.5 pl-0.5">
+        Off-Session Hours
+      </span>
+    </div>
+  );
+}
 
 export default function DashboardView({
   onOpenLogModal,
@@ -32,18 +77,23 @@ export default function DashboardView({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [directionFilter, setDirectionFilter] = useState('All');
+  const [windowFilter, setWindowFilter] = useState('All');
 
   const visibleTrades = filteredTrades.filter((t) => {
+    const resolvedWin = normalizeLiquidityWindow(t.sessionWindow, t.time);
     const matchesDirection =
       directionFilter === 'All' || t.direction === directionFilter;
+    const matchesWindow =
+      windowFilter === 'All' || resolvedWin === windowFilter;
     const matchesSearch =
       !searchQuery ||
       t.contract?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.accountId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.accountType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resolvedWin.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.leakTags || []).join(' ').toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesDirection && matchesSearch;
+    return matchesDirection && matchesWindow && matchesSearch;
   });
 
   const { dailyLossTracker } = analytics;
@@ -78,7 +128,6 @@ export default function DashboardView({
               </span>
             </div>
 
-            {/* Thin Consistency Progress Bar */}
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
@@ -140,7 +189,6 @@ export default function DashboardView({
               </span>
             </div>
 
-            {/* Thin Rule Adherence Bar */}
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
@@ -200,7 +248,6 @@ export default function DashboardView({
               </span>
             </div>
 
-            {/* Thin Efficiency Bar */}
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
@@ -262,7 +309,6 @@ export default function DashboardView({
               </span>
             </div>
 
-            {/* Thin R-Multiple Progress Bar */}
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
@@ -319,7 +365,6 @@ export default function DashboardView({
               </span>
             </div>
 
-            {/* Thin Daily Loss Utilization Bar */}
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
@@ -363,7 +408,7 @@ export default function DashboardView({
       {/* LUCID-STYLE EXECUTIONS TABLE CONTAINER (#111620, rounded-xl, border-slate-800/60) */}
       <div className="flex-1 flex flex-col bg-[#111620] rounded-xl border border-slate-800/60 overflow-hidden w-full">
         {/* Table Control & Filter Header */}
-        <div className="px-6 py-5 border-b border-slate-800/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="px-6 py-5 border-b border-slate-800/60 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-bold tracking-tight text-[#FFFFFF]">
@@ -374,16 +419,45 @@ export default function DashboardView({
               </span>
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-              All timestamps formatted in <strong className="text-[#FFFFFF]">12-Hour EST (AM/PM)</strong> • Click any execution row to open the 4-Point AI Audit
+              UTC converted to <strong className="text-[#FFFFFF]">Chicago Central Time (CT)</strong> &amp; <strong className="text-emerald-400">Eastern Time (ET +1h)</strong> in 12-hour AM/PM format • Click any row to inspect in AI Audit
             </p>
           </div>
 
-          {/* Direction Filter & Search Bar */}
+          {/* Liquidity Window Filter + Direction Filter + Search Bar */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Liquidity Window Filter Pills */}
+            <div className="flex flex-wrap items-center bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
+              {[
+                { id: 'All', label: 'All Windows' },
+                {
+                  id: LIQUIDITY_WINDOWS.ASIAN_LONDON,
+                  label: '1–4 AM CT / 2–5 AM ET',
+                },
+                {
+                  id: LIQUIDITY_WINDOWS.NY_OPEN,
+                  label: '8–11 AM CT / 9–12 PM ET',
+                },
+                { id: LIQUIDITY_WINDOWS.OUTSIDE, label: 'Outside Window' },
+              ].map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => setWindowFilter(w.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    windowFilter === w.id
+                      ? 'bg-[#111620] text-[#FFFFFF] border border-slate-700/70 shadow-xs'
+                      : 'text-[#8A99AD] hover:text-[#FFFFFF]'
+                  }`}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
+
             {/* Direction Filter Pills */}
             <div className="flex items-center bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
               {[
-                { id: 'All', label: 'All Trades' },
+                { id: 'All', label: 'All' },
                 { id: 'Long', label: 'LONG' },
                 { id: 'Short', label: 'SHORT' },
               ].map((d) => (
@@ -410,7 +484,7 @@ export default function DashboardView({
               />
               <input
                 type="text"
-                placeholder="Search LFE account, contract, leak..."
+                placeholder="Search contract, window, leak..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 pr-4 py-2 rounded-xl bg-[#090C10] border border-slate-800/60 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-emerald-500"
@@ -424,11 +498,12 @@ export default function DashboardView({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800/60 bg-[#090C10]/60 text-xs font-semibold uppercase tracking-wider text-[#8A99AD]">
-                <th className="py-3.5 px-4">Date & Time (EST)</th>
-                <th className="py-3.5 px-4">Account & Contract</th>
-                <th className="py-3.5 px-4">Direction & Lots</th>
+                <th className="py-3.5 px-4">Date &amp; Time (EST / CT)</th>
+                <th className="py-3.5 px-4">Liquidity Window</th>
+                <th className="py-3.5 px-4">Account &amp; Contract</th>
+                <th className="py-3.5 px-4">Direction &amp; Lots</th>
                 <th className="py-3.5 px-4">Entry → Exit Price</th>
-                <th className="py-3.5 px-4 text-right">Net P&L</th>
+                <th className="py-3.5 px-4 text-right">Net P&amp;L</th>
                 <th className="py-3.5 px-4 text-right">R-Multiple</th>
                 <th className="py-3.5 px-4 text-center">Compliance</th>
                 <th className="py-3.5 px-4">Behavioral Guard (15m Rule)</th>
@@ -439,7 +514,7 @@ export default function DashboardView({
               {visibleTrades.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="py-16 text-center text-[#8A99AD] text-sm font-medium"
                   >
                     No executions match the current filter. Click &quot;Import NinjaTrader CSV&quot; or &quot;Fast Log Trade&quot;.
@@ -449,15 +524,18 @@ export default function DashboardView({
                 visibleTrades.map((t) => {
                   const isWin = Number(t.netPnl) >= 0;
                   const entryEST =
-                    t.timeEST || formatTime12hEST(t.time || '09:30', false);
+                    t.timeEST || formatTime12hEST(t.time || '09:30', false, 'EST');
                   const exitEST =
                     t.exitTimeEST ||
                     (t.exitTime24
-                      ? formatTime12hEST(t.exitTime24, false)
+                      ? formatTime12hEST(t.exitTime24, false, 'EST')
                       : null);
-                  const hasRevengeFlag =
-                    Boolean(t.isRevengeTrade) ||
-                    (t.leakTags || []).includes(REVENGE_GAP_LABEL);
+                  const entryCT = t.timeCT || '';
+                  const exitCT = t.exitTimeCT || '';
+                  const resolvedWindow = normalizeLiquidityWindow(
+                    t.sessionWindow,
+                    t.time
+                  );
                   const qty = Math.max(1, Number(t.quantity) || 1);
                   const lotLabel = t.lotType || 'Micro';
 
@@ -470,7 +548,7 @@ export default function DashboardView({
                       }}
                       className="hover:bg-slate-800/80 transition-colors cursor-pointer"
                     >
-                      {/* Date & Time in 12-Hour EST (AM/PM) */}
+                      {/* Date & Time in 12-Hour EST (AM/PM) + CT Reference */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="font-mono font-semibold text-[#FFFFFF] text-sm">
                           {t.date}
@@ -481,6 +559,19 @@ export default function DashboardView({
                             ? ` → ${exitEST.replace(' EST', '')} EST`
                             : ''}
                         </div>
+                        {entryCT && (
+                          <div className="font-mono text-[11px] text-[#8A99AD] mt-0.5">
+                            {entryCT}
+                            {exitCT && exitCT !== entryCT
+                              ? ` → ${exitCT.replace(' CT', '')} CT`
+                              : ''}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Dedicated Liquidity Window Column */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <LiquidityWindowBadge sessionWindow={resolvedWindow} />
                       </td>
 
                       {/* Account & Contract */}

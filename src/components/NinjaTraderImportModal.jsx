@@ -17,6 +17,7 @@ import {
   REVENGE_GAP_LABEL,
 } from '../utils/ninjaTraderCsvParser';
 import { formatUSD } from '../utils/viperAnalytics';
+import { LiquidityWindowBadge } from './DashboardView';
 
 export default function NinjaTraderImportModal({
   isOpen,
@@ -29,7 +30,7 @@ export default function NinjaTraderImportModal({
   const [csvText, setCsvText] = useState(SAMPLE_NINJATRADER_ORDERS_CSV);
   const [fileName, setFileName] = useState('Orders_LFE05072050930002.csv');
   const [accountProfileId, setAccountProfileId] = useState('lucid-25k');
-  const [timezoneOffsetHours, setTimezoneOffsetHours] = useState(0);
+  const [utcToCtOffsetHours, setUtcToCtOffsetHours] = useState(-6);
   const [includeCommissions, setIncludeCommissions] = useState(false);
   const [replaceExisting, setReplaceExisting] = useState(true);
 
@@ -37,10 +38,10 @@ export default function NinjaTraderImportModal({
     if (!csvText.trim()) return null;
     return parseNinjaTraderOrdersCsv(csvText, {
       accountProfileId,
-      timezoneOffsetHours: Number(timezoneOffsetHours) || 0,
+      utcToCtOffsetHours: Number(utcToCtOffsetHours),
       includeCommissions,
     });
-  }, [csvText, accountProfileId, timezoneOffsetHours, includeCommissions]);
+  }, [csvText, accountProfileId, utcToCtOffsetHours, includeCommissions]);
 
   if (!isOpen) return null;
 
@@ -89,7 +90,7 @@ export default function NinjaTraderImportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-5xl bg-[#111620] text-[#FFFFFF] rounded-xl border border-slate-800/60 shadow-2xl overflow-hidden my-auto">
+      <div className="w-full max-w-6xl bg-[#111620] text-[#FFFFFF] rounded-xl border border-slate-800/60 shadow-2xl overflow-hidden my-auto">
         {/* Modal Header */}
         <div className="px-6 py-5 bg-[#090C10] border-b border-slate-800/60 flex items-center justify-between">
           <div>
@@ -98,11 +99,11 @@ export default function NinjaTraderImportModal({
                 NINJATRADER CSV
               </span>
               <h2 className="text-xl font-bold tracking-tight text-[#FFFFFF]">
-                Import NinjaTrader Orders.csv & Behavioral Leak Guard
+                Import NinjaTrader Orders.csv &amp; Behavioral Leak Guard
               </h2>
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-              Filters <code className="text-[#FFFFFF]">Status.trim() === &apos;Filled&apos;</code> • Extracts exact Contract Lots (<code className="text-[#FFFFFF]">10x</code>, <code className="text-[#FFFFFF]">5x</code>) • 12-Hour EST (AM/PM)
+              Reads raw CSV in <strong className="text-[#FFFFFF]">UTC</strong> → converts to <strong className="text-[#FFFFFF]">Chicago Time (CT)</strong> → shifts <strong className="text-emerald-400">+1h to Eastern Time (ET)</strong> in 12-hour AM/PM format
             </p>
           </div>
           <button
@@ -115,13 +116,13 @@ export default function NinjaTraderImportModal({
         </div>
 
         <div className="p-6 space-y-6 max-h-[82vh] overflow-y-auto">
-          {/* Top Configuration Row: Account Profile + EST Time Format + 15m Guard */}
+          {/* Top Configuration Row: Account Profile + UTC->CT->ET Timezone + 15m Guard */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* 1. Account Size & Risk Mapping */}
             <div className="bg-[#090C10] p-4 rounded-xl border border-slate-800/60">
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#8A99AD] mb-2 flex items-center gap-1.5">
                 <Shield size={14} className="text-emerald-400" />
-                Account Profile & Risk Cap
+                Account Profile &amp; Risk Cap
               </label>
               <select
                 value={accountProfileId}
@@ -139,22 +140,32 @@ export default function NinjaTraderImportModal({
               </p>
             </div>
 
-            {/* 2. 12-Hour EST Timezone Formatting */}
+            {/* 2. UTC -> CT -> ET (+1h) Timezone Conversion */}
             <div className="bg-[#090C10] p-4 rounded-xl border border-slate-800/60">
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#8A99AD] mb-2 flex items-center gap-1.5">
                 <Clock size={14} className="text-emerald-400" />
-                12-Hour EST (AM/PM) Timestamp Mode
+                CSV Timezone → CT &amp; ET (+1h) Offset
               </label>
               <select
-                value={timezoneOffsetHours}
-                onChange={(e) => setTimezoneOffsetHours(Number(e.target.value))}
+                value={utcToCtOffsetHours}
+                onChange={(e) => setUtcToCtOffsetHours(Number(e.target.value))}
                 className="w-full bg-[#111620] border border-slate-800/60 rounded-xl px-3 py-2 text-sm font-semibold text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
               >
-                <option value={0}>CSV Timestamps Already in EST (12h AM/PM)</option>
-                <option value={1}>Convert Central Time (CT) → EST (+1 Hour)</option>
+                <option value={-6}>
+                  UTC Server Time → CT (UTC-6) &amp; ET (UTC-5 / +1h)
+                </option>
+                <option value={-5}>
+                  UTC Server Time (DST) → CT (UTC-5) &amp; ET (UTC-4 / +1h)
+                </option>
+                <option value={0}>
+                  CSV Already in Chicago Time (CT) → Shift +1h to ET
+                </option>
+                <option value={-1}>
+                  CSV Already in Eastern Time (ET) (0h Shift)
+                </option>
               </select>
               <p className="text-xs text-[#8A99AD] mt-2">
-                All timestamps standardized to <strong className="text-[#FFFFFF]">12-hour AM/PM EST</strong> (e.g. <code className="text-emerald-400">12:01 PM EST</code>).
+                Converts UTC → <strong className="text-[#FFFFFF]">CT</strong> → <strong className="text-emerald-400">ET (+1h)</strong> so morning trades match active liquidity windows.
               </p>
             </div>
 
@@ -275,7 +286,7 @@ export default function NinjaTraderImportModal({
 
                 <div className="bg-[#090C10] rounded-xl p-4 border border-slate-800/60">
                   <span className="text-xs font-medium uppercase text-[#8A99AD]">
-                    Imported Net P&L & Balance
+                    Imported Net P&amp;L &amp; Balance
                   </span>
                   <div
                     className={`text-xl font-bold font-mono mt-1 ${
@@ -321,7 +332,7 @@ export default function NinjaTraderImportModal({
                     Preview Reconstructed Executions ({parsedResult.trades.length})
                   </span>
                   <span className="text-xs font-mono text-emerald-400">
-                    12-Hour EST Format (AM/PM)
+                    UTC → CT → ET (+1h) • 12-Hour AM/PM Format
                   </span>
                 </div>
 
@@ -329,11 +340,12 @@ export default function NinjaTraderImportModal({
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-slate-800/60 text-xs font-semibold uppercase text-[#8A99AD] bg-[#111620]">
-                        <th className="py-3 px-4">Date & Time (12h EST)</th>
-                        <th className="py-3 px-4">Account & Contract</th>
-                        <th className="py-3 px-4">Direction & Lots</th>
+                        <th className="py-3 px-4">Date &amp; Time (EST / CT)</th>
+                        <th className="py-3 px-4">Liquidity Window</th>
+                        <th className="py-3 px-4">Account &amp; Contract</th>
+                        <th className="py-3 px-4">Direction &amp; Lots</th>
                         <th className="py-3 px-4">Entry → Exit</th>
-                        <th className="py-3 px-4 text-right">Net P&L</th>
+                        <th className="py-3 px-4 text-right">Net P&amp;L</th>
                         <th className="py-3 px-4 text-center">Gap Since Close</th>
                         <th className="py-3 px-4">Behavioral Guard</th>
                       </tr>
@@ -351,6 +363,14 @@ export default function NinjaTraderImportModal({
                             <div className="text-xs text-emerald-400">
                               {t.timeEST} → {t.exitTimeEST.replace(' EST', '')} EST
                             </div>
+                            {t.timeCT && (
+                              <div className="text-[11px] text-[#8A99AD]">
+                                {t.timeCT} → {t.exitTimeCT.replace(' CT', '')} CT
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <LiquidityWindowBadge sessionWindow={t.sessionWindow} />
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <div className="font-mono font-bold text-[#FFFFFF] text-xs">
@@ -448,7 +468,7 @@ export default function NinjaTraderImportModal({
             >
               <Sparkles size={15} />
               <span>
-                Import {parsedResult ? parsedResult.trades.length : ''} Trades & Run Audit
+                Import {parsedResult ? parsedResult.trades.length : ''} Trades &amp; Run Audit
               </span>
             </button>
           </div>

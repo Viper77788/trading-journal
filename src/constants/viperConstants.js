@@ -26,26 +26,35 @@ export const ACCOUNT_TYPES = [
   },
 ];
 
+export const LIQUIDITY_WINDOWS = {
+  ASIAN_LONDON: '1–4 AM CT / 2–5 AM ET',
+  NY_OPEN: '8–11 AM CT / 9–12 PM ET',
+  OUTSIDE: 'Outside Window',
+};
+
 export const SESSION_WINDOWS = [
   {
-    id: '1:00 AM–4:00 AM',
-    label: '01:00 AM–04:00 AM EST (London Session)',
-    short: '01:00 AM–04:00 AM EST',
+    id: LIQUIDITY_WINDOWS.ASIAN_LONDON,
+    label: '1–4 AM CT / 2–5 AM ET (Asian/Early London)',
+    short: '1–4 AM CT / 2–5 AM ET',
+    subtitle: 'Asian / Early London',
   },
   {
-    id: '8:00 AM–11:00 AM',
-    label: '08:00 AM–11:00 AM EST (NY Opening Session)',
-    short: '08:00 AM–11:00 AM EST',
+    id: LIQUIDITY_WINDOWS.NY_OPEN,
+    label: '8–11 AM CT / 9–12 PM ET (New York Opening Window)',
+    short: '8–11 AM CT / 9–12 PM ET',
+    subtitle: 'New York Opening Window',
   },
   {
-    id: 'Outside Window',
-    label: 'Afternoon / Extended Hours (EST)',
-    short: 'Extended Hours EST',
+    id: LIQUIDITY_WINDOWS.OUTSIDE,
+    label: 'Outside Window (Extended / Afternoon Hours)',
+    short: 'Outside Window',
+    subtitle: 'Extended / Off-Window',
   },
 ];
 
 export const DEFAULT_14_RULES = [
-  { id: 'r1', number: 1, label: 'Liquidity Window Alignment (EST Session Timing)', category: 'Timing', isCore: true },
+  { id: 'r1', number: 1, label: 'Liquidity Window Alignment (1–4 AM CT / 8–11 AM CT)', category: 'Timing', isCore: true },
   { id: 'r2', number: 2, label: 'Key Structural Level Reaction Confirmed', category: 'Structure', isCore: true },
   { id: 'r3', number: 3, label: 'Range Break Confirmation', category: 'Structure', isCore: true },
   { id: 'r4', number: 4, label: 'Structural Candle Close Confirmation', category: 'Execution', isCore: true },

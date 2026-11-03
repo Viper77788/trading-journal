@@ -3,6 +3,8 @@ import { DEFAULT_14_RULES } from '../constants/viperConstants';
 import { computeRuleCompliance, computeViperAnalytics } from '../utils/viperAnalytics';
 import {
   formatTime12hEST,
+  shiftTimeStringHours,
+  normalizeLiquidityWindow,
   parseNinjaTraderOrdersCsv,
   SAMPLE_NINJATRADER_ORDERS_CSV,
   REVENGE_GAP_LABEL,
@@ -11,11 +13,11 @@ import {
 const ViperContext = createContext(null);
 
 const STORAGE_KEYS = {
-  TRADES: 'viper_futures_trades_v3',
-  RULES: 'viper_14_rules_v3',
-  ACCOUNT_FILTER: 'viper_account_filter_v3',
-  DAILY_CAP: 'viper_daily_loss_cap_v3',
-  STARTING_BALANCE: 'viper_starting_balance_v3',
+  TRADES: 'viper_futures_trades_v4',
+  RULES: 'viper_14_rules_v4',
+  ACCOUNT_FILTER: 'viper_account_filter_v4',
+  DAILY_CAP: 'viper_daily_loss_cap_v4',
+  STARTING_BALANCE: 'viper_starting_balance_v4',
 };
 
 function timeToMinutes(tStr) {
@@ -30,8 +32,9 @@ function timeToMinutes(tStr) {
 }
 
 /**
- * Re-evaluates consecutive trades on the same date for the 15-Minute Revenge Trading Rule
- * and ensures all timestamps are formatted in 12-hour EST with AM/PM.
+ * Re-evaluates consecutive trades on the same date for the 15-Minute Revenge Trading Rule,
+ * ensures all timestamps are formatted in 12-hour EST (with CT reference), and normalizes
+ * the Liquidity Window badge ("1–4 AM CT / 2–5 AM ET", "8–11 AM CT / 9–12 PM ET", "Outside Window").
  */
 function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
   const chronological = [...tradesList].sort((a, b) => {
@@ -50,8 +53,20 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
     const rawEntry24 = trade.time || '09:30';
     const rawExit24 = trade.exitTime24 || rawEntry24;
 
-    const timeEST = trade.timeEST || formatTime12hEST(rawEntry24, false);
-    const exitTimeEST = trade.exitTimeEST || formatTime12hEST(rawExit24, false);
+    const timeEST = trade.timeEST || formatTime12hEST(rawEntry24, false, 'EST');
+    const exitTimeEST =
+      trade.exitTimeEST || formatTime12hEST(rawExit24, false, 'EST');
+
+    const entryCT24 = shiftTimeStringHours(rawEntry24, -1);
+    const exitCT24 = shiftTimeStringHours(rawExit24, -1);
+    const timeCT = trade.timeCT || formatTime12hEST(entryCT24, false, 'CT');
+    const exitTimeCT =
+      trade.exitTimeCT || formatTime12hEST(exitCT24, false, 'CT');
+
+    const sessionWindow = normalizeLiquidityWindow(
+      trade.sessionWindow,
+      rawEntry24
+    );
 
     let gapMins =
       trade.timeGapFromPrevMins !== undefined &&
@@ -102,6 +117,9 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
       exitTime24: rawExit24.slice(0, 5),
       timeEST,
       exitTimeEST,
+      timeCT,
+      exitTimeCT,
+      sessionWindow,
       timeGapFromPrevMins: gapMins,
       isRevengeTrade,
       leakTags,
@@ -111,7 +129,6 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
     });
   });
 
-  // Display newest executions first
   return [...chronological]
     .reverse()
     .map((t) => updatedById.get(t.id) || t);
@@ -120,7 +137,7 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
 function getDefaultParsedSeedTrades() {
   const parsed = parseNinjaTraderOrdersCsv(SAMPLE_NINJATRADER_ORDERS_CSV, {
     accountProfileId: 'lucid-25k',
-    timezoneOffsetHours: 0,
+    utcToCtOffsetHours: -6, // UTC -> CT (UTC-6) and +1h to ET (UTC-5)
     includeCommissions: false,
   });
   return enrichTradesWithESTAndCooldown(parsed.trades, DEFAULT_14_RULES.length);
@@ -228,14 +245,23 @@ export function ViperProvider({ children }) {
     const rawEntry24 = tradePayload.time || '09:30';
     const rawExit24 = tradePayload.exitTime24 || rawEntry24;
 
+    const entryCT24 = shiftTimeStringHours(rawEntry24, -1);
+    const exitCT24 = shiftTimeStringHours(rawExit24, -1);
+
     const candidate = {
       ...tradePayload,
       id: tradePayload.id || `viper-${Date.now()}`,
       quantity: Math.max(1, Number(tradePayload.quantity) || 1),
       time: rawEntry24.slice(0, 5),
       exitTime24: rawExit24.slice(0, 5),
-      timeEST: formatTime12hEST(rawEntry24, false),
-      exitTimeEST: formatTime12hEST(rawExit24, false),
+      timeEST: formatTime12hEST(rawEntry24, false, 'EST'),
+      exitTimeEST: formatTime12hEST(rawExit24, false, 'EST'),
+      timeCT: formatTime12hEST(entryCT24, false, 'CT'),
+      exitTimeCT: formatTime12hEST(exitCT24, false, 'CT'),
+      sessionWindow: normalizeLiquidityWindow(
+        tradePayload.sessionWindow,
+        rawEntry24
+      ),
       grossPnl: gross,
       commissions: comm,
       netPnl: net,

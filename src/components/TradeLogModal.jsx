@@ -8,9 +8,11 @@ import {
   Check,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
-import { DEFAULT_14_RULES } from '../constants/viperConstants';
+import { DEFAULT_14_RULES, LIQUIDITY_WINDOWS } from '../constants/viperConstants';
 import {
   formatTime12hEST,
+  normalizeLiquidityWindow,
+  resolveLiquidityWindowFromTime24ET,
   REVENGE_GAP_LABEL,
 } from '../utils/ninjaTraderCsvParser';
 
@@ -49,7 +51,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
     date: new Date().toISOString().slice(0, 10),
     time: '09:30',
     exitTime24: '09:45',
-    sessionWindow: '8:00 AM–11:00 AM',
+    sessionWindow: LIQUIDITY_WINDOWS.NY_OPEN,
     contract: 'MGCZ6',
     quantity: 5,
     accountId: 'LFE05072050930002',
@@ -76,15 +78,19 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
       const savedCount = Array.isArray(initialTrade.rulesChecked)
         ? initialTrade.rulesChecked.length
         : Math.round(((initialTrade.complianceScore || 100) / 100) * 14);
+      const entryTime24 = (initialTrade.time || '09:30').slice(0, 5);
       setForm({
         date: initialTrade.date || new Date().toISOString().slice(0, 10),
-        time: (initialTrade.time || '09:30').slice(0, 5),
+        time: entryTime24,
         exitTime24: (
           initialTrade.exitTime24 ||
           initialTrade.time ||
           '09:45'
         ).slice(0, 5),
-        sessionWindow: initialTrade.sessionWindow || '8:00 AM–11:00 AM',
+        sessionWindow: normalizeLiquidityWindow(
+          initialTrade.sessionWindow,
+          entryTime24
+        ),
         contract: initialTrade.contract || 'MGCZ6',
         quantity: initialTrade.quantity || 5,
         accountId: initialTrade.accountId || 'LFE05072050930002',
@@ -112,7 +118,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
         date: new Date().toISOString().slice(0, 10),
         time: '09:30',
         exitTime24: '09:45',
-        sessionWindow: '8:00 AM–11:00 AM',
+        sessionWindow: LIQUIDITY_WINDOWS.NY_OPEN,
         contract: 'MGCZ6',
         quantity: 5,
         accountId: 'LFE05072050930002',
@@ -139,7 +145,13 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
   if (!isOpen) return null;
 
   const updateField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === 'time') {
+        next.sessionWindow = resolveLiquidityWindowFromTime24ET(value);
+      }
+      return next;
+    });
   };
 
   const togglePillar = (pillarId) => {
@@ -405,24 +417,24 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 </div>
               </div>
 
-              {/* Session Window */}
+              {/* Liquidity Window */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  EST Session Window
+                  Liquidity Window (CT / ET)
                 </label>
                 <select
                   value={form.sessionWindow}
                   onChange={(e) => updateField('sessionWindow', e.target.value)}
                   className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-medium text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="1:00 AM–4:00 AM" className="bg-[#111620]">
-                    01:00 AM–04:00 AM EST (London)
+                  <option value={LIQUIDITY_WINDOWS.ASIAN_LONDON} className="bg-[#111620]">
+                    1–4 AM CT / 2–5 AM ET (Asian/Early London)
                   </option>
-                  <option value="8:00 AM–11:00 AM" className="bg-[#111620]">
-                    08:00 AM–11:00 AM EST (NY Open)
+                  <option value={LIQUIDITY_WINDOWS.NY_OPEN} className="bg-[#111620]">
+                    8–11 AM CT / 9–12 PM ET (New York Opening Window)
                   </option>
-                  <option value="Outside Window" className="bg-[#111620]">
-                    Extended / Afternoon Hours EST
+                  <option value={LIQUIDITY_WINDOWS.OUTSIDE} className="bg-[#111620]">
+                    Outside Window (Extended / Other Hours)
                   </option>
                 </select>
               </div>

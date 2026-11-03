@@ -1,4 +1,4 @@
-import { DEFAULT_14_RULES } from '../constants/viperConstants';
+import { DEFAULT_14_RULES, LIQUIDITY_WINDOWS } from '../constants/viperConstants';
 import { computeRuleCompliance } from './viperAnalytics';
 
 export const REVENGE_GAP_LABEL = 'Revenge Trading (< 15m gap)';
@@ -44,6 +44,7 @@ export const ACCOUNT_PROFILES = [
 
 /**
  * Real NinjaTrader Orders.csv export for LFE05072050930002 ($25k Lucid Flex Account)
+ * Note: Raw NinjaTrader CSV timestamps are exported in UTC / Server time.
  */
 export const SAMPLE_NINJATRADER_ORDERS_CSV = `orderId,Account,Order ID,B/S,Contract,Product,Product Description,avgPrice,filledQty,Fill Time,lastCommandId,Status,_priceFormat,_priceFormatType,_tickSize,spreadDefinitionId,Version ID,Timestamp,Date,Quantity,Text,Type,Limit Price,Stop Price,decimalLimit,decimalStop,Filled Qty,Avg Fill Price,decimalFillAvg,Venue,Notional Value,Currency
 721105890495,LFE05072050930002,721105890495, Sell,MGCZ6,MGC,E-Micro Gold,3916.3,10,11/02/2026 12:01:08,721105890495, Filled,-1,0,0.1,,721105890495,11/02/2026 12:01:00,11/2/26,10,Chart, Stop,,3916.4,,3916.4,10,3916.3,3916.3,,"391,630.00",USD
@@ -134,9 +135,9 @@ function splitCsvLine(line) {
 }
 
 /**
- * Parses NinjaTrader timestamp string into a Date object.
+ * Parses a raw NinjaTrader CSV timestamp string as UTC/Server time into UTC epoch milliseconds.
  */
-export function parseNinjaTimestamp(rawStr) {
+export function parseNinjaTimestampUTC(rawStr) {
   if (!rawStr || typeof rawStr !== 'string') return null;
   const cleaned = rawStr.trim().replace(/^"|"$/g, '');
   if (!cleaned) return null;
@@ -157,9 +158,9 @@ export function parseNinjaTimestamp(rawStr) {
     if (meridiem === 'PM' && hour < 12) hour += 12;
     if (meridiem === 'AM' && hour === 12) hour = 0;
 
-    const dt = new Date(year, month - 1, day, hour, minute, second);
-    if (!Number.isNaN(dt.getTime())) {
-      return dt;
+    const utcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+    if (!Number.isNaN(utcMs)) {
+      return utcMs;
     }
   }
 
@@ -173,27 +174,92 @@ export function parseNinjaTimestamp(rawStr) {
     const hour = Number(isoMatch[4]);
     const minute = Number(isoMatch[5]);
     const second = Number(isoMatch[6] || 0);
-    const dt = new Date(year, month - 1, day, hour, minute, second);
-    if (!Number.isNaN(dt.getTime())) {
-      return dt;
+    const utcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+    if (!Number.isNaN(utcMs)) {
+      return utcMs;
     }
   }
 
-  const fallback = new Date(cleaned);
-  return Number.isNaN(fallback.getTime()) ? null : fallback;
+  const fallback = Date.parse(cleaned);
+  return Number.isNaN(fallback) ? null : fallback;
+}
+
+/**
+ * Formats a shifted UTC epoch millisecond timestamp into date & 12-hour AM/PM time components.
+ */
+export function formatShiftedUtcParts(shiftedMs, tzSuffix = 'EST') {
+  if (shiftedMs === null || shiftedMs === undefined || Number.isNaN(shiftedMs)) {
+    return {
+      date: '',
+      time24: '09:30',
+      timeWithSec: '09:30:00',
+      formatted12h: `09:30 AM ${tzSuffix}`,
+      formatted12hWithSec: `09:30:00 AM ${tzSuffix}`,
+      hours24: 9,
+      minutes: 30,
+      totalMinutes: 570,
+    };
+  }
+  const dt = new Date(shiftedMs);
+  const yyyy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  const h24 = dt.getUTCHours();
+  const minNum = dt.getUTCMinutes();
+  const secNum = dt.getUTCSeconds();
+
+  const hh = String(h24).padStart(2, '0');
+  const min = String(minNum).padStart(2, '0');
+  const sec = String(secNum).padStart(2, '0');
+
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  const h12 = String(h24 % 12 || 12).padStart(2, '0');
+
+  return {
+    date: `${yyyy}-${mm}-${dd}`,
+    time24: `${hh}:${min}`,
+    timeWithSec: `${hh}:${min}:${sec}`,
+    formatted12h: `${h12}:${min} ${ampm} ${tzSuffix}`,
+    formatted12hWithSec: `${h12}:${min}:${sec} ${ampm} ${tzSuffix}`,
+    hours24: h24,
+    minutes: minNum,
+    totalMinutes: h24 * 60 + minNum + secNum / 60,
+  };
+}
+
+/**
+ * Converts a raw UTC timestamp into Chicago Central Time (CT) first,
+ * and then shifts +1h to Eastern Time (ET) so that morning trades
+ * (e.g. 5:45 AM / 11:45 AM) display accurately in 12-hour AM/PM EST format.
+ *
+ * @param {number} utcEpochMs - Raw timestamp parsed as UTC
+ * @param {number} utcToCtOffsetHours - Offset from UTC to Chicago Central Time (default -6 for CST, or -5 for CDT)
+ */
+export function convertUtcToCtAndEt(utcEpochMs, utcToCtOffsetHours = -6) {
+  const ctEpochMs = utcEpochMs + utcToCtOffsetHours * 3600 * 1000;
+  const etEpochMs = ctEpochMs + 1 * 3600 * 1000; // ET is always +1h from Chicago Central Time (CT)
+
+  const ctParts = formatShiftedUtcParts(ctEpochMs, 'CT');
+  const etParts = formatShiftedUtcParts(etEpochMs, 'EST');
+
+  return {
+    ctEpochMs,
+    etEpochMs,
+    ctParts,
+    etParts,
+  };
 }
 
 /**
  * Formats any HH:mm(:ss) or 12h string strictly into 12-hour EST format with AM/PM,
- * e.g. "09:30 AM EST" or "04:20:36 PM EST".
+ * e.g. "09:30 AM EST" or "11:44:25 AM EST".
  */
-export function formatTime12hEST(rawTimeStr, includeSeconds = false) {
-  if (!rawTimeStr) return '09:30 AM EST';
+export function formatTime12hEST(rawTimeStr, includeSeconds = false, tzLabel = 'EST') {
+  if (!rawTimeStr) return `09:30 AM ${tzLabel}`;
   const cleaned = String(rawTimeStr).trim();
 
-  // If already contains AM/PM, normalize and append EST
   const ampmMatch = cleaned.match(
-    /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)(?:\s*E[SD]?T)?$/i
+    /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)(?:\s*(?:E[SD]?T|C[SD]?T))?$/i
   );
   if (ampmMatch) {
     const hh = String(Number(ampmMatch[1])).padStart(2, '0');
@@ -201,12 +267,11 @@ export function formatTime12hEST(rawTimeStr, includeSeconds = false) {
     const ss = ampmMatch[3];
     const mer = ampmMatch[4].toUpperCase();
     if (includeSeconds && ss) {
-      return `${hh}:${mm}:${ss} ${mer} EST`;
+      return `${hh}:${mm}:${ss} ${mer} ${tzLabel}`;
     }
-    return `${hh}:${mm} ${mer} EST`;
+    return `${hh}:${mm} ${mer} ${tzLabel}`;
   }
 
-  // Parse 24h HH:mm(:ss)
   const parts = cleaned.split(':').map((n) => parseInt(n, 10));
   if (parts.length >= 2 && !Number.isNaN(parts[0]) && !Number.isNaN(parts[1])) {
     const h24 = ((parts[0] % 24) + 24) % 24;
@@ -218,57 +283,16 @@ export function formatTime12hEST(rawTimeStr, includeSeconds = false) {
     const mer = h24 >= 12 ? 'PM' : 'AM';
     const h12 = String(h24 % 12 || 12).padStart(2, '0');
     if (includeSeconds && sec) {
-      return `${h12}:${min}:${sec} ${mer} EST`;
+      return `${h12}:${min}:${sec} ${mer} ${tzLabel}`;
     }
-    return `${h12}:${min} ${mer} EST`;
+    return `${h12}:${min} ${mer} ${tzLabel}`;
   }
 
-  return `${cleaned} EST`;
+  return `${cleaned} ${tzLabel}`;
 }
 
 /**
- * Formats Date object into YYYY-MM-DD, 24h HH:mm(:ss), and strict 12-hour EST AM/PM strings.
- */
-export function formatDateTimeParts(dateObj) {
-  if (!dateObj || Number.isNaN(dateObj.getTime())) {
-    return {
-      date: '',
-      time24: '09:30',
-      timeWithSec: '09:30:00',
-      est12h: '09:30 AM EST',
-      est12hWithSec: '09:30:00 AM EST',
-    };
-  }
-  const yyyy = dateObj.getFullYear();
-  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const dd = String(dateObj.getDate()).padStart(2, '0');
-  const hh = String(dateObj.getHours()).padStart(2, '0');
-  const min = String(dateObj.getMinutes()).padStart(2, '0');
-  const sec = String(dateObj.getSeconds()).padStart(2, '0');
-
-  const h24 = dateObj.getHours();
-  const ampm = h24 >= 12 ? 'PM' : 'AM';
-  const h12 = String(h24 % 12 || 12).padStart(2, '0');
-
-  return {
-    date: `${yyyy}-${mm}-${dd}`,
-    time24: `${hh}:${min}`,
-    timeWithSec: `${hh}:${min}:${sec}`,
-    est12h: `${h12}:${min} ${ampm} EST`,
-    est12hWithSec: `${h12}:${min}:${sec} ${ampm} EST`,
-  };
-}
-
-/**
- * Adds hours to a Date instance
- */
-export function addHours(dateObj, hours) {
-  if (!dateObj) return null;
-  return new Date(dateObj.getTime() + hours * 3600 * 1000);
-}
-
-/**
- * Shifts a 24h HH:mm(:ss) string by deltaHours
+ * Shifts a 24h HH:mm(:ss) string by deltaHours (e.g., -1h to derive CT from ET)
  */
 export function shiftTimeStringHours(timeStr = '09:30', deltaHours = 0) {
   if (!timeStr) return '09:30';
@@ -284,28 +308,74 @@ export function shiftTimeStringHours(timeStr = '09:30', deltaHours = 0) {
 }
 
 /**
- * Resolves liquidity session window from EST Date object:
- * - 1:00 AM–4:00 AM EST (Asian/London Liquidity)
- * - 8:00 AM–11:00 AM EST (New York Opening Window)
+ * Resolves the active Liquidity Window from CT totalMinutes (or ET totalMinutes):
+ * - 1–4 AM CT / 2–5 AM ET (Asian/Early London): CT 01:00–04:00 (60..240m) / ET 02:00–05:00 (120..300m)
+ * - 8–11 AM CT / 9–12 PM ET (New York Opening Window): CT 08:00–11:00 (480..660m) / ET 09:00–12:00 (540..720m)
+ * - Outside Window (all other times)
  */
-export function resolveSessionWindowFromEST(estDateObj) {
-  if (!estDateObj) return 'Outside Window';
-  const mins = estDateObj.getHours() * 60 + estDateObj.getMinutes();
+export function resolveLiquidityWindowFromCTMinutes(ctTotalMinutes) {
+  if (ctTotalMinutes === null || ctTotalMinutes === undefined || Number.isNaN(ctTotalMinutes)) {
+    return LIQUIDITY_WINDOWS.OUTSIDE;
+  }
+  if (ctTotalMinutes >= 60 && ctTotalMinutes <= 240) {
+    return LIQUIDITY_WINDOWS.ASIAN_LONDON;
+  }
+  if (ctTotalMinutes >= 480 && ctTotalMinutes <= 660) {
+    return LIQUIDITY_WINDOWS.NY_OPEN;
+  }
+  return LIQUIDITY_WINDOWS.OUTSIDE;
+}
 
-  if (mins >= 60 && mins <= 240) {
-    return '1:00 AM–4:00 AM';
+/**
+ * Resolves the Liquidity Window from an ET 24h time string (e.g. "10:36" -> "8–11 AM CT / 9–12 PM ET")
+ */
+export function resolveLiquidityWindowFromTime24ET(time24ET = '09:30') {
+  if (!time24ET) return LIQUIDITY_WINDOWS.OUTSIDE;
+  const parts = String(time24ET).split(':').map(Number);
+  if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) {
+    return LIQUIDITY_WINDOWS.OUTSIDE;
   }
-  if (mins >= 480 && mins <= 660) {
-    return '8:00 AM–11:00 AM';
+  const etMins = parts[0] * 60 + parts[1];
+  // 2:00 AM–5:00 AM ET (120..300m) === 1:00 AM–4:00 AM CT
+  if (etMins >= 120 && etMins <= 300) {
+    return LIQUIDITY_WINDOWS.ASIAN_LONDON;
   }
-  return 'Outside Window';
+  // 9:00 AM–12:00 PM ET (540..720m) === 8:00 AM–11:00 AM CT
+  if (etMins >= 540 && etMins <= 720) {
+    return LIQUIDITY_WINDOWS.NY_OPEN;
+  }
+  return LIQUIDITY_WINDOWS.OUTSIDE;
+}
+
+/**
+ * Normalizes any legacy or current sessionWindow string into the 3 canonical Liquidity Window labels:
+ * - "1–4 AM CT / 2–5 AM ET"
+ * - "8–11 AM CT / 9–12 PM ET"
+ * - "Outside Window"
+ */
+export function normalizeLiquidityWindow(rawWindow, time24ET) {
+  if (
+    rawWindow === LIQUIDITY_WINDOWS.ASIAN_LONDON ||
+    rawWindow === '1:00 AM–4:00 AM' ||
+    rawWindow === '2:00 AM–5:00 AM'
+  ) {
+    return LIQUIDITY_WINDOWS.ASIAN_LONDON;
+  }
+  if (
+    rawWindow === LIQUIDITY_WINDOWS.NY_OPEN ||
+    rawWindow === '8:00 AM–11:00 AM' ||
+    rawWindow === '9:00 AM–12:00 PM'
+  ) {
+    return LIQUIDITY_WINDOWS.NY_OPEN;
+  }
+  if (rawWindow === LIQUIDITY_WINDOWS.OUTSIDE) {
+    return LIQUIDITY_WINDOWS.OUTSIDE;
+  }
+  return resolveLiquidityWindowFromTime24ET(time24ET);
 }
 
 /**
  * Returns the contract point multiplier ($ per 1.00 point move per contract).
- * - MGC / MGCZ6 (E-Micro Gold): $10 per point ($1.00 per 0.1 tick)
- * - GC / GCZ6 (Standard Gold): $100 per point ($10.00 per 0.1 tick)
- * - MNQ: $2 per point | NQ: $20 per point
  */
 export function getContractMultiplier(contractSymbol = 'MGCZ6') {
   const upper = String(contractSymbol || '').toUpperCase();
@@ -319,7 +389,7 @@ export function getContractMultiplier(contractSymbol = 'MGCZ6') {
 }
 
 /**
- * Returns human-readable lot type ("Micro Lots" or "Mini/Std Lots")
+ * Returns human-readable lot type ("Micro" or "Mini/Std")
  */
 export function getContractLotType(contractSymbol = 'MGCZ6', productDesc = '') {
   const upper = String(contractSymbol || '').toUpperCase();
@@ -349,7 +419,7 @@ export function getEstimatedRoundTripCommission(contractSymbol = 'MGCZ6', qty = 
 export function detectAccountProfile(rawAccountId = '') {
   const upper = String(rawAccountId || '').trim().toUpperCase();
   if (upper.startsWith('LFE')) {
-    return ACCOUNT_PROFILES[0]; // $25k Lucid Flex Account ($600 Daily Loss Cap)
+    return ACCOUNT_PROFILES[0];
   }
   if (upper.includes('APEX') || upper.startsWith('PA-')) {
     return ACCOUNT_PROFILES[2];
@@ -360,18 +430,20 @@ export function detectAccountProfile(rawAccountId = '') {
 /**
  * Parses NinjaTrader Orders.csv text:
  * - Strictly filters for `Status.trim() === 'Filled'`
- * - Extracts exact contract lot count from `filledQty`, `Filled Qty`, or `Quantity`
- * - Extracts fill price from `avgPrice`, `Avg Fill Price`, or `decimalFillAvg`
- * - Groups scaled entries/exits into clean Flat-to-Flat positions so a 10-lot or 20-lot trade
- *   shows its true total contract lot size (e.g. 10x, 5x, 7x, 20x)
- * - Standardizes all timestamps in 12-hour EST with AM/PM
+ * - Reads raw CSV timestamps as UTC/Server time, converts them to Chicago Central Time (CT),
+ *   and shifts +1h to Eastern Time (ET) in 12-hour AM/PM EST format
+ * - Classifies each trade into its Liquidity Window:
+ *   - "1–4 AM CT / 2–5 AM ET" (Asian/Early London)
+ *   - "8–11 AM CT / 9–12 PM ET" (New York Opening Window)
+ *   - "Outside Window"
+ * - Extracts exact contract lot count (`10x`, `5x`, `7x`, `20x`)
  * - Flags any trade entered within < 15 minutes of the previous trade's exit Fill Time with
  *   `Revenge Trading (< 15m gap)`
  */
 export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
   const {
     accountProfileId = 'lucid-25k',
-    timezoneOffsetHours = 0, // 0 if CSV timestamps are already in user's EST display clock, or +1 if converting CT -> EST
+    utcToCtOffsetHours = -6, // Default UTC -> Chicago Central Time (UTC-6) and +1h to Eastern Time (UTC-5)
     includeCommissions = false,
     defaultRiskPerContract = 50,
   } = options;
@@ -400,7 +472,6 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
     h.replace(/^"|"$/g, '').trim()
   );
 
-  // Exact-first column finder so "filledQty" never collides with "_priceFormat" or other columns
   const findExactOrPartialColIndices = (candidates) => {
     const normHeaders = rawHeaders.map((h) =>
       h.toLowerCase().replace(/[\s_-]+/g, '')
@@ -516,7 +587,6 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       continue;
     }
 
-    // Extract contract lots from filledQty / Filled Qty / Quantity
     const rawQtyStr =
       firstNonEmptyFromCols(cols, colIndices.filledQty) ||
       firstNonEmptyFromCols(cols, colIndices.quantity) ||
@@ -532,17 +602,19 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
     const rawTimestamp =
       firstNonEmptyFromCols(cols, colIndices.timestamp) || rawFillTime;
 
-    const parsedDt =
-      parseNinjaTimestamp(rawFillTime) || parseNinjaTimestamp(rawTimestamp);
-    if (!parsedDt) {
+    const utcEpochMs =
+      parseNinjaTimestampUTC(rawFillTime) ?? parseNinjaTimestampUTC(rawTimestamp);
+    if (utcEpochMs === null) {
       skippedOrdersCount += 1;
       continue;
     }
 
-    const estDateObj =
-      timezoneOffsetHours !== 0
-        ? addHours(parsedDt, timezoneOffsetHours)
-        : parsedDt;
+    // Step 1: Convert UTC -> Chicago Central Time (CT)
+    // Step 2: Shift CT -> Eastern Time (ET) (+1h)
+    const { ctEpochMs, etEpochMs } = convertUtcToCtAndEt(
+      utcEpochMs,
+      Number(utcToCtOffsetHours)
+    );
 
     const orderText = firstNonEmptyFromCols(cols, colIndices.text);
     const orderType = firstNonEmptyFromCols(cols, colIndices.orderType);
@@ -559,8 +631,10 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       avgPrice,
       rawFillTime,
       rawTimestamp,
-      estDateObj,
-      epochMs: estDateObj.getTime(),
+      utcEpochMs,
+      ctEpochMs,
+      etEpochMs,
+      epochMs: etEpochMs,
       orderText,
       orderType,
     });
@@ -569,8 +643,7 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
   // Sort filled orders chronologically by Fill Time
   filledOrders.sort((a, b) => a.epochMs - b.epochMs);
 
-  // Reconstruct Flat-to-Flat positions per Account + Contract so scaled lots (e.g. 10x, 5x, 7x, 20x)
-  // are accurately aggregated into a single round-trip trade execution
+  // Reconstruct Flat-to-Flat positions per Account + Contract
   const activePositions = new Map();
   const reconstructedTrades = [];
 
@@ -599,9 +672,14 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
     const initialRisk = Math.max(50, defaultRiskPerContract * matchedQty);
     const rMultiple = Math.round((netPnl / initialRisk) * 100) / 100;
 
-    const entryParts = formatDateTimeParts(pos.firstEntryDt);
-    const exitParts = formatDateTimeParts(pos.lastExitDt);
-    const sessionWindow = resolveSessionWindowFromEST(pos.firstEntryDt);
+    const entryCTParts = formatShiftedUtcParts(pos.firstEntryCtMs, 'CT');
+    const exitCTParts = formatShiftedUtcParts(pos.lastExitCtMs, 'CT');
+    const entryETParts = formatShiftedUtcParts(pos.firstEntryEtMs, 'EST');
+    const exitETParts = formatShiftedUtcParts(pos.lastExitEtMs, 'EST');
+
+    const sessionWindow = resolveLiquidityWindowFromCTMinutes(
+      entryCTParts.totalMinutes
+    );
 
     const autoProfile = detectAccountProfile(pos.account);
     const effectiveProfile =
@@ -639,15 +717,17 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       netPnl,
       initialRisk,
       rMultiple,
-      date: entryParts.date,
-      time: entryParts.time24,
-      timeEST: entryParts.est12h,
-      timeESTWithSec: entryParts.est12hWithSec,
-      exitTime24: exitParts.time24,
-      exitTimeEST: exitParts.est12h,
-      exitTimeESTWithSec: exitParts.est12hWithSec,
-      entryEpochMs: pos.firstEntryDt.getTime(),
-      exitEpochMs: pos.lastExitDt.getTime(),
+      date: entryETParts.date,
+      time: entryETParts.time24,
+      timeEST: entryETParts.formatted12h,
+      timeESTWithSec: entryETParts.formatted12hWithSec,
+      exitTime24: exitETParts.time24,
+      exitTimeEST: exitETParts.formatted12h,
+      exitTimeESTWithSec: exitETParts.formatted12hWithSec,
+      timeCT: entryCTParts.formatted12h,
+      exitTimeCT: exitCTParts.formatted12h,
+      entryEpochMs: pos.firstEntryEtMs,
+      exitEpochMs: pos.lastExitEtMs,
       sessionWindow,
       exitReason: pos.lastOrderText || 'Market/Stop',
       source: 'NinjaTrader CSV',
@@ -672,14 +752,15 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
         exitNotional: 0,
         firstOrderId: order.orderId,
         lastOrderId: order.orderId,
-        firstEntryDt: order.estDateObj,
-        lastExitDt: order.estDateObj,
+        firstEntryCtMs: order.ctEpochMs,
+        lastExitCtMs: order.ctEpochMs,
+        firstEntryEtMs: order.etEpochMs,
+        lastExitEtMs: order.etEpochMs,
         lastOrderText: order.orderText,
       });
       return;
     }
 
-    // Same direction -> scaling into existing open position
     if (order.side === pos.openSide) {
       pos.netQty += order.qty;
       pos.entryLots += order.qty;
@@ -688,13 +769,13 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       return;
     }
 
-    // Opposite direction -> closing all or part of open position
     if (order.qty <= pos.netQty) {
       pos.netQty -= order.qty;
       pos.exitLots += order.qty;
       pos.exitNotional += order.qty * order.avgPrice;
       pos.lastOrderId = order.orderId;
-      pos.lastExitDt = order.estDateObj;
+      pos.lastExitCtMs = order.ctEpochMs;
+      pos.lastExitEtMs = order.etEpochMs;
       pos.lastOrderText = order.orderText;
 
       if (pos.netQty === 0) {
@@ -702,7 +783,6 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
         activePositions.delete(key);
       }
     } else {
-      // Flip position: close remaining netQty, then open remainder in opposite direction
       const closeQty = pos.netQty;
       const flipOpenQty = order.qty - closeQty;
 
@@ -710,7 +790,8 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       pos.exitLots += closeQty;
       pos.exitNotional += closeQty * order.avgPrice;
       pos.lastOrderId = order.orderId;
-      pos.lastExitDt = order.estDateObj;
+      pos.lastExitCtMs = order.ctEpochMs;
+      pos.lastExitEtMs = order.etEpochMs;
       pos.lastOrderText = order.orderText;
       finalizePositionToTrade(pos);
 
@@ -727,17 +808,17 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
         exitNotional: 0,
         firstOrderId: order.orderId,
         lastOrderId: order.orderId,
-        firstEntryDt: order.estDateObj,
-        lastExitDt: order.estDateObj,
+        firstEntryCtMs: order.ctEpochMs,
+        lastExitCtMs: order.ctEpochMs,
+        firstEntryEtMs: order.etEpochMs,
+        lastExitEtMs: order.etEpochMs,
         lastOrderText: order.orderText,
       });
     }
   });
 
-  // Sort reconstructed trades chronologically by entry timestamp
   reconstructedTrades.sort((a, b) => a.entryEpochMs - b.entryEpochMs);
 
-  // Evaluate 15-Minute Revenge Trading Guard across consecutive trades
   let revengeTradesCount = 0;
   let runningBalance = selectedProfile.startingBalance;
   const dailyLossByDate = {};
@@ -766,8 +847,10 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       leakTags.push('Moved Stop Loss');
     }
 
-    // Determine 14-rule checklist compliance
     let rulesChecked = DEFAULT_14_RULES.map((r) => r.id);
+    if (trade.sessionWindow === LIQUIDITY_WINDOWS.OUTSIDE) {
+      rulesChecked = rulesChecked.filter((id) => id !== 'r1');
+    }
     if (isRevengeTrade) {
       rulesChecked = rulesChecked.filter(
         (id) => id !== 'r14' && id !== 'r4' && id !== 'r3'
@@ -809,7 +892,7 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       timeGapFromPrevMins,
       accountBalanceAfter: runningBalance,
       dailyCapUtilizationPct,
-      notes: `Account ${trade.accountId} • ${trade.quantity}x ${trade.contract} (${trade.productDesc}) • Entry ${trade.timeESTWithSec} → Exit ${trade.exitTimeESTWithSec}. ${gapNote}`,
+      notes: `Account ${trade.accountId} • ${trade.quantity}x ${trade.contract} • ${trade.sessionWindow} (${trade.timeCT} / ${trade.timeEST} → ${trade.exitTimeEST}). ${gapNote}`,
     };
   });
 
