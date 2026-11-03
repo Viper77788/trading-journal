@@ -126,7 +126,6 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Toggle one of the 3 quick pillars and automatically sync the 14-rule count slider
   const togglePillar = (pillarId) => {
     setForm((prev) => {
       const nextPillars = { ...prev.pillars, [pillarId]: !prev.pillars[pillarId] };
@@ -194,83 +193,81 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-3xl bg-white text-slate-900 rounded-2xl border border-slate-200 shadow-2xl overflow-hidden my-auto">
-        {/* Clean Light Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="w-full max-w-4xl bg-[#131B2E] text-[#F8FAFC] rounded-2xl border border-slate-800/80 shadow-2xl overflow-hidden my-auto">
+        {/* Dark Modal Header */}
+        <div className="px-6 py-5 bg-[#0B0F17] border-b border-slate-800/80 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
               <span
-                className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold text-white"
+                className="px-2.5 py-1 rounded-md text-sm font-mono font-bold text-[#F8FAFC]"
                 style={{ backgroundColor: '#386641' }}
               >
                 FAST LOG
               </span>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-xl font-bold text-[#F8FAFC]">
                 {initialTrade ? 'Edit Futures Execution' : 'Log Gold Futures Trade'}
               </h2>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-sm text-[#94A3B8] mt-1">
               Streamlined 30-second execution logger • GC & MGCZ6
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+            className="p-2 rounded-xl text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800 transition-colors"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[82vh] overflow-y-auto">
           {/* SECTION 1: CORE TRADE INFO */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <Clock size={14} className="text-slate-400" />
-                Section 1: Core Trade Info
-              </h3>
-            </div>
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-2">
+              <Clock size={16} className="text-emerald-400" />
+              Section 1: Core Trade Info
+            </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Date */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Date</label>
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">Date</label>
                 <input
                   type="date"
                   value={form.date}
                   onChange={(e) => updateField('date', e.target.value)}
                   required
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#F8FAFC] focus:outline-none focus:border-[#386641]"
                 />
               </div>
 
               {/* Time */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Time (NY)</label>
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">Time (NY)</label>
                 <input
                   type="time"
                   value={form.time}
                   onChange={(e) => updateField('time', e.target.value)}
                   required
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#F8FAFC] focus:outline-none focus:border-[#386641]"
                 />
               </div>
 
               {/* Contract Pill Selector */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Contract</label>
-                <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">Contract</label>
+                <div className="grid grid-cols-2 gap-1.5 bg-[#0B0F17] p-1 rounded-xl border border-slate-800/80">
                   {['MGCZ6', 'GC'].map((c) => (
                     <button
                       key={c}
                       type="button"
                       onClick={() => updateField('contract', c)}
-                      className={`py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+                      className={`py-2 rounded-lg text-sm font-mono font-bold transition-all ${
                         form.contract === c
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-[#131B2E] text-[#F8FAFC] shadow-sm border border-slate-700'
+                          : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                       }`}
                     >
                       {c}
@@ -281,17 +278,17 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
 
               {/* Account Selector */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Account</label>
-                <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">Account</label>
+                <div className="grid grid-cols-2 gap-1.5 bg-[#0B0F17] p-1 rounded-xl border border-slate-800/80">
                   {['Lucid Flex', 'Apex'].map((acc) => (
                     <button
                       key={acc}
                       type="button"
                       onClick={() => updateField('accountType', acc)}
-                      className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      className={`py-2 rounded-lg text-sm font-semibold transition-all ${
                         form.accountType === acc
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-[#131B2E] text-[#F8FAFC] shadow-sm border border-slate-700'
+                          : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                       }`}
                     >
                       {acc}
@@ -302,34 +299,34 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
             </div>
 
             {/* Session Window + Direction + Zone Anchor Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
               {/* Session Selector */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">
                   Liquidity Session Window
                 </label>
                 <select
                   value={form.sessionWindow}
                   onChange={(e) => updateField('sessionWindow', e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm font-medium text-[#F8FAFC] focus:outline-none focus:border-[#386641]"
                 >
-                  <option value="1:00 AM–4:00 AM">1:00 AM–4:00 AM (London)</option>
-                  <option value="8:00 AM–11:00 AM">8:00 AM–11:00 AM (NY Open)</option>
-                  <option value="Outside Window">Outside Window</option>
+                  <option value="1:00 AM–4:00 AM" className="bg-[#131B2E]">1:00 AM–4:00 AM (London)</option>
+                  <option value="8:00 AM–11:00 AM" className="bg-[#131B2E]">8:00 AM–11:00 AM (NY Open)</option>
+                  <option value="Outside Window" className="bg-[#131B2E]">Outside Window</option>
                 </select>
               </div>
 
               {/* Direction */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Direction</label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">Direction</label>
+                <div className="grid grid-cols-2 gap-2 bg-[#0B0F17] p-1 rounded-xl border border-slate-800/80">
                   <button
                     type="button"
                     onClick={() => updateField('direction', 'Long')}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`py-2 rounded-lg text-sm font-bold transition-all ${
                       form.direction === 'Long'
-                        ? 'text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'text-[#F8FAFC] shadow-sm'
+                        : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                     }`}
                     style={{
                       backgroundColor: form.direction === 'Long' ? '#386641' : 'transparent',
@@ -340,10 +337,10 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   <button
                     type="button"
                     onClick={() => updateField('direction', 'Short')}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`py-2 rounded-lg text-sm font-bold transition-all ${
                       form.direction === 'Short'
-                        ? 'text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'text-[#F8FAFC] shadow-sm'
+                        : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                     }`}
                     style={{
                       backgroundColor: form.direction === 'Short' ? '#BC4749' : 'transparent',
@@ -356,14 +353,14 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
 
               {/* Zone Badge Anchor */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">
                   Zone Reaction Anchor
                 </label>
-                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-3 gap-1.5 bg-[#0B0F17] p-1 rounded-xl border border-slate-800/80">
                   {[
-                    { id: 'Support (#386641)', short: '#386641 Sup', dot: '#386641' },
-                    { id: 'Resistance (#BC4749)', short: '#BC4749 Res', dot: '#BC4749' },
-                    { id: 'No Zone', short: 'None', dot: '#94a3b8' },
+                    { id: 'Support (#386641)', short: '#386641', dot: '#386641' },
+                    { id: 'Resistance (#BC4749)', short: '#BC4749', dot: '#BC4749' },
+                    { id: 'No Zone', short: 'None', dot: '#94A3B8' },
                   ].map((z) => {
                     const active = form.zoneInteraction === z.id;
                     return (
@@ -371,14 +368,14 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                         key={z.id}
                         type="button"
                         onClick={() => updateField('zoneInteraction', z.id)}
-                        className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                        className={`py-2 px-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-all ${
                           active
-                            ? 'bg-white text-slate-900 shadow-xs'
-                            : 'text-slate-500 hover:text-slate-800'
+                            ? 'bg-[#131B2E] text-[#F8FAFC] shadow-sm border border-slate-700'
+                            : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                         }`}
                       >
                         <span
-                          className="w-2 h-2 rounded-full shrink-0"
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
                           style={{ backgroundColor: z.dot }}
                         />
                         <span className="truncate">{z.short}</span>
@@ -390,18 +387,18 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
             </div>
           </div>
 
-          <hr className="border-slate-200" />
+          <hr className="border-slate-800/80" />
 
           {/* SECTION 2: PRICES & P&L */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <DollarSign size={14} className="text-slate-400" />
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-2">
+              <DollarSign size={16} className="text-emerald-400" />
               Section 2: Prices & P&L
             </h3>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">
                   Entry Price
                 </label>
                 <input
@@ -410,12 +407,12 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   placeholder="2742.5"
                   value={form.entryPrice}
                   onChange={(e) => updateField('entryPrice', e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#F8FAFC] placeholder-[#94A3B8]/50 focus:outline-none focus:border-[#386641]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">
                   Stop Loss
                 </label>
                 <input
@@ -424,12 +421,12 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   placeholder="2738.5"
                   value={form.stopLoss}
                   onChange={(e) => updateField('stopLoss', e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#F8FAFC] placeholder-[#94A3B8]/50 focus:outline-none focus:border-[#386641]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">
                   Exit Price
                 </label>
                 <input
@@ -438,12 +435,12 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   placeholder="2751.3"
                   value={form.exitPrice}
                   onChange={(e) => updateField('exitPrice', e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#F8FAFC] placeholder-[#94A3B8]/50 focus:outline-none focus:border-[#386641]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-800 mb-1">
+                <label className="block text-sm font-semibold text-[#F8FAFC] mb-1.5">
                   Net P&L ($) *
                 </label>
                 <input
@@ -453,12 +450,12 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   value={form.netPnl}
                   onChange={(e) => updateField('netPnl', e.target.value)}
                   required
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#F8FAFC] placeholder-[#94A3B8]/50 focus:outline-none focus:border-[#386641]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-800 mb-1">
+                <label className="block text-sm font-semibold text-[#F8FAFC] mb-1.5">
                   R-Multiple *
                 </label>
                 <input
@@ -468,41 +465,41 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   value={form.rMultiple}
                   onChange={(e) => updateField('rMultiple', e.target.value)}
                   required
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#F8FAFC] placeholder-[#94A3B8]/50 focus:outline-none focus:border-[#386641]"
                 />
               </div>
             </div>
           </div>
 
-          <hr className="border-slate-200" />
+          <hr className="border-slate-800/80" />
 
           {/* SECTION 3: SIMPLIFIED CHECKLIST & LEAKS */}
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <CheckCircle2 size={14} className="text-slate-400" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-400" />
                 Section 3: Simplified Strategy Checklist & Leaks
               </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">14-Rule Score:</span>
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm text-[#94A3B8]">14-Rule Score:</span>
                 <span
-                  className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold text-white"
+                  className="px-2.5 py-1 rounded-md text-sm font-mono font-bold text-[#F8FAFC]"
                   style={{
                     backgroundColor:
                       complianceGrade === 'A'
                         ? '#386641'
                         : complianceGrade === 'B'
-                        ? '#ca8a04'
+                        ? '#b45309'
                         : '#BC4749',
                   }}
                 >
-                  {form.rulesCount}/14 ({compliancePct}% • Grade {complianceGrade})
+                  {form.rulesCount}/14 ({compliancePct}% · Grade {complianceGrade})
                 </span>
               </div>
             </div>
 
             {/* 3 Quick Pillar Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {CORE_3_PILLARS.map((p) => {
                 const checked = form.pillars[p.id];
                 return (
@@ -510,23 +507,23 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                     key={p.id}
                     type="button"
                     onClick={() => togglePillar(p.id)}
-                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                    className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3 ${
                       checked
-                        ? 'bg-[#386641]/5 border-[#386641] text-slate-900'
-                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                        ? 'bg-[#386641]/20 border-[#386641] text-[#F8FAFC]'
+                        : 'bg-[#0B0F17] border-slate-800/80 text-[#94A3B8]'
                     }`}
                   >
                     <div
-                      className="w-4 h-4 rounded mt-0.5 flex items-center justify-center shrink-0 text-white"
+                      className="w-5 h-5 rounded mt-0.5 flex items-center justify-center shrink-0 text-[#F8FAFC]"
                       style={{
-                        backgroundColor: checked ? '#386641' : '#cbd5e1',
+                        backgroundColor: checked ? '#386641' : '#334155',
                       }}
                     >
-                      {checked && <Check size={12} />}
+                      {checked && <Check size={14} />}
                     </div>
                     <div>
-                      <div className="text-xs font-bold">{p.title}</div>
-                      <div className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                      <div className="text-sm font-bold text-[#F8FAFC]">{p.title}</div>
+                      <div className="text-sm text-[#94A3B8] leading-snug mt-1">
                         {p.subtitle}
                       </div>
                     </div>
@@ -536,12 +533,12 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
             </div>
 
             {/* Fine-tune 14-Rule Compliance Slider */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="text-xs">
-                <span className="font-semibold text-slate-700">
+            <div className="bg-[#0B0F17] border border-slate-800/80 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="text-sm">
+                <span className="font-semibold text-[#F8FAFC]">
                   Exact 14-Rule Compliance Slider:
                 </span>{' '}
-                <span className="text-slate-500">
+                <span className="text-[#94A3B8]">
                   Adjust if specific sub-rules were missed ({form.rulesCount} of 14 rules followed)
                 </span>
               </div>
@@ -551,16 +548,16 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 max="14"
                 value={form.rulesCount}
                 onChange={(e) => updateField('rulesCount', Number(e.target.value))}
-                className="w-full sm:w-48 accent-[#386641] cursor-pointer"
+                className="w-full sm:w-56 accent-[#386641] cursor-pointer"
               />
             </div>
 
             {/* Simple Behavioral Leak Tag Selector */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-2">
+              <label className="block text-sm font-medium text-[#94A3B8] mb-2">
                 Execution & Behavioral Tags
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5">
                 {QUICK_LEAK_OPTIONS.map((tag) => {
                   const isCleanChip = tag === 'Clean';
                   const selected = isCleanChip
@@ -572,13 +569,18 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                       key={tag}
                       type="button"
                       onClick={() => handleTagSelect(tag)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                      className={`px-3.5 py-2 rounded-md text-sm font-semibold border transition-all ${
                         selected
-                          ? isCleanChip
-                            ? 'bg-[#386641]/10 text-[#386641] border-[#386641]'
-                            : 'bg-[#BC4749]/10 text-[#BC4749] border-[#BC4749]'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                          ? 'text-[#F8FAFC] border-transparent shadow-sm'
+                          : 'bg-[#0B0F17] text-[#94A3B8] border-slate-800/80 hover:text-[#F8FAFC]'
                       }`}
+                      style={{
+                        backgroundColor: selected
+                          ? isCleanChip
+                            ? '#386641'
+                            : '#BC4749'
+                          : undefined,
+                      }}
                     >
                       {tag}
                     </button>
@@ -587,22 +589,22 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
               </div>
             </div>
 
-            {/* Optional Note & Chart URL in a compact 2-column row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {/* Optional Note & Chart URL */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
-                  <ExternalLink size={12} /> TradingView Chart Link (Optional)
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5 flex items-center gap-1.5">
+                  <ExternalLink size={14} /> TradingView Chart Link (Optional)
                 </label>
                 <input
                   type="url"
                   placeholder="https://www.tradingview.com/x/..."
                   value={form.tradingViewUrl}
                   onChange={(e) => updateField('tradingViewUrl', e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-[#F8FAFC] placeholder-[#94A3B8]/50 focus:outline-none focus:border-[#386641]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5">
                   Quick Execution Note (Optional)
                 </label>
                 <input
@@ -610,24 +612,24 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   placeholder="e.g., Clean #386641 bounce on 15m candle close..."
                   value={form.notes}
                   onChange={(e) => updateField('notes', e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#386641]"
+                  className="w-full bg-[#0B0F17] border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-[#F8FAFC] placeholder-[#94A3B8]/50 focus:outline-none focus:border-[#386641]"
                 />
               </div>
             </div>
           </div>
 
           {/* Submit Footer */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-slate-800/80 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-95"
+              className="px-6 py-2.5 rounded-xl text-sm font-bold text-[#F8FAFC] shadow-sm transition-opacity hover:opacity-95"
               style={{ backgroundColor: '#386641' }}
             >
               {initialTrade ? 'Save Changes' : 'Log Trade'}
