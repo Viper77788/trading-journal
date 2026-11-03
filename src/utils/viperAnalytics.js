@@ -1,3 +1,5 @@
+const REVENGE_TAG = 'Revenge Trading (< 15m gap)';
+
 /**
  * Calculates compliance percentage and grade (A/B/C) from checked rule IDs out of 14 total rules.
  */
@@ -15,19 +17,44 @@ export function computeRuleCompliance(rulesChecked = [], totalRules = 14) {
  */
 export function formatUSD(val) {
   const num = Number(val) || 0;
-  if (num > 0) return `+$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  if (num < 0) return `-$${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (num > 0)
+    return `+$${num.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  if (num < 0)
+    return `-$${Math.abs(num).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   return '$0.00';
 }
 
 /**
- * Computes full portfolio & session analytics, $600 Daily Loss Limit utilization,
- * R-Multiple distribution, win/loss streaks, and AI Copilot 4-point audit metrics.
+ * Converts HH:mm(:ss) to minutes since midnight
  */
-export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap = 600) {
+function timeStringToMinutes(str) {
+  if (!str) return null;
+  const parts = String(str).split(':').map(Number);
+  if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) {
+    return null;
+  }
+  return parts[0] * 60 + parts[1] + (parts[2] && !Number.isNaN(parts[2]) ? parts[2] / 60 : 0);
+}
+
+/**
+ * Computes full portfolio & session analytics, $25k Account Balance & $600 Daily Loss Limit utilization,
+ * 15-Minute Revenge Trading detection, R-Multiple distribution, win/loss streaks, and AI Copilot 4-point audit metrics.
+ */
+export function computeViperAnalytics(
+  trades = [],
+  rulesList = [],
+  dailyLossCap = 600,
+  startingBalance = 25000
+) {
   const sortedChronological = [...trades].sort((a, b) => {
-    const dtA = `${a.date || ''}T${a.time || '00:00'}`;
-    const dtB = `${b.date || ''}T${b.time || '00:00'}`;
+    const dtA = `${a.date || ''}T${a.timeCT || a.time || '00:00'}`;
+    const dtB = `${b.date || ''}T${b.timeCT || b.time || '00:00'}`;
     return dtA.localeCompare(dtB);
   });
 
@@ -40,6 +67,7 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
   let totalNetPnl = 0;
   let totalR = 0;
   let totalComplianceScore = 0;
+  let revengeTradesCount = 0;
 
   // Streak tracking
   let currentStreak = 0;
@@ -53,16 +81,40 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
 
   // Session Window Breakdown
   const sessionStats = {
-    '1:00 AM–4:00 AM': { label: '1:00 AM–4:00 AM (Asian/London)', trades: 0, wins: 0, netPnl: 0, rSum: 0 },
-    '8:00 AM–11:00 AM': { label: '8:00 AM–11:00 AM (NY Opening)', trades: 0, wins: 0, netPnl: 0, rSum: 0 },
-    'Outside Window': { label: 'Outside Liquidity Window', trades: 0, wins: 0, netPnl: 0, rSum: 0 },
+    '1:00 AM–4:00 AM': {
+      label: '1:00–4:00 AM CT (2:00–5:00 AM ET)',
+      trades: 0,
+      wins: 0,
+      netPnl: 0,
+      rSum: 0,
+    },
+    '8:00 AM–11:00 AM': {
+      label: '8:00–11:00 AM CT (9:00 AM–12:00 PM ET)',
+      trades: 0,
+      wins: 0,
+      netPnl: 0,
+      rSum: 0,
+    },
+    'Outside Window': {
+      label: 'Outside Liquidity Window',
+      trades: 0,
+      wins: 0,
+      netPnl: 0,
+      rSum: 0,
+    },
   };
 
   // Zone Interaction Breakdown (#386641 vs #BC4749)
   const zoneStats = {
     'Support (#386641)': { trades: 0, wins: 0, netPnl: 0, rSum: 0, hex: '#386641' },
     'Resistance (#BC4749)': { trades: 0, wins: 0, netPnl: 0, rSum: 0, hex: '#BC4749' },
-    'Both Zones (#386641 & #BC4749)': { trades: 0, wins: 0, netPnl: 0, rSum: 0, hex: '#386641' },
+    'Both Zones (#386641 & #BC4749)': {
+      trades: 0,
+      wins: 0,
+      netPnl: 0,
+      rSum: 0,
+      hex: '#386641',
+    },
     'No Zone': { trades: 0, wins: 0, netPnl: 0, rSum: 0, hex: '#64748b' },
   };
 
@@ -82,7 +134,50 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
   sortedChronological.forEach((t, index) => {
     const net = Number(t.netPnl) || 0;
     const rMult = Number(t.rMultiple) || 0;
-    const compScore = Number(t.complianceScore) || 0;
+
+    // Evaluate 15-minute Revenge Trading gap between previous trade close and current trade entry
+    const prevTrade = index > 0 ? sortedChronological[index - 1] : null;
+    let gapMins =
+      t.timeGapFromPrevMins !== undefined && t.timeGapFromPrevMins !== null
+        ? Number(t.timeGapFromPrevMins)
+        : null;
+
+    if (gapMins === null && prevTrade && prevTrade.date === t.date) {
+      const prevCloseMin = timeStringToMinutes(
+        prevTrade.exitTimeCT || prevTrade.timeCT || prevTrade.time
+      );
+      const currOpenMin = timeStringToMinutes(t.timeCT || t.time);
+      if (prevCloseMin !== null && currOpenMin !== null) {
+        gapMins = Math.round((currOpenMin - prevCloseMin) * 10) / 10;
+      }
+    }
+
+    const hasRevengeGap =
+      Boolean(t.isRevengeTrade) ||
+      (gapMins !== null && gapMins >= 0 && gapMins < 15) ||
+      (t.leakTags || []).includes(REVENGE_TAG);
+
+    if (hasRevengeGap) {
+      revengeTradesCount += 1;
+    }
+
+    // Ensure leak tags include REVENGE_TAG if <15m gap detected
+    const effectiveLeakTags = Array.isArray(t.leakTags) ? [...t.leakTags] : [];
+    if (hasRevengeGap && !effectiveLeakTags.includes(REVENGE_TAG)) {
+      effectiveLeakTags.unshift(REVENGE_TAG);
+    }
+
+    // Factor <15m Revenge Trading violation into compliance score if not already penalized
+    let compScore = Number(t.complianceScore) || 0;
+    let effectiveRulesChecked = Array.isArray(t.rulesChecked)
+      ? [...t.rulesChecked]
+      : [];
+    if (hasRevengeGap && effectiveRulesChecked.includes('r14')) {
+      effectiveRulesChecked = effectiveRulesChecked.filter((id) => id !== 'r14');
+      compScore = Math.round(
+        (effectiveRulesChecked.length / (rulesList.length || 14)) * 100
+      );
+    }
 
     totalNetPnl += net;
     totalR += rMult;
@@ -125,14 +220,14 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
     zoneStats[zKey].rSum += rMult;
 
     // Leak tags aggregation
-    (t.leakTags || []).forEach((tag) => {
+    effectiveLeakTags.forEach((tag) => {
       if (!leakMap[tag]) leakMap[tag] = { tag, count: 0, netImpact: 0 };
       leakMap[tag].count += 1;
       leakMap[tag].netImpact += net;
     });
 
     // Rule checklist aggregation
-    (t.rulesChecked || []).forEach((rId) => {
+    effectiveRulesChecked.forEach((rId) => {
       if (rulePassMap[rId] !== undefined) {
         rulePassMap[rId] += 1;
       }
@@ -145,27 +240,35 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
       contract: t.contract,
       netPnl: Math.round(net * 100) / 100,
       cumulativePnl: Math.round(runningEquity * 100) / 100,
+      accountBalance: Math.round((startingBalance + runningEquity) * 100) / 100,
       rMultiple: rMult,
       complianceScore: compScore,
     });
   });
 
-  const winRate = totalTrades > 0 ? Math.round((wins / totalTrades) * 1000) / 10 : 0;
+  const winRate =
+    totalTrades > 0 ? Math.round((wins / totalTrades) * 1000) / 10 : 0;
   const profitFactor =
     grossLossSum > 0
       ? Math.round((grossWinSum / grossLossSum) * 100) / 100
       : grossWinSum > 0
       ? 99.99
       : 0;
-  const avgRMultiple = totalTrades > 0 ? Math.round((totalR / totalTrades) * 100) / 100 : 0;
-  const avgComplianceScore = totalTrades > 0 ? Math.round(totalComplianceScore / totalTrades) : 0;
+  const avgRMultiple =
+    totalTrades > 0 ? Math.round((totalR / totalTrades) * 100) / 100 : 0;
+  const avgComplianceScore =
+    totalTrades > 0 ? Math.round(totalComplianceScore / totalTrades) : 0;
 
   // Evaluate latest trading day & historical days against $600 Daily Loss Cap
   const sortedDates = Array.from(dailyPnlMap.keys()).sort();
-  const latestDate = sortedDates[sortedDates.length - 1] || new Date().toISOString().slice(0, 10);
+  const latestDate =
+    sortedDates[sortedDates.length - 1] || new Date().toISOString().slice(0, 10);
   const latestDayNetPnl = dailyPnlMap.get(latestDate) || 0;
   const latestDayLossUsed = latestDayNetPnl < 0 ? Math.abs(latestDayNetPnl) : 0;
-  const dailyLossUtilizationPct = Math.min(100, Math.round((latestDayLossUsed / dailyLossCap) * 100));
+  const dailyLossUtilizationPct = Math.min(
+    100,
+    Math.round((latestDayLossUsed / dailyLossCap) * 100)
+  );
 
   let breachedDaysCount = 0;
   let worstDailyNet = 0;
@@ -174,7 +277,11 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
     if (dayPnl < worstDailyNet) worstDailyNet = dayPnl;
   });
 
-  const riskStatusPass = latestDayLossUsed < dailyLossCap && breachedDaysCount === 0;
+  const riskStatusPass =
+    latestDayLossUsed < dailyLossCap && breachedDaysCount === 0;
+
+  const currentAccountBalance =
+    Math.round((startingBalance + totalNetPnl) * 100) / 100;
 
   // R-Multiple Distribution Buckets
   const rBuckets = [
@@ -206,19 +313,23 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
 
   // Generate Actionable Adjustment for AI Copilot
   let actionableAdjustment =
-    'Continue executing exclusively during the 1:00–4:00 AM and 8:00–11:00 AM NY liquidity windows on confirmed #386641 Support and #BC4749 Resistance candle closes.';
+    'Continue executing exclusively during the 1:00–4:00 AM CT (2:00–5:00 AM ET) and 8:00–11:00 AM CT (9:00 AM–12:00 PM ET) windows on confirmed #386641 Support and #BC4749 Resistance closes.';
 
   if (!riskStatusPass) {
-    actionableAdjustment = `Hard-cap initial trade risk to $150–$200 per MGCZ6/GC position so 3 consecutive losses never breach the $${dailyLossCap} Daily Loss Limit.`;
+    actionableAdjustment = `Hard-cap initial trade risk to $150–$200 per MGCZ6/GC position so 3 consecutive losses never breach the $${dailyLossCap} Daily Loss Limit on your $${(
+      startingBalance / 1000
+    ).toFixed(0)}k account.`;
+  } else if (revengeTradesCount > 0) {
+    actionableAdjustment = `Enforce the mandatory 15-Minute Cooldown Rule: ${revengeTradesCount} execution(s) were entered < 15m after the previous trade's Fill Time close. Step away for a full 15m candle close after every exit.`;
   } else if (topLeak && topLeak.tag === 'Session Outside Window') {
     actionableAdjustment =
-      'Lock out order entry outside 1:00 AM–4:00 AM and 8:00 AM–11:00 AM NY; off-window trades are eroding your session expectancy.';
+      'Lock out order entry outside 1:00–4:00 AM CT and 8:00–11:00 AM CT; off-window trades are eroding your session expectancy.';
   } else if (topLeak && topLeak.tag === 'FOMO Entry') {
     actionableAdjustment =
       'Eliminate mid-range FOMO entries: require price to physically touch a #386641 Support or #BC4749 Resistance zone and close the structural candle body before entering.';
   } else if (topLeak && topLeak.tag === 'Moved Stop Loss') {
     actionableAdjustment =
-      'Enforce Rule #11 (Never Widen Stop Loss): keep your initial hard bracket stop fixed in Rithmic/Tradovate immediately upon fill.';
+      'Enforce Rule #11 (Never Widen Stop Loss): keep your initial hard bracket stop fixed in NinjaTrader immediately upon fill.';
   } else if (weakestRule && weakestRule.pct < 80) {
     actionableAdjustment = `Focus on Rule #${weakestRule.number} ("${weakestRule.label}") — currently your lowest compliance checkpoint at ${weakestRule.pct}%.`;
   }
@@ -230,6 +341,9 @@ export function computeViperAnalytics(trades = [], rulesList = [], dailyLossCap 
     breakevens,
     winRate,
     totalNetPnl: Math.round(totalNetPnl * 100) / 100,
+    startingBalance,
+    currentAccountBalance,
+    revengeTradesCount,
     profitFactor,
     avgRMultiple,
     avgComplianceScore,

@@ -1,23 +1,24 @@
 import React, { useState } from 'react';
 import {
-  TrendingUp,
-  Award,
   Activity,
-  ShieldCheck,
-  ShieldAlert,
-  Plus,
   Edit2,
   Trash2,
   ExternalLink,
   Search,
-  Sparkles,
   ArrowUpRight,
+  Upload,
+  Clock,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
+import {
+  shiftTimeStringHours,
+  REVENGE_GAP_LABEL,
+} from '../utils/ninjaTraderCsvParser';
 
 export default function DashboardView({
   onOpenLogModal,
+  onOpenImportModal,
   onEditTrade,
   onOpenSessionReview,
   onNavigateAnalytics,
@@ -28,6 +29,8 @@ export default function DashboardView({
     deleteTrade,
     setLastSubmittedTrade,
     dailyLossCap,
+    displayTimezone,
+    setDisplayTimezone,
   } = useViper();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +42,7 @@ export default function DashboardView({
     const matchesSearch =
       !searchQuery ||
       t.contract?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.accountId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.accountType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.leakTags || []).join(' ').toLowerCase().includes(searchQuery.toLowerCase());
@@ -51,6 +55,20 @@ export default function DashboardView({
     100,
     Math.max(8, Math.round((Math.max(0, analytics.avgRMultiple) / 2.5) * 100))
   );
+
+  const formatSessionBadge = (windowStr) => {
+    if (windowStr === '1:00 AM–4:00 AM') {
+      if (displayTimezone === 'CT') return '1:00–4:00 AM CT';
+      if (displayTimezone === 'ET') return '2:00–5:00 AM ET';
+      return '1–4 AM CT • 2–5 AM ET';
+    }
+    if (windowStr === '8:00 AM–11:00 AM') {
+      if (displayTimezone === 'CT') return '8:00–11:00 AM CT';
+      if (displayTimezone === 'ET') return '9:00 AM–12:00 PM ET';
+      return '8–11 AM CT • 9–12 PM ET';
+    }
+    return 'Outside Window';
+  };
 
   return (
     <div className="flex-1 flex flex-col gap-6 w-full">
@@ -108,12 +126,12 @@ export default function DashboardView({
           </div>
         </div>
 
-        {/* 2. Total Net P&L & Rule Compliance Card */}
+        {/* 2. Total Net P&L & $25k Lucid Flex Account Balance Card */}
         <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
-                Total Net P&L
+                Net P&L ($25k Acct)
               </span>
               <span
                 className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
@@ -122,7 +140,10 @@ export default function DashboardView({
                     analytics.totalNetPnl >= 0 ? '#386641' : '#BC4749',
                 }}
               >
-                {analytics.totalNetPnl >= 0 ? 'PROFIT' : 'DRAWDOWN'}
+                ${analytics.currentAccountBalance.toLocaleString('en-US', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}
               </span>
             </div>
 
@@ -137,7 +158,7 @@ export default function DashboardView({
                 {formatUSD(analytics.totalNetPnl)}
               </span>
               <span className="text-xs font-mono text-[#8A99AD]">
-                GC / MGCZ6
+                Base $25,000
               </span>
             </div>
 
@@ -172,7 +193,7 @@ export default function DashboardView({
           </div>
         </div>
 
-        {/* 3. Profit Factor & Streak Card */}
+        {/* 3. Profit Factor & 15m Revenge Guard Card */}
         <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
@@ -188,17 +209,14 @@ export default function DashboardView({
               </span>
               <span
                 className={`text-xs font-mono font-semibold ${
-                  analytics.streaks.currentStreak >= 0
+                  analytics.revengeTradesCount === 0
                     ? 'text-emerald-400'
                     : 'text-rose-400'
                 }`}
               >
-                Streak:{' '}
-                {analytics.streaks.currentStreak > 0
-                  ? `+${analytics.streaks.currentStreak}W`
-                  : analytics.streaks.currentStreak < 0
-                  ? `${analytics.streaks.currentStreak}L`
-                  : '0'}
+                {analytics.revengeTradesCount === 0
+                  ? '0 Revenge Leaks'
+                  : `🚨 ${analytics.revengeTradesCount} <15m Gap`}
               </span>
             </div>
 
@@ -217,14 +235,17 @@ export default function DashboardView({
 
           <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
             <span className="text-xs font-medium text-[#8A99AD]">
-              Target: <strong className="font-mono text-[#FFFFFF]">&gt;1.80</strong>
+              15m Rule:{' '}
+              <strong className="font-mono text-[#FFFFFF]">
+                {analytics.revengeTradesCount === 0 ? 'PASS' : 'FLAGGED'}
+              </strong>
             </span>
             <button
               type="button"
-              onClick={onNavigateAnalytics}
+              onClick={onOpenSessionReview}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
             >
-              <span>Curve</span>
+              <span>Guard</span>
               <ArrowUpRight size={12} />
             </button>
           </div>
@@ -274,7 +295,7 @@ export default function DashboardView({
 
           <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
             <span className="text-xs font-medium text-[#8A99AD]">
-              Window: <strong className="text-[#FFFFFF]">1–4 / 8–11 AM</strong>
+              Zone: <strong className="text-[#FFFFFF]">#386641 / #BC4749</strong>
             </span>
             <button
               type="button"
@@ -332,15 +353,26 @@ export default function DashboardView({
 
           <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
             <span className="text-xs font-medium text-[#8A99AD]">
-              Account: <strong className="text-[#FFFFFF]">Lucid Flex</strong>
+              Lucid Flex <strong className="text-[#FFFFFF]">$25k</strong>
             </span>
-            <button
-              type="button"
-              onClick={onOpenLogModal}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
-            >
-              <span>+ Log</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onOpenImportModal}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-400 bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+                title="Import NinjaTrader Orders.csv"
+              >
+                <Upload size={11} />
+                <span>CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={onOpenLogModal}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+              >
+                <span>+ Log</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -359,25 +391,40 @@ export default function DashboardView({
               </span>
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-              Click any execution row to inspect its 14-Rule Strategy Audit •{' '}
-              <span className="font-mono text-emerald-400">
-                #386641 Support
-              </span>{' '}
-              &{' '}
-              <span className="font-mono text-rose-400">
-                #BC4749 Resistance
-              </span>
+              Exchange Time: <strong className="text-[#FFFFFF]">Chicago (CT)</strong> &{' '}
+              <strong className="text-[#FFFFFF]">New York (ET = CT + 1h)</strong> •{' '}
+              <span className="font-mono text-emerald-400">#386641 Support</span> &{' '}
+              <span className="font-mono text-rose-400">#BC4749 Resistance</span>
             </p>
           </div>
 
-          {/* Filter & Search Bar */}
+          {/* Filter, Timezone Toggle & Search Bar */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Compact Timezone Selector for Table */}
+            <div className="flex xl:hidden items-center bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
+              <Clock size={13} className="text-emerald-400 ml-2 mr-1" />
+              {['BOTH', 'CT', 'ET'].map((tz) => (
+                <button
+                  key={tz}
+                  type="button"
+                  onClick={() => setDisplayTimezone(tz)}
+                  className={`px-2 py-1 rounded-lg text-xs font-mono font-semibold cursor-pointer ${
+                    displayTimezone === tz
+                      ? 'bg-[#111620] text-[#FFFFFF] border border-slate-700/70'
+                      : 'text-[#8A99AD] hover:text-[#FFFFFF]'
+                  }`}
+                >
+                  {tz === 'BOTH' ? 'CT+ET' : tz}
+                </button>
+              ))}
+            </div>
+
             {/* Liquidity Window Filter Pills */}
             <div className="flex items-center bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
               {[
                 { id: 'All', label: 'All Windows' },
-                { id: '1:00 AM–4:00 AM', label: '1–4 AM' },
-                { id: '8:00 AM–11:00 AM', label: '8–11 AM' },
+                { id: '1:00 AM–4:00 AM', label: '1–4 AM CT (2–5 ET)' },
+                { id: '8:00 AM–11:00 AM', label: '8–11 AM CT (9–12 ET)' },
                 { id: 'Outside Window', label: 'Outside' },
               ].map((w) => (
                 <button
@@ -403,7 +450,7 @@ export default function DashboardView({
               />
               <input
                 type="text"
-                placeholder="Search contract, account, note..."
+                placeholder="Search LFE account, contract, leak..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 pr-4 py-2 rounded-xl bg-[#090C10] border border-slate-800/60 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-[#386641]"
@@ -417,14 +464,14 @@ export default function DashboardView({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800/60 bg-[#090C10]/60 text-xs font-semibold uppercase tracking-wider text-[#8A99AD]">
-                <th className="py-3.5 px-4">Date & Time</th>
-                <th className="py-3.5 px-4">Session Window</th>
+                <th className="py-3.5 px-4">Fill Time (CT / ET)</th>
+                <th className="py-3.5 px-4">Liquidity Window</th>
                 <th className="py-3.5 px-4">Contract & Account</th>
                 <th className="py-3.5 px-4">Direction & Zone</th>
                 <th className="py-3.5 px-4 text-right">Net P&L</th>
                 <th className="py-3.5 px-4 text-right">R-Multiple</th>
                 <th className="py-3.5 px-4 text-center">Compliance</th>
-                <th className="py-3.5 px-4">Behavioral Status</th>
+                <th className="py-3.5 px-4">Behavioral Guard (15m Rule)</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -435,7 +482,7 @@ export default function DashboardView({
                     colSpan={9}
                     className="py-16 text-center text-[#8A99AD] text-sm font-medium"
                   >
-                    No executions match the current filter. Click "Fast Log Trade" to record a trade.
+                    No executions match the current filter. Click &quot;Import NinjaTrader CSV&quot; or &quot;Fast Log Trade&quot;.
                   </td>
                 </tr>
               ) : (
@@ -449,6 +496,12 @@ export default function DashboardView({
                     ? '#BC4749'
                     : 'transparent';
 
+                  const timeCT = t.timeCT || t.time || '08:30';
+                  const timeET = t.timeET || shiftTimeStringHours(timeCT, 1);
+                  const hasRevengeFlag =
+                    Boolean(t.isRevengeTrade) ||
+                    (t.leakTags || []).includes(REVENGE_GAP_LABEL);
+
                   return (
                     <tr
                       key={t.id}
@@ -458,17 +511,33 @@ export default function DashboardView({
                       }}
                       className="hover:bg-slate-800/80 transition-colors cursor-pointer"
                       style={{
-                        borderLeft: `3px solid ${accentColor}`,
+                        borderLeft: `3px solid ${
+                          hasRevengeFlag ? '#BC4749' : accentColor
+                        }`,
                       }}
                     >
-                      {/* Date & Time */}
+                      {/* Date & Time (CT / ET Conversion) */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="font-mono font-semibold text-[#FFFFFF] text-sm">
                           {t.date}
                         </div>
-                        <div className="font-mono text-xs text-[#8A99AD] mt-0.5">
-                          {t.time} EST
-                        </div>
+                        {displayTimezone === 'CT' && (
+                          <div className="font-mono text-xs text-[#8A99AD] mt-0.5">
+                            {timeCT} CT
+                          </div>
+                        )}
+                        {displayTimezone === 'ET' && (
+                          <div className="font-mono text-xs text-emerald-400 mt-0.5">
+                            {timeET} ET
+                          </div>
+                        )}
+                        {displayTimezone === 'BOTH' && (
+                          <div className="font-mono text-xs text-[#8A99AD] mt-0.5 flex items-center gap-1.5">
+                            <span>{timeCT} CT</span>
+                            <span className="text-slate-600">•</span>
+                            <span className="text-emerald-400">{timeET} ET</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Session Window */}
@@ -480,17 +549,24 @@ export default function DashboardView({
                               : 'bg-[#090C10] text-[#FFFFFF] border border-slate-800/80'
                           }`}
                         >
-                          {t.sessionWindow}
+                          {formatSessionBadge(t.sessionWindow)}
                         </span>
                       </td>
 
-                      {/* Contract & Account */}
+                      {/* Contract & Account ID */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-mono font-bold text-[#FFFFFF] text-sm uppercase">
-                          {t.contract}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-[#FFFFFF] text-sm uppercase">
+                            {t.contract}
+                          </span>
+                          {t.quantity && (
+                            <span className="px-1.5 py-0.5 rounded bg-[#090C10] border border-slate-800/80 font-mono text-xs text-[#8A99AD]">
+                              {t.quantity}x
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs font-medium text-[#8A99AD] mt-0.5">
-                          {t.accountType}
+                        <div className="text-xs font-mono text-[#8A99AD] mt-0.5">
+                          {t.accountId ? `${t.accountId} (${t.accountType})` : t.accountType}
                         </div>
                       </td>
 
@@ -564,9 +640,9 @@ export default function DashboardView({
                         </span>
                       </td>
 
-                      {/* Execution Status / Leak Tags */}
+                      {/* Execution Status / Leak Tags & 15-Minute Revenge Guard */}
                       <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {(t.leakTags || []).length === 0 ? (
                             <span
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-emerald-300 border border-emerald-500/30"
@@ -575,19 +651,35 @@ export default function DashboardView({
                               }}
                             >
                               ✓ Clean
+                              {t.timeGapFromPrevMins !== null &&
+                                t.timeGapFromPrevMins !== undefined && (
+                                  <span className="font-mono text-[11px] opacity-85">
+                                    ({t.timeGapFromPrevMins}m gap)
+                                  </span>
+                                )}
                             </span>
                           ) : (
-                            t.leakTags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#FFFFFF]"
-                                style={{
-                                  backgroundColor: '#BC4749',
-                                }}
-                              >
-                                {tag}
-                              </span>
-                            ))
+                            t.leakTags.map((tag) => {
+                              const isRevengeChip = tag === REVENGE_GAP_LABEL;
+                              return (
+                                <span
+                                  key={tag}
+                                  className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#FFFFFF]"
+                                  style={{
+                                    backgroundColor: '#BC4749',
+                                  }}
+                                >
+                                  {isRevengeChip ? `🚨 ${tag}` : tag}
+                                  {isRevengeChip &&
+                                    t.timeGapFromPrevMins !== null &&
+                                    t.timeGapFromPrevMins !== undefined && (
+                                      <span className="font-mono ml-1 underline">
+                                        ({t.timeGapFromPrevMins}m)
+                                      </span>
+                                    )}
+                                </span>
+                              );
+                            })
                           )}
                         </div>
                       </td>

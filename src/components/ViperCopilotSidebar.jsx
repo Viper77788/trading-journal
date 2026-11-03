@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
+import { REVENGE_GAP_LABEL } from '../utils/ninjaTraderCsvParser';
 
 export function ViperCopilotAuditContent() {
   const { analytics, lastSubmittedTrade, setLastSubmittedTrade, rules } = useViper();
@@ -36,39 +37,66 @@ export function ViperCopilotAuditContent() {
   const generateDeterministicReply = (qText) => {
     const q = qText.toLowerCase();
 
+    if (q.includes('revenge') || q.includes('15')) {
+      return `1. 15-Minute Revenge Trading Guard: ${
+        analytics.revengeTradesCount > 0
+          ? `🚨 ${analytics.revengeTradesCount} execution(s) entered < 15 minutes after the previous trade's Fill Time close.`
+          : '✓ PASS — All consecutive trades respected the 15-minute cooldown gap.'
+      }
+2. Compliance Score Impact: ${analytics.avgComplianceScore}% session average (Rule #14 automatically penalized on < 15m gap entries).
+3. Account Risk Status ($25k Base): ${isRiskPassed ? 'PASS' : 'FAIL'} (-$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Loss Cap used).
+4. Actionable Adjustment: ${analytics.actionableAdjustment}`;
+    }
+
     if (q.includes('14') || q.includes('rule') || q.includes('compliance')) {
       const lowest = analytics.weakestRule;
       return `1. Compliance Score: ${analytics.avgComplianceScore}% average across ${analytics.totalTrades} trades.${
         lowest ? ` Lowest checkpoint: Rule #${lowest.number} (${lowest.label}) at ${lowest.pct}%.` : ''
       }
-2. Risk Status: ${isRiskPassed ? 'PASS' : 'FAIL'} — -$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Cap used.
+2. Risk Status ($25k Account): ${isRiskPassed ? 'PASS' : 'FAIL'} — -$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Cap used.
 3. Behavioral Red Flags: ${
         analytics.sortedLeaks.length > 0
-          ? analytics.sortedLeaks.map((l) => `${l.tag} (${l.count}x)`).join(', ')
+          ? analytics.sortedLeaks
+              .map((l) =>
+                l.tag === REVENGE_GAP_LABEL
+                  ? `🚨 ${l.tag} (${l.count}x)`
+                  : `${l.tag} (${l.count}x)`
+              )
+              .join(', ')
           : 'Zero recurring leaks.'
       }
 4. Actionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
-    if (q.includes('window') || q.includes('session')) {
+    if (q.includes('window') || q.includes('session') || q.includes('timezone')) {
       const sLines = analytics.sessionStats
-        .map((s) => `• ${s.id}: ${s.trades} trades | ${s.winRate}% WR | ${s.avgR}R avg | ${formatUSD(s.netPnl)}`)
+        .map(
+          (s) =>
+            `• ${s.label}: ${s.trades} trades | ${s.winRate}% WR | ${s.avgR}R avg | ${formatUSD(s.netPnl)}`
+        )
         .join('\n');
-      return `Session Liquidity Window Breakdown:\n${sLines}\n\nActionable Adjustment: ${analytics.actionableAdjustment}`;
+      return `Session Liquidity Window Breakdown (Chicago CT / New York ET):\n${sLines}\n\nActionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
     if (q.includes('zone') || q.includes('386641') || q.includes('bc4749')) {
       const zLines = analytics.zoneStats
         .filter((z) => z.trades > 0)
-        .map((z) => `• ${z.id}: ${z.trades} trades | ${z.winRate}% WR | ${formatUSD(z.netPnl)}`)
+        .map(
+          (z) =>
+            `• ${z.id}: ${z.trades} trades | ${z.winRate}% WR | ${formatUSD(z.netPnl)}`
+        )
         .join('\n');
-      return `#386641 Support & #BC4749 Resistance Zone Performance:\n${zLines || 'No zone trades logged yet.'}`;
+      return `#386641 Support & #BC4749 Resistance Zone Performance:\n${
+        zLines || 'No zone trades logged yet.'
+      }`;
     }
 
     return `1. Compliance Score: ${analytics.avgComplianceScore}% (WR: ${analytics.winRate}% • PF: ${analytics.profitFactor} • Avg R: ${analytics.avgRMultiple}R)
-2. Risk Status: ${isRiskPassed ? 'PASS' : 'FAIL'} (-$${dailyLossUsed.toFixed(2)} / -$${dailyCap} Cap)
+2. Risk Status ($25k Lucid Flex): ${isRiskPassed ? 'PASS' : 'FAIL'} (-$${dailyLossUsed.toFixed(2)} / -$${dailyCap} Cap • Balance: $${analytics.currentAccountBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })})
 3. Behavioral Red Flags: ${
-      analytics.topLeak ? `${analytics.topLeak.tag} (${analytics.topLeak.count}x)` : 'Clean'
+      analytics.topLeak
+        ? `${analytics.topLeak.tag === REVENGE_GAP_LABEL ? '🚨 ' : ''}${analytics.topLeak.tag} (${analytics.topLeak.count}x)`
+        : 'Clean'
     }
 4. Actionable Adjustment: ${analytics.actionableAdjustment}`;
   };
@@ -97,19 +125,27 @@ export function ViperCopilotAuditContent() {
         <div>
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-bold tracking-tight text-[#FFFFFF]">
-              4-Point Automated Strategy & Risk Audit
+              4-Point Automated Strategy & Behavioral Leak Audit
             </h3>
             <span
               className="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
-              style={{ backgroundColor: '#386641' }}
+              style={{
+                backgroundColor:
+                  auditTarget?.isRevengeTrade ? '#BC4749' : '#386641',
+              }}
             >
               {auditTarget
-                ? `Inspecting: ${auditTarget.contract} on ${auditTarget.date} (${formatUSD(auditTarget.netPnl)})`
+                ? `Inspecting: ${auditTarget.contract} on ${auditTarget.date} (${formatUSD(auditTarget.netPnl)})${
+                    auditTarget.timeGapFromPrevMins !== null &&
+                    auditTarget.timeGapFromPrevMins !== undefined
+                      ? ` • ${auditTarget.timeGapFromPrevMins}m gap`
+                      : ''
+                  }`
                 : `All Session Trades (${analytics.totalTrades} Logged)`}
             </span>
           </div>
           <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-            Direct, objective evaluation of 14-rule adherence, $600 daily loss guardrail, and behavioral leaks.
+            Direct, objective evaluation of 14-rule adherence, $25k Lucid Flex ($600 Daily Cap), and 15-minute Revenge Trading Guard.
           </p>
         </div>
 
@@ -152,7 +188,7 @@ export function ViperCopilotAuditContent() {
           </div>
         </div>
 
-        {/* 2. Risk Status ($600 Daily Loss Cap) */}
+        {/* 2. Risk Status ($600 Daily Loss Cap on $25k Account) */}
         <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-3">
@@ -190,13 +226,17 @@ export function ViperCopilotAuditContent() {
             </div>
           </div>
           <div className="pt-3.5 mt-4 border-t border-slate-800/60 text-xs font-medium text-[#8A99AD]">
-            {analytics.dailyLossTracker.breachedDaysCount === 0
-              ? 'Daily loss cap respected across all sessions'
-              : `${analytics.dailyLossTracker.breachedDaysCount} session(s) breached cap`}
+            $25k Balance:{' '}
+            <strong className="font-mono text-[#FFFFFF]">
+              ${analytics.currentAccountBalance.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </strong>
           </div>
         </div>
 
-        {/* 3. Behavioral Red Flags */}
+        {/* 3. Behavioral Red Flags & 15m Revenge Trading Guard */}
         <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-3">
@@ -218,16 +258,18 @@ export function ViperCopilotAuditContent() {
                     className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold text-[#FFFFFF]"
                     style={{ backgroundColor: '#BC4749' }}
                   >
-                    {item.tag} ({item.count}x)
+                    {item.tag === REVENGE_GAP_LABEL
+                      ? `🚨 ${item.tag} (${item.count}x)`
+                      : `${item.tag} (${item.count}x)`}
                   </span>
                 ))}
               </div>
             )}
           </div>
           <div className="pt-3.5 mt-4 border-t border-slate-800/60 text-xs font-medium text-[#8A99AD]">
-            {analytics.topLeak
-              ? `Primary leak impact: ${formatUSD(analytics.topLeak.netImpact)}`
-              : 'No emotional or stop-moving leaks detected'}
+            {analytics.revengeTradesCount > 0
+              ? `🚨 ${analytics.revengeTradesCount} trade(s) violated 15m cooldown`
+              : '15-minute cooldown respected across all trades'}
           </div>
         </div>
 
@@ -263,15 +305,16 @@ export function ViperCopilotAuditContent() {
                 Ask Viper Copilot
               </span>
               <span className="text-xs text-[#8A99AD]">
-                Query rule compliance, session timing, or #386641 / #BC4749 zone performance
+                Query 15m Revenge Trading Guard, 14-rule compliance, or CT/ET session windows
               </span>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {[
+              'Audit 15-Minute Revenge Rule',
               'Audit 14-Rule Compliance',
-              'Compare 1–4 AM vs 8–11 AM Windows',
+              'Compare 1–4 AM vs 8–11 AM CT Windows',
               'Inspect #386641 & #BC4749 Zones',
             ].map((chip) => (
               <button
@@ -315,7 +358,7 @@ export function ViperCopilotAuditContent() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask Viper Copilot to analyze a session, rule, or zone..."
+            placeholder="Ask Viper Copilot about 15m cooldowns, NinjaTrader imports, or rule compliance..."
             className="flex-1 bg-[#090C10] border border-slate-800/60 rounded-xl px-4 py-2.5 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-[#386641]"
           />
           <button
@@ -357,6 +400,14 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
             >
               {analytics.avgComplianceScore}%
             </span>
+            {analytics.revengeTradesCount > 0 && (
+              <span
+                className="px-2 py-0.5 rounded-md font-mono text-xs text-[#FFFFFF]"
+                style={{ backgroundColor: '#BC4749' }}
+              >
+                🚨 {analytics.revengeTradesCount} &lt;15m
+              </span>
+            )}
             <ChevronUp size={15} className="text-[#8A99AD]" />
           </button>
         </div>
@@ -379,7 +430,7 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
                       Viper AI Session Review Drawer
                     </h2>
                     <p className="text-xs font-medium text-[#8A99AD]">
-                      On-demand 14-Rule Compliance & Behavioral Leak Audit
+                      On-demand 14-Rule Compliance, $600 Daily Loss Cap & 15m Revenge Trading Guard
                     </p>
                   </div>
                 </div>

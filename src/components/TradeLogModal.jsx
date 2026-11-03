@@ -9,12 +9,16 @@ import {
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { DEFAULT_14_RULES } from '../constants/viperConstants';
+import {
+  shiftTimeStringHours,
+  REVENGE_GAP_LABEL,
+} from '../utils/ninjaTraderCsvParser';
 
 const CORE_3_PILLARS = [
   {
     id: 'pillar_window',
     title: '1. Liquidity Window Aligned',
-    subtitle: 'Executed in 1:00–4:00 AM or 8:00–11:00 AM NY window',
+    subtitle: 'Executed in 1–4 AM CT (2–5 AM ET) or 8–11 AM CT (9–12 PM ET)',
   },
   {
     id: 'pillar_zone',
@@ -23,18 +27,18 @@ const CORE_3_PILLARS = [
   },
   {
     id: 'pillar_risk',
-    title: '3. Risk & Stop Plan Respected',
-    subtitle: 'Within $600 daily loss cap with fixed initial stop',
+    title: '3. Risk & 15m Cooldown Respected',
+    subtitle: 'Within $600 daily loss cap and ≥ 15m gap after previous close',
   },
 ];
 
 const QUICK_LEAK_OPTIONS = [
   'Clean',
+  REVENGE_GAP_LABEL,
   'FOMO Entry',
   'Early Exit',
   'Moved Stop Loss',
   'Oversizing',
-  'Revenge Trading',
   'Session Outside Window',
 ];
 
@@ -44,8 +48,11 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     time: '08:30',
+    exitTimeCT: '08:50',
     sessionWindow: '8:00 AM–11:00 AM',
     contract: 'MGCZ6',
+    quantity: 2,
+    accountId: 'LFE05072050930002',
     accountType: 'Lucid Flex',
     direction: 'Long',
     zoneInteraction: 'Support (#386641)',
@@ -72,9 +79,12 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
         : Math.round(((initialTrade.complianceScore || 100) / 100) * 14);
       setForm({
         date: initialTrade.date || new Date().toISOString().slice(0, 10),
-        time: initialTrade.time || '08:30',
+        time: (initialTrade.timeCT || initialTrade.time || '08:30').slice(0, 5),
+        exitTimeCT: (initialTrade.exitTimeCT || '08:50').slice(0, 5),
         sessionWindow: initialTrade.sessionWindow || '8:00 AM–11:00 AM',
         contract: initialTrade.contract || 'MGCZ6',
+        quantity: initialTrade.quantity || 2,
+        accountId: initialTrade.accountId || 'LFE05072050930002',
         accountType: initialTrade.accountType || 'Lucid Flex',
         direction: initialTrade.direction || 'Long',
         zoneInteraction: initialTrade.zoneInteraction || 'Support (#386641)',
@@ -97,8 +107,11 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
       setForm({
         date: new Date().toISOString().slice(0, 10),
         time: '08:30',
+        exitTimeCT: '08:50',
         sessionWindow: '8:00 AM–11:00 AM',
         contract: 'MGCZ6',
+        quantity: 2,
+        accountId: 'LFE05072050930002',
         accountType: 'Lucid Flex',
         direction: 'Long',
         zoneInteraction: 'Support (#386641)',
@@ -158,6 +171,8 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
   const complianceGrade =
     compliancePct >= 85 ? 'A' : compliancePct >= 65 ? 'B' : 'C';
 
+  const previewET = shiftTimeStringHours(form.time, 1);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const rulesChecked = DEFAULT_14_RULES.slice(0, form.rulesCount).map((r) => r.id);
@@ -168,8 +183,19 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
       id: initialTrade?.id,
       date: form.date,
       time: form.time,
+      timeCT: `${form.time}:00`,
+      timeET: `${previewET}:00`,
+      exitTimeCT: form.exitTimeCT ? `${form.exitTimeCT}:00` : `${form.time}:00`,
+      exitTimeET: form.exitTimeCT
+        ? `${shiftTimeStringHours(form.exitTimeCT, 1)}:00`
+        : `${previewET}:00`,
       sessionWindow: form.sessionWindow,
       contract: form.contract,
+      quantity: Number(form.quantity) || 1,
+      accountId:
+        form.accountType === 'Lucid Flex'
+          ? 'LFE05072050930002'
+          : 'APEX-25093001',
       accountType: form.accountType,
       direction: form.direction,
       zoneInteraction: form.zoneInteraction,
@@ -210,7 +236,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
               </h2>
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-              Streamlined 30-second execution logger • GC & MGCZ6
+              Streamlined 30-second execution logger • Auto-converts CT → ET ({previewET} ET) & checks 15m Cooldown
             </p>
           </div>
           <button
@@ -227,7 +253,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] flex items-center gap-2">
               <Clock size={15} className="text-emerald-400" />
-              Section 1: Core Trade Info
+              Section 1: Core Trade Info (Chicago CT & New York ET)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -245,10 +271,10 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                 />
               </div>
 
-              {/* Time */}
+              {/* Fill Time (CT with ET preview) */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Time (EST)
+                  Fill Time (CT) → <span className="text-emerald-400 font-mono">{previewET} ET</span>
                 </label>
                 <input
                   type="time"
@@ -285,7 +311,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
               {/* Account Selector */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Prop Account
+                  Prop Account ($25k)
                 </label>
                 <div className="grid grid-cols-2 gap-1.5 bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
                   {['Lucid Flex', 'Apex'].map((acc) => (
@@ -319,10 +345,10 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-medium text-[#FFFFFF] focus:outline-none focus:border-[#386641]"
                 >
                   <option value="1:00 AM–4:00 AM" className="bg-[#111620]">
-                    1:00 AM–4:00 AM (London)
+                    1:00–4:00 AM CT (2:00–5:00 AM ET)
                   </option>
                   <option value="8:00 AM–11:00 AM" className="bg-[#111620]">
-                    8:00 AM–11:00 AM (NY Open)
+                    8:00–11:00 AM CT (9:00 AM–12:00 PM ET)
                   </option>
                   <option value="Outside Window" className="bg-[#111620]">
                     Outside Window
@@ -333,7 +359,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
               {/* Direction */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Direction
+                  Direction (B/S)
                 </label>
                 <div className="grid grid-cols-2 gap-2 bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
                   <button
@@ -349,7 +375,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                         form.direction === 'Long' ? '#386641' : 'transparent',
                     }}
                   >
-                    Long
+                    Long (Buy)
                   </button>
                   <button
                     type="button"
@@ -364,7 +390,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                         form.direction === 'Short' ? '#BC4749' : 'transparent',
                     }}
                   >
-                    Short
+                    Short (Sell)
                   </button>
                 </div>
               </div>
@@ -411,10 +437,24 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] flex items-center gap-2">
               <DollarSign size={15} className="text-emerald-400" />
-              Section 2: Execution Prices & P&L
+              Section 2: Execution Prices, Quantity & P&L
             </h3>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
+                  Filled Qty
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={form.quantity}
+                  onChange={(e) => updateField('quantity', e.target.value)}
+                  className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-[#386641]"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
                   Entry Price
@@ -496,7 +536,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] flex items-center gap-2">
                 <CheckCircle2 size={15} className="text-emerald-400" />
-                Section 3: Simplified Strategy Checklist & Leaks
+                Section 3: Simplified Strategy Checklist & Behavioral Leak Guard
               </h3>
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-medium text-[#8A99AD]">
@@ -577,7 +617,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
             {/* Simple Behavioral Leak Tag Selector */}
             <div>
               <label className="block text-xs font-medium text-[#8A99AD] mb-2">
-                Behavioral Leak Tags
+                Behavioral Leak Tags (15-Minute Revenge Trading Guard Auto-Checks Consecutive Fills)
               </label>
               <div className="flex flex-wrap gap-2">
                 {QUICK_LEAK_OPTIONS.map((tag) => {
@@ -604,7 +644,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                           : undefined,
                       }}
                     >
-                      {tag}
+                      {tag === REVENGE_GAP_LABEL ? `🚨 ${tag}` : tag}
                     </button>
                   );
                 })}

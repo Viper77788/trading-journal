@@ -3,29 +3,37 @@ import {
   LayoutDashboard,
   BarChart3,
   PlusCircle,
-  Shield,
   RotateCcw,
   Terminal,
   Sparkles,
   Menu,
   X,
-  CheckCircle2,
-  Activity,
+  Upload,
+  Clock,
 } from 'lucide-react';
 import { useViper } from './context/ViperContext';
 import DashboardView from './components/DashboardView';
 import AnalyticsView from './components/AnalyticsView';
 import TradeLogModal from './components/TradeLogModal';
+import NinjaTraderImportModal from './components/NinjaTraderImportModal';
 import ViperCopilotBottomDrawer, {
   ViperCopilotAuditContent,
 } from './components/ViperCopilotSidebar';
 
 export default function App() {
-  const { accountFilter, setAccountFilter, resetDemoData, analytics, dailyLossCap } =
-    useViper();
+  const {
+    accountFilter,
+    setAccountFilter,
+    resetDemoData,
+    analytics,
+    dailyLossCap,
+    displayTimezone,
+    setDisplayTimezone,
+  } = useViper();
 
   const [activeView, setActiveView] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState(null);
   const [isBottomDrawerOpen, setIsBottomDrawerOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -65,17 +73,17 @@ export default function App() {
     dashboard: {
       title: 'Trading Accounts & Executions',
       subtitle:
-        'Gold (GC) & Micro Gold (MGCZ6) futures execution log, prop account risk guardrails, and 14-rule compliance.',
+        'Gold (GC) & Micro Gold (MGCZ6) execution log • $25k Lucid Flex ($600 Daily Cap) • 15m Revenge Guard.',
     },
     analytics: {
       title: 'Performance & R-Multiple Analytics',
       subtitle:
-        'Cumulative equity curve, R-multiple distribution, and liquidity window breakdown (1–4 AM vs 8–11 AM NY).',
+        'Cumulative equity curve, R-multiple distribution, and liquidity window breakdown (CT & ET).',
     },
     review: {
       title: 'Viper AI Copilot & 14-Rule Audit',
       subtitle:
-        'Objective evaluation of rule compliance, $600 daily loss limit utilization, and recurring behavioral leaks.',
+        'Objective evaluation of rule compliance, $600 daily loss limit utilization, and < 15m revenge trading leaks.',
     },
   }[activeView];
 
@@ -96,7 +104,7 @@ export default function App() {
         }`}
       >
         {/* Top Branded Header & Navigation */}
-        <div className="p-5 space-y-6">
+        <div className="p-5 space-y-5">
           {/* Branded Logo Header (VIPER) */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -132,19 +140,33 @@ export default function App() {
             </button>
           </div>
 
-          {/* Primary Fast Log CTA */}
-          <button
-            type="button"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              handleOpenNewTrade();
-            }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] shadow-sm transition-all hover:opacity-95 cursor-pointer border border-emerald-500/20"
-            style={{ backgroundColor: '#386641' }}
-          >
-            <PlusCircle size={17} />
-            <span>Fast Log Trade</span>
-          </button>
+          {/* Primary Action Buttons in Sidebar */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleOpenNewTrade();
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#FFFFFF] shadow-sm transition-all hover:opacity-95 cursor-pointer border border-emerald-500/20"
+              style={{ backgroundColor: '#386641' }}
+            >
+              <PlusCircle size={16} />
+              <span>Fast Log Trade</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsImportModalOpen(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
+            >
+              <Upload size={14} className="text-emerald-400" />
+              <span>Import NinjaTrader CSV</span>
+            </button>
+          </div>
 
           {/* Navigation Section */}
           <div className="space-y-1.5">
@@ -196,9 +218,9 @@ export default function App() {
             </div>
             <div className="space-y-1">
               {[
-                { id: 'All', label: 'All Accounts', meta: 'Combined' },
-                { id: 'Lucid Flex', label: 'Lucid Flex', meta: '$600 Cap' },
-                { id: 'Apex', label: 'Apex Funding', meta: 'PA / Eval' },
+                { id: 'All', label: 'All Accounts', meta: '$25k Base' },
+                { id: 'Lucid Flex', label: 'Lucid Flex', meta: '$25k • $600 Cap' },
+                { id: 'Apex', label: 'Apex Funding', meta: '$25k PA' },
               ].map((acc) => {
                 const active = accountFilter === acc.id;
                 return (
@@ -229,12 +251,12 @@ export default function App() {
           </div>
         </div>
 
-        {/* Sidebar Bottom Status & Zone Anchors */}
+        {/* Sidebar Bottom Account Balance & Daily Loss Guardrail */}
         <div className="p-5 border-t border-slate-800/60 space-y-4 bg-[#090C10]/40">
-          {/* Daily Loss Guardrail Mini Card */}
-          <div className="p-3.5 rounded-xl bg-[#090C10] border border-slate-800/60 space-y-2">
+          {/* $25k Account Balance & Daily Loss Guardrail Card */}
+          <div className="p-3.5 rounded-xl bg-[#090C10] border border-slate-800/60 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD]">
-              <span>DAILY LOSS GUARDRAIL</span>
+              <span>$25K LUCID FLEX</span>
               <span
                 className="px-2 py-0.5 rounded text-xs font-mono font-semibold text-[#FFFFFF]"
                 style={{
@@ -248,10 +270,13 @@ export default function App() {
             </div>
             <div className="flex items-baseline justify-between">
               <span className="text-base font-bold font-mono text-[#FFFFFF]">
-                -${analytics.dailyLossTracker.latestDayLossUsed.toFixed(0)}
+                ${analytics.currentAccountBalance.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span className="text-xs font-mono text-[#8A99AD]">
-                of -${dailyLossCap} Cap
+                -${analytics.dailyLossTracker.latestDayLossUsed.toFixed(0)} / -${dailyLossCap}
               </span>
             </div>
             <div className="w-full h-1.5 bg-[#111620] rounded-full overflow-hidden">
@@ -341,35 +366,45 @@ export default function App() {
               </div>
             </div>
 
-            {/* Header Right Actions */}
-            <div className="flex items-center gap-2.5">
-              {/* Account Switcher Pill Group */}
-              <div className="hidden md:flex items-center bg-[#111620] p-1 rounded-xl border border-slate-800/60">
-                {['All', 'Lucid Flex', 'Apex'].map((acc) => (
+            {/* Header Right Actions: Timezone Switcher + Import NinjaTrader CSV + Fast Log Trade */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Timezone Switcher (CT / ET / Both) */}
+              <div
+                className="hidden xl:flex items-center bg-[#111620] p-1 rounded-xl border border-slate-800/60"
+                title="NinjaTrader Exchange Time (Chicago CT) vs New York Time (ET = CT + 1h)"
+              >
+                <Clock size={14} className="text-emerald-400 ml-2 mr-1.5" />
+                {[
+                  { id: 'BOTH', label: 'CT + ET' },
+                  { id: 'CT', label: 'Chicago (CT)' },
+                  { id: 'ET', label: 'New York (ET)' },
+                ].map((tz) => (
                   <button
-                    key={acc}
+                    key={tz.id}
                     type="button"
-                    onClick={() => setAccountFilter(acc)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                      accountFilter === acc
+                    onClick={() => setDisplayTimezone(tz.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      displayTimezone === tz.id
                         ? 'bg-slate-800 text-[#FFFFFF] shadow-xs'
                         : 'text-[#8A99AD] hover:text-[#FFFFFF]'
                     }`}
                   >
-                    {acc === 'All' ? 'All Accounts' : acc}
+                    {tz.label}
                   </button>
                 ))}
               </div>
 
+              {/* Import NinjaTrader CSV Button */}
               <button
                 type="button"
-                onClick={() => setIsBottomDrawerOpen(true)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-[#111620] hover:bg-slate-800/80 text-[#FFFFFF] border border-slate-800/60 transition-colors cursor-pointer"
+                onClick={() => setIsImportModalOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold bg-[#111620] hover:bg-slate-800/80 text-[#FFFFFF] border border-slate-800/60 transition-colors cursor-pointer"
               >
-                <Sparkles size={15} className="text-emerald-400" />
-                <span className="hidden sm:inline">Session Audit</span>
+                <Upload size={15} className="text-emerald-400" />
+                <span>Import NinjaTrader CSV</span>
               </button>
 
+              {/* Fast Log Trade Button */}
               <button
                 type="button"
                 onClick={handleOpenNewTrade}
@@ -388,6 +423,7 @@ export default function App() {
           {activeView === 'dashboard' && (
             <DashboardView
               onOpenLogModal={handleOpenNewTrade}
+              onOpenImportModal={() => setIsImportModalOpen(true)}
               onEditTrade={handleEditTrade}
               onOpenSessionReview={() => setIsBottomDrawerOpen(true)}
               onNavigateAnalytics={() => setActiveView('analytics')}
@@ -411,6 +447,13 @@ export default function App() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         initialTrade={editingTrade}
+      />
+
+      {/* NinjaTrader CSV Importer & 15-Minute Behavioral Leak Guard Modal */}
+      <NinjaTraderImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportComplete={() => setIsBottomDrawerOpen(true)}
       />
     </div>
   );
