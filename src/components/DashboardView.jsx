@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   Upload,
@@ -109,6 +109,21 @@ export default function DashboardView({
 }) {
   const { deleteTrade, clearAllTrades, loadSampleNinjaTraderCsv } = useViper();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 768px)');
+    const handleChange = (e) => setIsDesktop(e.matches);
+    setIsDesktop(mql.matches);
+    if (mql.addEventListener) {
+      mql.addEventListener('change', handleChange);
+      return () => mql.removeEventListener('change', handleChange);
+    }
+    mql.addListener(handleChange);
+    return () => mql.removeListener(handleChange);
+  }, []);
 
   const searchedTrades = trades.filter((t) => {
     if (!searchQuery.trim()) return true;
@@ -605,17 +620,9 @@ export default function DashboardView({
             </div>
 
             {/* DESKTOP & TABLET TABLE (≥768px): fixed layout with exact column percentages */}
-            <div
-              className="hidden md:block"
-              style={{
-                width: '100%',
-                overflowX: 'auto',
-                borderRadius: '12px',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--surface-2)',
-              }}
-            >
-              <table
+            {isDesktop ? (
+              <div className="viper-desktop-table-wrap hidden md:block">
+                <table
                 className="w-full min-w-[1100px] xl:min-w-0"
                 style={{
                   width: '100%',
@@ -1088,9 +1095,9 @@ export default function DashboardView({
                 </tbody>
               </table>
             </div>
-
-            {/* MOBILE STACKED TRADE CARDS (<768px, §8) */}
-            <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            ) : (
+            /* MOBILE STACKED TRADE CARDS (<768px, §8) */
+            <div className="viper-mobile-cards-wrap md:hidden">
               {searchedTrades.map((trade) => {
                 const isPositive = Number(trade.netPnl) > 0;
                 const isNegative = Number(trade.netPnl) < 0;
@@ -1310,6 +1317,7 @@ export default function DashboardView({
                 );
               })}
             </div>
+            )}
           </div>
         )}
       </section>

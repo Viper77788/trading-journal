@@ -273,6 +273,38 @@ textarea {
   scrollbar-width: none;
 }
 
+/* Mutually-exclusive Desktop Table vs Mobile Stacked Cards (§6 & §8) */
+.viper-desktop-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+
+.viper-mobile-cards-wrap {
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .viper-desktop-table-wrap {
+    display: block !important;
+  }
+  .viper-mobile-cards-wrap {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .viper-desktop-table-wrap {
+    display: none !important;
+  }
+  .viper-mobile-cards-wrap {
+    display: flex !important;
+  }
+}
+
 /* Modal open animation (§7) */
 @keyframes viperModalIn {
   from {

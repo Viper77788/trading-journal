@@ -35,11 +35,28 @@ function timeToMinutes(tStr) {
 }
 
 /**
+ * De-duplicates trades by id (preserving the newest occurrence)
+ */
+function deduplicateTradesById(tradesList = []) {
+  const seen = new Set();
+  const unique = [];
+  for (const trade of tradesList) {
+    if (!trade || !trade.id) continue;
+    if (!seen.has(trade.id)) {
+      seen.add(trade.id);
+      unique.push(trade);
+    }
+  }
+  return unique;
+}
+
+/**
  * Enriches all trades with 12-hour EST formatting, Liquidity Window classification,
  * and automatic 15-minute Revenge Guard detection.
  */
 function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 8) {
-  const chronological = [...tradesList].sort((a, b) => {
+  const uniqueInput = deduplicateTradesById(tradesList);
+  const chronological = [...uniqueInput].sort((a, b) => {
     if (a.entryEpochMs && b.entryEpochMs) {
       return a.entryEpochMs - b.entryEpochMs;
     }
@@ -353,7 +370,10 @@ export function ViperProvider({ children }) {
       const nextList = exists
         ? prev.map((item) => (item.id === candidate.id ? candidate : item))
         : [candidate, ...prev];
-      return enrichTradesWithESTAndCooldown(nextList, rules.length);
+      return enrichTradesWithESTAndCooldown(
+        deduplicateTradesById(nextList),
+        rules.length
+      );
     });
 
     return candidate;
@@ -369,7 +389,10 @@ export function ViperProvider({ children }) {
       const combined = replaceExisting
         ? parsedResult.trades
         : [...parsedResult.trades, ...prev];
-      return enrichTradesWithESTAndCooldown(combined, rules.length);
+      return enrichTradesWithESTAndCooldown(
+        deduplicateTradesById(combined),
+        rules.length
+      );
     });
 
     return parsedResult;
