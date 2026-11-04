@@ -471,6 +471,18 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
     h.replace(/^"|"$/g, '').trim()
   );
 
+  // Detect if file is already in "Date,Contract,Direction,Contracts,Entry Price,Exit Price,P/L,Setup,Tags,Notes,Chart URL" format
+  const normHeaderSet = new Set(
+    rawHeaders.map((h) => h.toLowerCase().replace(/[\s_-]+/g, ''))
+  );
+  if (
+    normHeaderSet.has('entryprice') &&
+    normHeaderSet.has('exitprice') &&
+    (normHeaderSet.has('direction') || normHeaderSet.has('contracts'))
+  ) {
+    return parseTradingJournalCsvRows(lines, rawHeaders, selectedProfile);
+  }
+
   const findExactOrPartialColIndices = (candidates) => {
     const normHeaders = rawHeaders.map((h) =>
       h.toLowerCase().replace(/[\s_-]+/g, '')
@@ -912,3 +924,169 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
     endingBalance: runningBalance,
   };
 }
+
+/**
+ * Parses a Trading Journal CSV in the format:
+ * Date,Contract,Direction,Contracts,Entry Price,Exit Price,P/L,Setup,Tags,Notes,Chart URL
+ */
+export function parseTradingJournalCsvRows(lines, rawHeaders, selectedProfile = ACCOUNT_PROFILES[0]) {
+  const normHeaders = rawHeaders.map((h) =>
+    h.toLowerCase().replace(/[\s_-]+/g, '')
+  );
+  const getCol = (cols, name) => {
+    const idx = normHeaders.indexOf(name);
+    return idx >= 0 && idx < cols.length ? String(cols[idx] ?? '').trim() : '';
+  };
+
+  const trades = [];
+  let revengeTradesCount = 0;
+
+  for (let i = 1; i < lines.length; i += 1) {
+    const cols = splitCsvLine(lines[i]);
+    if (cols.length < 5) continue;
+
+    const rawDateStr = getCol(cols, 'date');
+    const dateParts = rawDateStr.split(/\s+/);
+    const date = dateParts[0] || '2026-11-04';
+    const time24 = dateParts[1] ? dateParts[1].slice(0, 5) : '09:30';
+    const timeEST = formatTime12hEST(dateParts[1] || '09:30:00');
+
+    const rawContract = getCol(cols, 'contract') || 'GC-Micro';
+    const contract = rawContract.toUpperCase().includes('MICRO')
+      ? 'MGCZ6'
+      : rawContract.toUpperCase();
+    const rawDir = (getCol(cols, 'direction') || 'long').toLowerCase();
+    const direction = rawDir.startsWith('s') ? 'Short' : 'Long';
+    const quantity = Math.max(1, parseInt(getCol(cols, 'contracts'), 10) || 1);
+    const entryPrice = parseFloat(getCol(cols, 'entryprice')) || 0;
+    const exitPrice = parseFloat(getCol(cols, 'exitprice')) || 0;
+    const pnlVal = parseFloat(getCol(cols, 'p/l') || getCol(cols, 'pl')) || 0;
+    const setup = getCol(cols, 'setup');
+    const rawTags = getCol(cols, 'tags');
+    const notes = getCol(cols, 'notes');
+    const chartUrl = getCol(cols, 'charturl');
+
+    const leakTags = rawTags
+      ? rawTags
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t && t.toLowerCase() !== 'clean')
+      : [];
+    const isRevengeTrade = leakTags.some((t) =>
+      t.toLowerCase().includes('revenge')
+    );
+    if (isRevengeTrade) revengeTradesCount += 1;
+
+    const sessionWindow = normalizeLiquidityWindow(setup, time24);
+    const rulesChecked = isRevengeTrade
+      ? DEFAULT_14_RULES.map((r) => r.id).filter(
+          (id) => id !== 'r14' && id !== 'r4' && id !== 'r3'
+        )
+      : DEFAULT_14_RULES.map((r) => r.id);
+    const { score, grade } = computeRuleCompliance(
+      rulesChecked,
+      DEFAULT_14_RULES.length
+    );
+
+    trades.push({
+      id: `tj-csv-${Date.now()}-${i}`,
+      source: 'ninjatrader-csv',
+      accountId: 'LFE05072050930002',
+      accountProfileId: selectedProfile.id,
+      accountName: selectedProfile.name,
+      date,
+      time: time24,
+      timeEST,
+      timeCT: timeEST.replace('EST', 'CT'),
+      exitTimeEST: timeEST,
+      exitTimeCT: timeEST.replace('EST', 'CT'),
+      contract,
+      product: 'MGC',
+      lotType: 'Micro',
+      quantity,
+      direction,
+      sessionWindow,
+      entryPrice,
+      exitPrice,
+      grossPnl: pnlVal,
+      commission: 0,
+      netPnl: pnlVal,
+      riskAmount: quantity * 50,
+      rMultiple: Math.round((pnlVal / (quantity * 50)) * 100) / 100,
+      rulesChecked,
+      complianceScore: score,
+      complianceGrade: grade,
+      leakTags,
+      isRevengeTrade,
+      notes,
+      chartUrl,
+    });
+  }
+
+  return {
+    error: null,
+    totalRows: lines.length - 1,
+    filledOrdersCount: trades.length,
+    skippedOrdersCount: 0,
+    revengeTradesCount,
+    trades,
+    detectedAccountIds: ['LFE05072050930002'],
+    selectedProfile,
+    endingBalance:
+      selectedProfile.startingBalance +
+      trades.reduce((acc, t) => acc + t.netPnl, 0),
+  };
+}
+
+/**
+ * Formats an array of Viper trades into the exact `trading-journal-2026-11-04.csv` schema:
+ * Date,Contract,Direction,Contracts,Entry Price,Exit Price,P/L,Setup,Tags,Notes,Chart URL
+ */
+export function exportTradingJournalCsv(trades = []) {
+  const header =
+    'Date,Contract,Direction,Contracts,Entry Price,Exit Price,P/L,Setup,Tags,Notes,Chart URL';
+  const escapeCsvCell = (val) => {
+    const str = String(val ?? '').replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const rows = trades.map((t) => {
+    const timePart =
+      t.time && t.time.length === 5 ? `${t.time}:00` : t.time || '09:30:00';
+    const dateCol = `${t.date || '2026-11-04'} ${timePart}`;
+    const contractCol =
+      t.lotType === 'Micro' || String(t.contract || '').startsWith('MGC')
+        ? 'GC-Micro'
+        : t.contract || 'GC-Micro';
+    const dirCol = String(t.direction || 'Long').toLowerCase();
+    const qtyCol = t.quantity || 1;
+    const entryCol = t.entryPrice ?? 0;
+    const exitCol = t.exitPrice ?? 0;
+    const pnlCol = t.netPnl ?? 0;
+    const setupCol = escapeCsvCell(
+      normalizeLiquidityWindow(t.sessionWindow, t.time)
+    );
+    const tagsCol = escapeCsvCell(
+      (t.leakTags || []).length > 0 ? t.leakTags.join(', ') : 'Clean'
+    );
+    const notesCol = escapeCsvCell(t.notes || '');
+    const chartUrlCol = escapeCsvCell(t.chartUrl || '');
+
+    return [
+      dateCol,
+      contractCol,
+      dirCol,
+      qtyCol,
+      entryCol,
+      exitCol,
+      pnlCol,
+      setupCol,
+      tagsCol,
+      notesCol,
+      chartUrlCol,
+    ].join(',');
+  });
+
+  return [header, ...rows].join('\n');
+}
+

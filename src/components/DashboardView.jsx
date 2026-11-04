@@ -7,6 +7,7 @@ import {
   Search,
   ArrowUpRight,
   Clock,
+  Download,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
@@ -15,6 +16,7 @@ import {
   formatTime12hEST,
   normalizeLiquidityWindow,
   REVENGE_GAP_LABEL,
+  exportTradingJournalCsv,
 } from '../utils/ninjaTraderCsvParser';
 
 export function LiquidityWindowBadge({ sessionWindow }) {
@@ -98,6 +100,19 @@ export default function DashboardView({
     100,
     Math.max(8, Math.round((Math.max(0, analytics.avgRMultiple) / 2.5) * 100))
   );
+
+  const handleExportTradingJournalCsv = () => {
+    const csvContent = exportTradingJournalCsv(filteredTrades);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'trading-journal-2026-11-04.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex-1 flex flex-col gap-6 w-full">
@@ -345,15 +360,26 @@ export default function DashboardView({
                 {visibleTrades.length} Executions
               </span>
               {filteredTrades.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearAllTrades}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
-                  title="Clear all Orders.csv trades"
-                >
-                  <Trash2 size={13} />
-                  <span>Clear Orders CSV</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleExportTradingJournalCsv}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors cursor-pointer"
+                    title="Download trading-journal-2026-11-04.csv"
+                  >
+                    <Download size={13} />
+                    <span>Export trading-journal-2026-11-04.csv</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearAllTrades}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
+                    title="Clear all Orders.csv trades"
+                  >
+                    <Trash2 size={13} />
+                    <span>Clear Orders CSV</span>
+                  </button>
+                </>
               )}
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">

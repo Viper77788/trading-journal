@@ -1,0 +1,13 @@
+Date,Contract,Direction,Contracts,Entry Price,Exit Price,P/L,Setup,Tags,Notes,Chart URL
+2026-11-02 01:31:08,GC-Micro,short,10,3916.3,3917.85,-155,"Outside Window","Clean","MGCZ6 10x Short | Entry 01:31:08 AM EST -> Exit 01:34:06 AM EST (12:31 AM CT -> 12:34 AM CT)",""
+2026-11-02 01:35:03,GC-Micro,short,5,3916.6,3917.6,-50,"Outside Window","Revenge Trading (< 15m gap)","MGCZ6 5x Short | Entry 01:35:03 AM EST -> Exit 01:35:57 AM EST (12:35 AM CT) | Entered 0.9m after previous exit",""
+2026-11-02 01:37:17,GC-Micro,short,10,3916.5,3913.7,280,"Outside Window","Revenge Trading (< 15m gap)","MGCZ6 10x Short | Entry 01:37:17 AM EST -> Exit 01:46:48 AM EST (12:37 AM CT -> 12:46 AM CT) | Entered 1.3m after previous exit",""
+2026-11-02 05:06:43,GC-Micro,short,10,3905.11,3907.1,-198.9,"Outside Window","Clean","MGCZ6 10x Short | Entry 05:06:43 AM EST -> Exit 05:14:25 AM EST (04:06 AM CT -> 04:14 AM CT) | Cooldown respected (199.9m gap)",""
+2026-11-02 09:10:53,GC-Micro,long,5,3955.7,3951.1,-230,"8–11 AM CT / 9–12 PM ET","Clean","MGCZ6 5x Long | Entry 09:10:53 AM EST -> Exit 09:15:09 AM EST (08:10 AM CT -> 08:15 AM CT) | Cooldown respected (236.5m gap)",""
+2026-11-02 09:30:40,GC-Micro,long,5,3960,3975.3,765,"8–11 AM CT / 9–12 PM ET","Clean","MGCZ6 5x Long | Entry 09:30:40 AM EST -> Exit 09:59:43 AM EST (08:30 AM CT -> 08:59 AM CT) | Cooldown respected (15.5m gap)",""
+2026-11-02 23:45:49,GC-Micro,short,5,3933.2,3932.6,30,"Outside Window","Clean","MGCZ6 5x Short | Entry 11:45:49 PM EST -> Exit 12:05:25 AM EST (10:45 PM CT -> 11:05 PM CT) | Cooldown respected",""
+2026-11-03 01:45:56,GC-Micro,short,7,3926.6,3920.6,420,"1–4 AM CT / 2–5 AM ET","Clean","MGCZ6 7x Short | Entry 01:45:56 AM EST -> Exit 02:07:21 AM EST (12:45 AM CT -> 01:07 AM CT) | Cooldown respected (100.5m gap)",""
+2026-11-03 02:45:29,GC-Micro,short,5,3918.4,3920.6,-110,"1–4 AM CT / 2–5 AM ET","Clean","MGCZ6 5x Short | Entry 02:45:29 AM EST -> Exit 02:46:54 AM EST (01:45 AM CT -> 01:46 AM CT) | Cooldown respected (38.1m gap)",""
+2026-11-03 05:32:21,GC-Micro,short,10,3912.45,3914.8,-235,"Outside Window","Clean","MGCZ6 10x Short | Entry 05:32:21 AM EST -> Exit 05:50:36 AM EST (04:32 AM CT -> 04:50 AM CT) | Cooldown respected (165.5m gap)",""
+2026-11-03 05:50:48,GC-Micro,long,20,3914.5,3912.2,-460,"Outside Window","Revenge Trading (< 15m gap)","MGCZ6 20x Long | Entry 05:50:48 AM EST -> Exit 05:53:44 AM EST (04:50 AM CT -> 04:53 AM CT) | Entered 0.2m after previous exit",""
+2026-11-03 05:53:46,GC-Micro,short,20,3912.2,3915.9,-740,"Outside Window","Revenge Trading (< 15m gap), Moved Stop Loss","MGCZ6 20x Short | Entry 05:53:46 AM EST -> Exit 06:00:49 AM EST (04:53 AM CT -> 05:00 AM CT) | AutoLiq | Entered 0m after previous exit",""
