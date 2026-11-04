@@ -340,11 +340,9 @@ export function computeViperAnalytics(
 
   // Generate Actionable Adjustment for AI Copilot
   let actionableAdjustment =
-    'Maintain strict 15-minute cooldown spacing between trades and cap contract size at 5x–10x MGCZ6 lots to protect your $25k Lucid Flex $600 daily loss limit.';
+    'Maintain strict 15-minute cooldown spacing between trades and execute primarily inside the 1–4 AM CT and 8–11 AM CT liquidity windows.';
 
-  if (!riskStatusPass) {
-    actionableAdjustment = `Daily Loss Cap Alert: Cap MGCZ6 lot size to 5x Micro lots max (avoid scaling to 20x) and enforce a hard stop so a single session never exceeds the -$${dailyLossCap} limit on LFE05072050930002.`;
-  } else if (revengeTradesCount > 0) {
+  if (revengeTradesCount > 0) {
     actionableAdjustment = `Enforce the mandatory 15-Minute Cooldown Rule: ${revengeTradesCount} execution(s) were entered < 15m after the previous trade's Fill Time exit. Wait at least 15 minutes before placing another order.`;
   } else if (weakestRule && weakestRule.pct < 80) {
     actionableAdjustment = `Focus on Rule #${weakestRule.number} ("${weakestRule.label}") — currently your lowest compliance checkpoint at ${weakestRule.pct}%.`;

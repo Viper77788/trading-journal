@@ -10,6 +10,7 @@ import {
   X,
   Upload,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import { useViper } from './context/ViperContext';
 import DashboardView from './components/DashboardView';
@@ -21,13 +22,7 @@ import ViperCopilotBottomDrawer, {
 } from './components/ViperCopilotSidebar';
 
 export default function App() {
-  const {
-    accountFilter,
-    setAccountFilter,
-    resetDemoData,
-    analytics,
-    dailyLossCap,
-  } = useViper();
+  const { trades, clearAllTrades, resetDemoData, analytics } = useViper();
 
   const [activeView, setActiveView] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,19 +64,19 @@ export default function App() {
 
   const pageHeaderMeta = {
     dashboard: {
-      title: 'Trading Accounts & Executions',
+      title: 'Gold Futures Execution Journal',
       subtitle:
-        'Account LFE05072050930002 ($25k Lucid Flex • $600 Daily Cap) • 12-Hour EST (AM/PM) • 15m Revenge Guard.',
+        '12-Hour EST (AM/PM) & Chicago Time (CT) • Liquidity Windows • 15-Minute Revenge Guard.',
     },
     analytics: {
       title: 'Performance & R-Multiple Analytics',
       subtitle:
-        'Cumulative equity curve, R-multiple distribution, and EST session performance breakdown.',
+        'Cumulative equity curve, R-multiple distribution, and Liquidity Window performance breakdown.',
     },
     review: {
       title: 'Viper AI Copilot & 14-Rule Audit',
       subtitle:
-        'Objective evaluation of rule compliance, $600 daily loss limit utilization, and < 15m revenge trading leaks.',
+        'Objective evaluation of rule compliance, Liquidity Window alignment, and < 15m revenge trading leaks.',
     },
   }[activeView];
 
@@ -115,7 +110,7 @@ export default function App() {
                     VIPER
                   </span>
                   <span className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    PRO
+                    GOLD
                   </span>
                 </div>
                 <p className="text-xs font-medium text-[#8A99AD]">
@@ -157,10 +152,23 @@ export default function App() {
               <PlusCircle size={14} className="text-emerald-400" />
               <span>Fast Log Trade</span>
             </button>
+
+            {trades.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearAllTrades();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
+              >
+                <Trash2 size={14} />
+                <span>Clear Orders CSV</span>
+              </button>
+            )}
           </div>
 
           {/* Navigation Section */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 pt-2 border-t border-slate-800/60">
             <div className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8A99AD] mb-2">
               Navigation
             </div>
@@ -201,111 +209,23 @@ export default function App() {
               );
             })}
           </div>
-
-          {/* Prop Account Filter Section */}
-          <div className="space-y-2 pt-2 border-t border-slate-800/60">
-            <div className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8A99AD]">
-              Prop Firm Account
-            </div>
-            <div className="space-y-1">
-              {[
-                { id: 'All', label: 'All Accounts', meta: '$25k Base' },
-                { id: 'Lucid Flex', label: 'Lucid Flex', meta: '$25k • $600 Cap' },
-                { id: 'Apex', label: 'Apex Funding', meta: '$25k PA' },
-              ].map((acc) => {
-                const active = accountFilter === acc.id;
-                return (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    onClick={() => setAccountFilter(acc.id)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                      active
-                        ? 'bg-[#090C10] text-[#FFFFFF] border border-slate-800/80'
-                        : 'text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          active ? 'bg-emerald-400' : 'bg-slate-600'
-                        }`}
-                      />
-                      <span>{acc.label}</span>
-                    </div>
-                    <span className="text-xs font-mono text-[#8A99AD]">{acc.meta}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
-        {/* Sidebar Bottom Account Balance & Daily Loss Guardrail */}
-        <div className="p-5 border-t border-slate-800/60 space-y-4 bg-[#090C10]/40">
-          {/* $25k Account Balance & Daily Loss Guardrail Card */}
-          <div className="p-3.5 rounded-xl bg-[#090C10] border border-slate-800/60 space-y-2.5">
-            <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD]">
-              <span className="font-mono">LFE05072050930002</span>
-              <span
-                className={`px-2 py-0.5 rounded text-xs font-mono font-semibold text-[#FFFFFF] ${
-                  analytics.dailyLossTracker.riskStatusPass
-                    ? 'bg-emerald-600'
-                    : 'bg-rose-600'
-                }`}
-              >
-                {analytics.dailyLossTracker.riskStatusPass ? 'ACTIVE' : 'BREACH'}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-base font-bold font-mono text-[#FFFFFF]">
-                ${analytics.currentAccountBalance.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              <span className="text-xs font-mono text-[#8A99AD]">
-                -${analytics.dailyLossTracker.latestDayLossUsed.toFixed(0)} / -${dailyLossCap}
-              </span>
-            </div>
-            <div className="w-full h-1.5 bg-[#111620] rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  analytics.dailyLossTracker.dailyLossUtilizationPct >= 80
-                    ? 'bg-rose-500'
-                    : 'bg-emerald-500'
-                }`}
-                style={{
-                  width: `${Math.max(
-                    4,
-                    analytics.dailyLossTracker.dailyLossUtilizationPct
-                  )}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Timezone Info & Reset */}
+        {/* Sidebar Bottom Timezone Info & Reset */}
+        <div className="p-5 border-t border-slate-800/60 space-y-3 bg-[#090C10]/40">
           <div className="flex items-center justify-between text-xs text-[#8A99AD]">
             <div className="flex items-center gap-2 font-mono">
               <Clock size={13} className="text-emerald-400" />
-              <span>12h EST (AM/PM)</span>
+              <span>12h EST / CT (AM/PM)</span>
             </div>
             <button
               type="button"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Reset journal to default LFE05072050930002 NinjaTrader Orders.csv dataset?'
-                  )
-                ) {
-                  resetDemoData();
-                }
-              }}
-              className="p-1.5 rounded-lg text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors cursor-pointer"
-              title="Reset to default Orders.csv data"
+              onClick={resetDemoData}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title="Reload sample Orders.csv data"
             >
-              <RotateCcw size={14} />
+              <RotateCcw size={13} />
+              <span>Sample</span>
             </button>
           </div>
         </div>
@@ -325,27 +245,33 @@ export default function App() {
                 <Menu size={18} />
               </button>
               <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold tracking-tight text-[#FFFFFF]">
-                    {pageHeaderMeta.title}
-                  </h1>
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    $25K LUCID FLEX
-                  </span>
-                </div>
+                <h1 className="text-2xl font-bold tracking-tight text-[#FFFFFF]">
+                  {pageHeaderMeta.title}
+                </h1>
                 <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-0.5">
                   {pageHeaderMeta.subtitle}
                 </p>
               </div>
             </div>
 
-            {/* Header Right Actions: Import NinjaTrader CSV + Fast Log Trade */}
+            {/* Header Right Actions: Clear Orders CSV + Import NinjaTrader CSV + Fast Log Trade */}
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#111620] border border-slate-800/60 text-xs font-mono text-[#8A99AD]">
                 <Clock size={14} className="text-emerald-400" />
                 <span>Eastern Time (12h AM/PM EST)</span>
               </div>
+
+              {trades.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllTrades}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
+                  title="Clear all imported Orders.csv executions"
+                >
+                  <Trash2 size={15} />
+                  <span>Clear Orders CSV</span>
+                </button>
+              )}
 
               {/* Import NinjaTrader CSV Button */}
               <button

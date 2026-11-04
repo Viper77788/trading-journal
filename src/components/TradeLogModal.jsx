@@ -288,7 +288,7 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
               Section 1: Core Trade Info (12-Hour EST AM/PM)
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Date */}
               <div>
                 <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
@@ -335,29 +335,6 @@ export default function TradeLogModal({ isOpen, onClose, initialTrade = null }) 
                   required
                   className="w-full bg-[#090C10] border border-slate-800/60 rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
                 />
-              </div>
-
-              {/* Account Selector */}
-              <div>
-                <label className="block text-xs font-medium text-[#8A99AD] mb-1.5">
-                  Prop Account ($25k)
-                </label>
-                <div className="grid grid-cols-2 gap-1.5 bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
-                  {['Lucid Flex', 'Apex'].map((acc) => (
-                    <button
-                      key={acc}
-                      type="button"
-                      onClick={() => updateField('accountType', acc)}
-                      className={`py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        form.accountType === acc
-                          ? 'bg-[#111620] text-[#FFFFFF] shadow-xs border border-slate-700/70'
-                          : 'text-[#8A99AD] hover:text-[#FFFFFF]'
-                      }`}
-                    >
-                      {acc}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 

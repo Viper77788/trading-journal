@@ -1,15 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Bot,
-  ShieldCheck,
-  ShieldAlert,
+  Activity,
   CheckCircle2,
   AlertTriangle,
   Crosshair,
   Send,
   X,
   ChevronUp,
-  Clock,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
@@ -38,10 +36,6 @@ export function ViperCopilotAuditContent() {
     ? (auditTarget.rulesChecked || []).length
     : Math.round((analytics.avgComplianceScore / 100) * rules.length);
 
-  const isRiskPassed = analytics.dailyLossTracker.riskStatusPass;
-  const dailyLossUsed = analytics.dailyLossTracker.latestDayLossUsed;
-  const dailyCap = analytics.dailyLossTracker.dailyLossCap;
-
   const generateDeterministicReply = (qText) => {
     const q = qText.toLowerCase();
 
@@ -52,7 +46,7 @@ export function ViperCopilotAuditContent() {
           : '✓ PASS — All consecutive trades respected the 15-minute cooldown gap.'
       }
 2. Compliance Score Impact: ${analytics.avgComplianceScore}% session average (Rule #14 automatically penalized on < 15m gap entries).
-3. Account Risk Status ($25k Lucid Flex LFE05072050930002): ${isRiskPassed ? 'PASS' : 'FAIL'} (-$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Loss Cap used).
+3. Session Performance: ${analytics.winRate}% Win Rate • ${analytics.profitFactor} Profit Factor • ${formatUSD(analytics.totalNetPnl)} Net P&L.
 4. Actionable Adjustment: ${analytics.actionableAdjustment}`;
     }
 
@@ -61,7 +55,7 @@ export function ViperCopilotAuditContent() {
       return `1. Compliance Score: ${analytics.avgComplianceScore}% average across ${analytics.totalTrades} trades (${analytics.totalContractsTraded}x total lots).${
         lowest ? ` Lowest checkpoint: Rule #${lowest.number} (${lowest.label}) at ${lowest.pct}%.` : ''
       }
-2. Risk Status ($25k Account): ${isRiskPassed ? 'PASS' : 'FAIL'} — -$${dailyLossUsed.toFixed(2)} of -$${dailyCap} Daily Cap used.
+2. Session Performance: ${analytics.winRate}% Win Rate • ${analytics.profitFactor} Profit Factor • ${formatUSD(analytics.totalNetPnl)} Net P&L.
 3. Behavioral Red Flags: ${
         analytics.sortedLeaks.length > 0
           ? analytics.sortedLeaks
@@ -87,7 +81,7 @@ export function ViperCopilotAuditContent() {
     }
 
     return `1. Compliance Score: ${analytics.avgComplianceScore}% (WR: ${analytics.winRate}% • PF: ${analytics.profitFactor} • Avg R: ${analytics.avgRMultiple}R)
-2. Risk Status ($25k Lucid Flex): ${isRiskPassed ? 'PASS' : 'FAIL'} (-$${dailyLossUsed.toFixed(2)} / -$${dailyCap} Cap • Balance: $${analytics.currentAccountBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })})
+2. Realized Net P&L: ${formatUSD(analytics.totalNetPnl)} across ${analytics.totalTrades} trades (${analytics.totalContractsTraded}x lots)
 3. Behavioral Red Flags: ${
       analytics.topLeak
         ? `${analytics.topLeak.tag === REVENGE_GAP_LABEL ? '🚨 ' : ''}${analytics.topLeak.tag} (${analytics.topLeak.count}x)`
@@ -133,7 +127,7 @@ export function ViperCopilotAuditContent() {
             </span>
           </div>
           <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-            Direct, objective evaluation of Liquidity Windows, 14-rule adherence, $25k Lucid Flex ($600 Daily Cap), and 15-minute Revenge Trading Guard.
+            Direct, objective evaluation of Liquidity Windows, 14-rule adherence, and 15-minute Revenge Trading Guard.
           </p>
         </div>
 
@@ -182,9 +176,12 @@ export function ViperCopilotAuditContent() {
 
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD] block mb-1">
-                Position &amp; Contract Lots
+                Contract &amp; Lots
               </span>
               <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-[#090C10] border border-slate-800 font-mono text-xs font-bold text-[#FFFFFF]">
+                  {auditTarget.contract}
+                </span>
                 <span
                   className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${
                     auditTarget.direction === 'Long'
@@ -195,7 +192,7 @@ export function ViperCopilotAuditContent() {
                   {auditTarget.direction === 'Long' ? 'LONG' : 'SHORT'}
                 </span>
                 <span className="px-2.5 py-1 rounded-md bg-[#090C10] border border-slate-800 font-mono text-xs font-bold text-[#FFFFFF]">
-                  {auditTarget.quantity}x {auditTarget.lotType || 'Micro'} ({auditTarget.contract})
+                  {auditTarget.quantity}x {auditTarget.lotType || 'Micro'}
                 </span>
               </div>
             </div>
@@ -248,51 +245,34 @@ export function ViperCopilotAuditContent() {
           </div>
         </div>
 
-        {/* 2. Risk Status ($600 Daily Loss Cap on $25k Account) */}
+        {/* 2. Session Net P&L & Profit Factor */}
         <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-xs font-medium text-[#8A99AD] uppercase tracking-wider mb-3">
-              <span>2. Risk Status (${dailyCap} Cap)</span>
-              {isRiskPassed ? (
-                <ShieldCheck size={16} className="text-emerald-400" />
-              ) : (
-                <ShieldAlert size={16} className="text-rose-400" />
-              )}
+              <span>2. Session Net P&amp;L</span>
+              <Activity size={16} className="text-emerald-400" />
             </div>
-            <div className="flex items-center gap-2.5">
-              <span
-                className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-bold text-[#FFFFFF] ${
-                  isRiskPassed ? 'bg-emerald-600' : 'bg-rose-600'
-                }`}
-              >
-                {isRiskPassed ? 'PASS' : 'FAIL'}
-              </span>
-              <span className="text-xl font-bold font-mono text-[#FFFFFF] tracking-tight">
-                -${dailyLossUsed.toFixed(0)} / -${dailyCap}
-              </span>
+            <div
+              className={`text-2xl font-bold font-mono tracking-tight ${
+                analytics.totalNetPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {formatUSD(analytics.totalNetPnl)}
             </div>
             <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
               <div
                 className={`h-full rounded-full transition-all ${
-                  isRiskPassed ? 'bg-emerald-500' : 'bg-rose-500'
+                  analytics.winRate >= 50 ? 'bg-emerald-500' : 'bg-rose-500'
                 }`}
                 style={{
-                  width: `${Math.max(
-                    4,
-                    analytics.dailyLossTracker.dailyLossUtilizationPct
-                  )}%`,
+                  width: `${Math.max(6, analytics.winRate)}%`,
                 }}
               />
             </div>
           </div>
           <div className="pt-3.5 mt-4 border-t border-slate-800/60 text-xs font-medium text-[#8A99AD]">
-            $25k Balance:{' '}
-            <strong className="font-mono text-[#FFFFFF]">
-              ${analytics.currentAccountBalance.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </strong>
+            Win Rate: <strong className="font-mono text-[#FFFFFF]">{analytics.winRate}%</strong> • PF:{' '}
+            <strong className="font-mono text-[#FFFFFF]">{analytics.profitFactor}</strong>
           </div>
         </div>
 
@@ -466,7 +446,7 @@ export default function ViperCopilotBottomDrawer({ isOpen, onToggle }) {
                       Viper AI Session Review Drawer
                     </h2>
                     <p className="text-xs font-medium text-[#8A99AD]">
-                      On-demand Liquidity Window Audit, 14-Rule Compliance, $600 Daily Loss Cap &amp; 15m Revenge Trading Guard
+                      On-demand Liquidity Window Audit, 14-Rule Compliance &amp; 15m Revenge Trading Guard
                     </p>
                   </div>
                 </div>

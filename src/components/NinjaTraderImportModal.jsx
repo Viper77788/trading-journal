@@ -5,13 +5,12 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   Clock,
-  Shield,
   Sparkles,
   Download,
+  Trash2,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import {
-  ACCOUNT_PROFILES,
   SAMPLE_NINJATRADER_ORDERS_CSV,
   parseNinjaTraderOrdersCsv,
   REVENGE_GAP_LABEL,
@@ -24,12 +23,11 @@ export default function NinjaTraderImportModal({
   onClose,
   onImportComplete,
 }) {
-  const { importNinjaTraderTrades } = useViper();
+  const { importNinjaTraderTrades, clearAllTrades, trades } = useViper();
 
   const fileInputRef = useRef(null);
   const [csvText, setCsvText] = useState(SAMPLE_NINJATRADER_ORDERS_CSV);
-  const [fileName, setFileName] = useState('Orders_LFE05072050930002.csv');
-  const [accountProfileId, setAccountProfileId] = useState('lucid-25k');
+  const [fileName, setFileName] = useState('Orders.csv');
   const [utcToCtOffsetHours, setUtcToCtOffsetHours] = useState(-11.5);
   const [includeCommissions, setIncludeCommissions] = useState(false);
   const [replaceExisting, setReplaceExisting] = useState(true);
@@ -37,11 +35,10 @@ export default function NinjaTraderImportModal({
   const parsedResult = useMemo(() => {
     if (!csvText.trim()) return null;
     return parseNinjaTraderOrdersCsv(csvText, {
-      accountProfileId,
       utcToCtOffsetHours: Number(utcToCtOffsetHours),
       includeCommissions,
     });
-  }, [csvText, accountProfileId, utcToCtOffsetHours, includeCommissions]);
+  }, [csvText, utcToCtOffsetHours, includeCommissions]);
 
   if (!isOpen) return null;
 
@@ -52,13 +49,25 @@ export default function NinjaTraderImportModal({
     reader.onload = (e) => {
       const content = String(e.target?.result || '');
       setCsvText(content);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     };
     reader.readAsText(file);
   };
 
   const handleLoadSampleCsv = () => {
-    setFileName('Orders_LFE05072050930002.csv');
+    setFileName('Orders.csv');
     setCsvText(SAMPLE_NINJATRADER_ORDERS_CSV);
+  };
+
+  const handleClearCsv = () => {
+    setFileName('');
+    setCsvText('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    clearAllTrades();
   };
 
   const handleDownloadSampleCsv = () => {
@@ -77,8 +86,6 @@ export default function NinjaTraderImportModal({
     if (!parsedResult || parsedResult.trades.length === 0) return;
     importNinjaTraderTrades(parsedResult.trades, {
       replaceExisting,
-      dailyLossLimit: parsedResult.selectedProfile.dailyLossLimit,
-      startingBalance: parsedResult.selectedProfile.startingBalance,
     });
     onClose();
     onImportComplete?.();
@@ -90,7 +97,7 @@ export default function NinjaTraderImportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-6xl bg-[#111620] text-[#FFFFFF] rounded-xl border border-slate-800/60 shadow-2xl overflow-hidden my-auto">
+      <div className="w-full max-w-5xl bg-[#111620] text-[#FFFFFF] rounded-xl border border-slate-800/60 shadow-2xl overflow-hidden my-auto">
         {/* Modal Header */}
         <div className="px-6 py-5 bg-[#090C10] border-b border-slate-800/60 flex items-center justify-between">
           <div>
@@ -103,7 +110,7 @@ export default function NinjaTraderImportModal({
               </h2>
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-              Reads raw CSV in <strong className="text-[#FFFFFF]">UTC</strong> → converts to <strong className="text-[#FFFFFF]">Chicago Time (CT)</strong> → shifts <strong className="text-emerald-400">+1h to Eastern Time (ET)</strong> in 12-hour AM/PM format
+              Converts <strong className="text-[#FFFFFF]">Chicago Time (CT)</strong> &amp; <strong className="text-emerald-400">Eastern Time (ET +1h)</strong> in 12-hour AM/PM format • 15-Minute Revenge Guard
             </p>
           </div>
           <button
@@ -116,31 +123,9 @@ export default function NinjaTraderImportModal({
         </div>
 
         <div className="p-6 space-y-6 max-h-[82vh] overflow-y-auto">
-          {/* Top Configuration Row: Account Profile + UTC->CT->ET Timezone + 15m Guard */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* 1. Account Size & Risk Mapping */}
-            <div className="bg-[#090C10] p-4 rounded-xl border border-slate-800/60">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#8A99AD] mb-2 flex items-center gap-1.5">
-                <Shield size={14} className="text-emerald-400" />
-                Account Profile &amp; Risk Cap
-              </label>
-              <select
-                value={accountProfileId}
-                onChange={(e) => setAccountProfileId(e.target.value)}
-                className="w-full bg-[#111620] border border-slate-800/60 rounded-xl px-3 py-2 text-sm font-semibold text-[#FFFFFF] focus:outline-none focus:border-emerald-500"
-              >
-                {ACCOUNT_PROFILES.map((prof) => (
-                  <option key={prof.id} value={prof.id} className="bg-[#111620]">
-                    {prof.name} (${prof.dailyLossLimit} Daily Cap)
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-[#8A99AD] mt-2">
-                Auto-matches <code className="text-[#FFFFFF]">LFE05072050930002</code> to $25k Lucid Flex ($600 Daily Loss Cap).
-              </p>
-            </div>
-
-            {/* 2. IST / UTC -> CT -> ET (+1h) Timezone Conversion */}
+          {/* Top Configuration Row: Timezone Offset + 15m Guard */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 1. IST / UTC -> CT -> ET (+1h) Timezone Conversion */}
             <div className="bg-[#090C10] p-4 rounded-xl border border-slate-800/60">
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#8A99AD] mb-2 flex items-center gap-1.5">
                 <Clock size={14} className="text-emerald-400" />
@@ -175,7 +160,7 @@ export default function NinjaTraderImportModal({
               </p>
             </div>
 
-            {/* 3. 15-Minute Rule & Import Options */}
+            {/* 2. 15-Minute Rule & Import Options */}
             <div className="bg-[#090C10] p-4 rounded-xl border border-slate-800/60 flex flex-col justify-between">
               <div>
                 <span className="block text-xs font-semibold uppercase tracking-wider text-[#8A99AD] mb-2 flex items-center gap-1.5">
@@ -209,7 +194,7 @@ export default function NinjaTraderImportModal({
             </div>
           </div>
 
-          {/* File Upload Dropzone */}
+          {/* File Upload & Clear Orders CSV Dropzone */}
           <div className="bg-[#090C10] border-2 border-dashed border-slate-800 hover:border-emerald-500/60 rounded-xl p-5 transition-colors">
             <input
               ref={fileInputRef}
@@ -225,21 +210,32 @@ export default function NinjaTraderImportModal({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#FFFFFF]">
-                    {fileName || 'Upload NinjaTrader Orders.csv'}
+                    {fileName || 'No CSV Loaded — Upload Orders.csv'}
                   </h3>
                   <p className="text-xs text-[#8A99AD] mt-0.5">
-                    Extracts <code className="text-[#FFFFFF]">Status.trim() === &apos;Filled&apos;</code>, <code className="text-[#FFFFFF]">filledQty</code> / <code className="text-[#FFFFFF]">Quantity</code>, <code className="text-[#FFFFFF]">avgPrice</code>, <code className="text-[#FFFFFF]">Fill Time</code>, and <code className="text-[#FFFFFF]">Account</code>
+                    Extracts <code className="text-[#FFFFFF]">Status.trim() === &apos;Filled&apos;</code>, <code className="text-[#FFFFFF]">filledQty</code> / <code className="text-[#FFFFFF]">Quantity</code>, <code className="text-[#FFFFFF]">avgPrice</code>, and <code className="text-[#FFFFFF]">Fill Time</code>
                   </p>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                {(csvText || trades.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={handleClearCsv}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
+                    title="Clear loaded CSV and wipe existing orders"
+                  >
+                    <Trash2 size={14} />
+                    <span>Clear Orders CSV</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleLoadSampleCsv}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#111620] hover:bg-slate-800/80 text-emerald-400 border border-slate-800/60 transition-colors cursor-pointer"
                 >
-                  Load LFE05072050930002 CSV
+                  Load Sample CSV
                 </button>
                 <button
                   type="button"
@@ -262,10 +258,10 @@ export default function NinjaTraderImportModal({
           </div>
 
           {/* Parsed Summary & Preview Table */}
-          {parsedResult && (
+          {parsedResult ? (
             <div className="space-y-5">
-              {/* 4 Summary Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* 3 Clean Summary Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#090C10] rounded-xl p-4 border border-slate-800/60">
                   <span className="text-xs font-medium uppercase text-[#8A99AD]">
                     Filled Orders → Trades
@@ -280,19 +276,7 @@ export default function NinjaTraderImportModal({
 
                 <div className="bg-[#090C10] rounded-xl p-4 border border-slate-800/60">
                   <span className="text-xs font-medium uppercase text-[#8A99AD]">
-                    Account Mapping
-                  </span>
-                  <div className="text-lg font-bold font-mono text-emerald-400 mt-1 truncate">
-                    {parsedResult.detectedAccountIds[0] || 'LFE05072050930002'}
-                  </div>
-                  <span className="text-xs text-[#8A99AD]">
-                    {parsedResult.selectedProfile.name} (${parsedResult.selectedProfile.dailyLossLimit} Cap)
-                  </span>
-                </div>
-
-                <div className="bg-[#090C10] rounded-xl p-4 border border-slate-800/60">
-                  <span className="text-xs font-medium uppercase text-[#8A99AD]">
-                    Imported Net P&amp;L &amp; Balance
+                    Imported Net P&amp;L
                   </span>
                   <div
                     className={`text-xl font-bold font-mono mt-1 ${
@@ -301,8 +285,8 @@ export default function NinjaTraderImportModal({
                   >
                     {formatUSD(totalImportedPnl)}
                   </div>
-                  <span className="text-xs font-mono text-[#8A99AD]">
-                    Balance: ${parsedResult.endingBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  <span className="text-xs text-[#8A99AD]">
+                    Realized across {parsedResult.trades.length} round-trip executions
                   </span>
                 </div>
 
@@ -331,14 +315,14 @@ export default function NinjaTraderImportModal({
                 </div>
               </div>
 
-              {/* Reconstructed Trades Preview Table */}
+              {/* Reconstructed Trades Preview Table (Account & Contract Columns Removed) */}
               <div className="bg-[#090C10] rounded-xl border border-slate-800/60 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-800/60 flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-[#8A99AD]">
                     Preview Reconstructed Executions ({parsedResult.trades.length})
                   </span>
                   <span className="text-xs font-mono text-emerald-400">
-                    UTC → CT → ET (+1h) • 12-Hour AM/PM Format
+                    CT → ET (+1h) • 12-Hour AM/PM Format
                   </span>
                 </div>
 
@@ -348,7 +332,6 @@ export default function NinjaTraderImportModal({
                       <tr className="border-b border-slate-800/60 text-xs font-semibold uppercase text-[#8A99AD] bg-[#111620]">
                         <th className="py-3 px-4">Date &amp; Time (EST / CT)</th>
                         <th className="py-3 px-4">Liquidity Window</th>
-                        <th className="py-3 px-4">Account &amp; Contract</th>
                         <th className="py-3 px-4">Direction &amp; Lots</th>
                         <th className="py-3 px-4">Entry → Exit</th>
                         <th className="py-3 px-4 text-right">Net P&amp;L</th>
@@ -377,17 +360,6 @@ export default function NinjaTraderImportModal({
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <LiquidityWindowBadge sessionWindow={t.sessionWindow} />
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <div className="font-mono font-bold text-[#FFFFFF] text-xs">
-                              {t.contract}{' '}
-                              <span className="font-normal text-[#8A99AD]">
-                                ({t.productDesc})
-                              </span>
-                            </div>
-                            <div className="font-mono text-xs text-[#8A99AD]">
-                              {t.accountId}
-                            </div>
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
@@ -448,6 +420,10 @@ export default function NinjaTraderImportModal({
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="bg-[#090C10] rounded-xl border border-slate-800/60 p-10 text-center text-sm text-[#8A99AD]">
+              CSV cleared. Click <strong className="text-[#FFFFFF]">&quot;Upload Orders.csv&quot;</strong> to select a new NinjaTrader CSV file or <strong className="text-emerald-400">&quot;Load Sample CSV&quot;</strong>.
+            </div>
           )}
         </div>
 
@@ -455,16 +431,24 @@ export default function NinjaTraderImportModal({
         <div className="px-6 py-4 bg-[#090C10] border-t border-slate-800/60 flex items-center justify-between gap-3">
           <div className="text-xs text-[#8A99AD]">
             {parsedResult
-              ? `Ready to import ${parsedResult.trades.length} trade(s) into ${parsedResult.selectedProfile.name}`
-              : 'Select an Orders.csv export to preview.'}
+              ? `Ready to import ${parsedResult.trades.length} trade(s)`
+              : 'CSV cleared — upload a file to import.'}
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleClearCsv}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              <span>Clear Orders CSV</span>
+            </button>
             <button
               type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-sm font-medium text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors cursor-pointer"
             >
-              Cancel
+              Close
             </button>
             <button
               type="button"

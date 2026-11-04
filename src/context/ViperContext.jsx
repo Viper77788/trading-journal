@@ -13,11 +13,8 @@ import {
 const ViperContext = createContext(null);
 
 const STORAGE_KEYS = {
-  TRADES: 'viper_futures_trades_v5',
-  RULES: 'viper_14_rules_v5',
-  ACCOUNT_FILTER: 'viper_account_filter_v5',
-  DAILY_CAP: 'viper_daily_loss_cap_v5',
-  STARTING_BALANCE: 'viper_starting_balance_v5',
+  TRADES: 'viper_futures_trades_v6',
+  RULES: 'viper_14_rules_v6',
 };
 
 function timeToMinutes(tStr) {
@@ -136,7 +133,6 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
 
 function getDefaultParsedSeedTrades() {
   const parsed = parseNinjaTraderOrdersCsv(SAMPLE_NINJATRADER_ORDERS_CSV, {
-    accountProfileId: 'lucid-25k',
     utcToCtOffsetHours: -11.5, // IST (UTC+5:30) -> CT (UTC-6, -11.5h) and +1h to ET (UTC-5, -10.5h), so 19:45 -> 08:15 AM CT -> 09:15 AM EST
     includeCommissions: false,
   });
@@ -147,9 +143,9 @@ export function ViperProvider({ children }) {
   const [trades, setTrades] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.TRADES);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return enrichTradesWithESTAndCooldown(
             parsed,
             DEFAULT_14_RULES.length
@@ -171,20 +167,6 @@ export function ViperProvider({ children }) {
     }
   });
 
-  const [accountFilter, setAccountFilter] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.ACCOUNT_FILTER) || 'All';
-  });
-
-  const [dailyLossCap, setDailyLossCap] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.DAILY_CAP);
-    return saved ? Number(saved) : 600;
-  });
-
-  const [startingBalance, setStartingBalance] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.STARTING_BALANCE);
-    return saved ? Number(saved) : 25000;
-  });
-
   const [lastSubmittedTrade, setLastSubmittedTrade] = useState(null);
 
   useEffect(() => {
@@ -203,31 +185,9 @@ export function ViperProvider({ children }) {
     }
   }, [rules]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ACCOUNT_FILTER, accountFilter);
-  }, [accountFilter]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DAILY_CAP, String(dailyLossCap));
-  }, [dailyLossCap]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.STARTING_BALANCE, String(startingBalance));
-  }, [startingBalance]);
-
-  const filteredTrades = useMemo(() => {
-    if (accountFilter === 'All') return trades;
-    return trades.filter((t) => t.accountType === accountFilter);
-  }, [trades, accountFilter]);
-
   const analytics = useMemo(() => {
-    return computeViperAnalytics(
-      filteredTrades,
-      rules,
-      dailyLossCap,
-      startingBalance
-    );
-  }, [filteredTrades, rules, dailyLossCap, startingBalance]);
+    return computeViperAnalytics(trades, rules);
+  }, [trades, rules]);
 
   const addOrUpdateTrade = (tradePayload) => {
     const gross = Number(tradePayload.grossPnl) || 0;
@@ -291,13 +251,6 @@ export function ViperProvider({ children }) {
   const importNinjaTraderTrades = (importedTrades = [], options = {}) => {
     if (!Array.isArray(importedTrades) || importedTrades.length === 0) return;
 
-    if (options.dailyLossLimit) {
-      setDailyLossCap(Number(options.dailyLossLimit));
-    }
-    if (options.startingBalance) {
-      setStartingBalance(Number(options.startingBalance));
-    }
-
     setTrades((prev) => {
       const baseList = options.replaceExisting ? [] : [...prev];
       const existingIds = new Set(baseList.map((t) => t.id));
@@ -311,6 +264,11 @@ export function ViperProvider({ children }) {
       }
       return enriched;
     });
+  };
+
+  const clearAllTrades = () => {
+    setTrades([]);
+    setLastSubmittedTrade(null);
   };
 
   const deleteTrade = (id) => {
@@ -334,8 +292,6 @@ export function ViperProvider({ children }) {
   const resetDemoData = () => {
     setTrades(getDefaultParsedSeedTrades());
     setRules(DEFAULT_14_RULES);
-    setDailyLossCap(600);
-    setStartingBalance(25000);
     setLastSubmittedTrade(null);
   };
 
@@ -343,19 +299,14 @@ export function ViperProvider({ children }) {
     <ViperContext.Provider
       value={{
         trades,
-        filteredTrades,
+        filteredTrades: trades,
         rules,
-        accountFilter,
-        setAccountFilter,
-        dailyLossCap,
-        setDailyLossCap,
-        startingBalance,
-        setStartingBalance,
         analytics,
         lastSubmittedTrade,
         setLastSubmittedTrade,
         addOrUpdateTrade,
         importNinjaTraderTrades,
+        clearAllTrades,
         deleteTrade,
         updateRuleLabel,
         resetDemoData,
