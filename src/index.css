@@ -1,50 +1,305 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --bg-canvas: #0A0D12;
-    --bg-surface: #121721;
-    --text-primary: #F8FAFC;
-    --text-secondary: #94A3B8;
-    --accent-emerald: #10B981;
-    --accent-coral: #EF4444;
-  }
+:root {
+  --bg: #0A0D12;
+  --surface: #121721;
+  --surface-2: #0E131B;
+  --border: rgba(148, 163, 184, 0.14);
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
+  --text-dim: #64748B;
+  --green: #10B981;
+  --red: #EF4444;
+  --amber: #F59E0B;
 
-  body {
-    background-color: #0A0D12;
-    color: #F8FAFC;
-    font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 15px;
-    line-height: 1.55;
-    margin: 0;
-    padding: 0;
-    -webkit-font-smoothing: antialiased;
-  }
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --radius-pill: 999px;
+}
 
-  h1, h2, h3, h4, .font-display {
-    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-  code, pre, .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Typography Scale (§2) */
+h1,
+h2,
+h3,
+h4,
+p,
+span,
+div,
+button,
+input,
+select,
+textarea {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: 0;
+}
+
+.hero-title {
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.card-title {
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.eyebrow-label {
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.eyebrow-green {
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--green);
+}
+
+.metric-value {
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* App Shell & Container (§3) */
+.viper-shell-padding {
+  width: 100%;
+  padding-left: clamp(16px, 2.5vw, 40px);
+  padding-right: clamp(16px, 2.5vw, 40px);
+}
+
+.viper-container {
+  width: 100%;
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 1920px) {
+  .viper-container {
+    max-width: none;
   }
 }
 
-/* Calm dark scrollbar */
+/* Card Surface (§1 & §3) */
+.viper-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 28px;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .viper-card {
+    padding: 20px;
+  }
+}
+
+/* Hero Banner Card (§4) */
+.viper-hero-card {
+  background: radial-gradient(
+      circle at 88% 20%,
+      rgba(16, 185, 129, 0.14) 0%,
+      rgba(16, 185, 129, 0.03) 42%,
+      transparent 70%
+    ),
+    linear-gradient(135deg, rgba(16, 185, 129, 0.07) 0%, var(--surface) 55%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 36px 40px;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .viper-hero-card {
+    padding: 20px;
+  }
+}
+
+/* Metric 4-Column Grid with 1px Dividers (§3 & §5) */
+.viper-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
+
+.viper-metric-cell {
+  padding: 24px;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+
+.viper-metric-cell:first-child {
+  padding-left: 0;
+}
+
+.viper-metric-cell:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+@media (max-width: 899px) {
+  .viper-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .viper-metric-cell {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .viper-metric-cell:nth-child(2n) {
+    border-right: none;
+  }
+  .viper-metric-cell:nth-child(3),
+  .viper-metric-cell:nth-child(4) {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 559px) {
+  .viper-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .viper-metric-cell {
+    padding: 16px 0;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+  }
+  .viper-metric-cell:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Input & Control Focus Ring (§7) */
+.viper-input {
+  height: 48px;
+  padding: 0 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  width: 100%;
+  min-width: 0;
+}
+
+.viper-input::placeholder {
+  color: var(--text-dim);
+}
+
+.viper-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
+}
+
+.viper-textarea {
+  min-height: 120px;
+  padding: 12px 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  outline: none;
+  resize: vertical;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  width: 100%;
+}
+
+.viper-textarea::placeholder {
+  color: var(--text-dim);
+}
+
+.viper-textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
+}
+
+/* Hide scrollbar utility for mobile tab bar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Modal open animation (§7) */
+@keyframes viperModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.viper-modal-animate {
+  animation: viperModalIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Subtle dark scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0D12;
+  background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
   background: #1E293B;
-  border-radius: 9999px;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;

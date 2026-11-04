@@ -93,39 +93,119 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
     : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-[#121721] border border-slate-800/80 rounded-3xl shadow-2xl overflow-hidden my-6 max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-7 py-6 border-b border-slate-800/70 flex items-center justify-between shrink-0">
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        backgroundColor: 'rgba(2, 6, 12, 0.75)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      className="p-0 sm:p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="viper-modal-animate w-screen h-screen max-h-screen rounded-none sm:w-[min(880px,94vw)] sm:h-auto sm:max-h-[90vh] sm:rounded-[20px]"
+        style={{
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Sticky Header */}
+        <div
+          className="px-5 py-4 sm:px-8 sm:py-6"
+          style={{
+            borderBottom: '1px solid var(--border)',
+            backgroundColor: 'var(--surface)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}
+        >
           <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-              CSV EXECUTION IMPORTER
-            </span>
-            <h2 className="text-xl font-bold text-[#F8FAFC] mt-1 tracking-tight">
+            <div className="eyebrow-green">CSV EXECUTION IMPORTER</div>
+            <h2
+              style={{
+                marginTop: '4px',
+                marginBottom: 0,
+                fontSize: '22px',
+                fontWeight: 700,
+                color: 'var(--text)',
+              }}
+            >
               Import NinjaTrader Orders.csv or Journal CSV
             </h2>
-            <p className="text-xs text-[#94A3B8] mt-0.5">
-              Converts timestamps to 12-hour EST (AM/PM), tags Liquidity Windows, and flags &lt; 15m Revenge trades
+            <p
+              style={{
+                marginTop: '4px',
+                marginBottom: 0,
+                fontSize: '13px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Converts timestamps to 12-hour EST (AM/PM), tags Liquidity
+              Windows, and flags &lt; 15m Revenge trades
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800/60 transition-colors cursor-pointer"
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '999px',
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-7 overflow-y-auto space-y-6 flex-1">
-          {/* Upload Dropzone & Controls */}
+        {/* Scrollable Body */}
+        <div
+          className="p-5 sm:p-8"
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+          }}
+        >
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className="md:col-span-7 p-5 rounded-2xl border-2 border-dashed border-slate-800 hover:border-[#10B981]/50 bg-[#0A0D12] flex flex-col items-center justify-center text-center cursor-pointer transition-all"
+              className="md:col-span-7"
+              style={{
+                padding: '20px',
+                borderRadius: '12px',
+                border: '1px dashed rgba(148, 163, 184, 0.3)',
+                backgroundColor: 'var(--surface-2)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                cursor: 'pointer',
+              }}
             >
               <input
                 ref={fileInputRef}
@@ -134,22 +214,56 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
                 onChange={handleFileUpload}
                 className="hidden"
               />
-              <div className="w-11 h-11 rounded-2xl bg-[#10B981]/10 border border-[#10B981]/25 flex items-center justify-center text-[#10B981] mb-2.5">
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: 'var(--green)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '10px',
+                }}
+              >
                 <Upload size={20} />
               </div>
-              <p className="text-sm font-semibold text-[#F8FAFC]">
-                Click to upload <span className="text-[#10B981]">Orders.csv</span> or drag &amp; drop
-              </p>
-              <p className="text-xs text-[#94A3B8] mt-1">
+              <div
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                }}
+              >
+                Click to upload{' '}
+                <span style={{ color: 'var(--green)' }}>Orders.csv</span> or
+                drag &amp; drop
+              </div>
+              <div
+                style={{
+                  marginTop: '4px',
+                  fontSize: '12px',
+                  color: 'var(--text-muted)',
+                }}
+              >
                 Active file:{' '}
-                <span className="font-mono text-[#F8FAFC]">
+                <strong style={{ color: 'var(--text)' }}>
                   {fileName || 'None loaded'}
-                </span>
-              </p>
+                </strong>
+              </div>
 
               <div
-                className="mt-3.5 flex flex-wrap items-center justify-center gap-2"
                 onClick={(e) => e.stopPropagation()}
+                style={{
+                  marginTop: '14px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
               >
                 <button
                   type="button"
@@ -157,7 +271,20 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
                     setFileName('Orders.csv');
                     setCsvText(SAMPLE_NINJATRADER_ORDERS_CSV);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 border border-[#10B981]/30 transition-colors cursor-pointer"
+                  style={{
+                    height: '36px',
+                    padding: '0 14px',
+                    borderRadius: 'var(--radius-control)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                    border: '1px solid rgba(16, 185, 129, 0.38)',
+                    color: 'var(--green)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                  }}
                 >
                   <Sparkles size={13} />
                   <span>Load Sample Orders.csv</span>
@@ -167,7 +294,20 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
                   <button
                     type="button"
                     onClick={handleClearCsvData}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 transition-colors cursor-pointer"
+                    style={{
+                      height: '36px',
+                      padding: '0 14px',
+                      borderRadius: 'var(--radius-control)',
+                      backgroundColor: 'rgba(239, 68, 68, 0.14)',
+                      border: '1px solid rgba(239, 68, 68, 0.38)',
+                      color: 'var(--red)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                    }}
                   >
                     <Trash2 size={13} />
                     <span>Clear CSV</span>
@@ -176,87 +316,153 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
               </div>
             </div>
 
-            {/* Settings Card */}
-            <div className="md:col-span-5 p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80 flex flex-col justify-between space-y-4">
+            <div
+              className="md:col-span-5"
+              style={{
+                padding: '20px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '16px',
+              }}
+            >
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                  CSV Source Timezone → EST Conversion
+                <label
+                  className="eyebrow-label"
+                  style={{ display: 'block', marginBottom: '8px' }}
+                >
+                  CSV SOURCE TIMEZONE → EST
                 </label>
                 <select
                   value={utcToCtOffsetHours}
                   onChange={(e) =>
                     setUtcToCtOffsetHours(Number(e.target.value))
                   }
-                  className="w-full bg-[#121721] border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-medium text-[#F8FAFC] outline-none"
+                  className="viper-input"
+                  style={{ height: '44px', fontSize: '13px' }}
                 >
                   <option value={-11.5}>
                     IST (UTC+5:30) → EST (-10h 30m: 19:45 → 09:15 AM EST)
                   </option>
-                  <option value={-6}>
-                    UTC (GMT+0) → EST (-5h)
-                  </option>
+                  <option value={-6}>UTC (GMT+0) → EST (-5h)</option>
                   <option value={0}>
                     Already in Central Time (CT) → EST (+1h)
                   </option>
                 </select>
               </div>
 
-              <label className="flex items-center gap-2.5 text-xs font-medium text-[#94A3B8] cursor-pointer">
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontSize: '13px',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={replaceExisting}
                   onChange={(e) => setReplaceExisting(e.target.checked)}
-                  className="rounded border-slate-700 bg-[#121721] text-[#10B981] focus:ring-0"
                 />
                 <span>Replace current trade log on import</span>
               </label>
             </div>
           </div>
 
-          {/* Preview Summary & Table */}
           {parsedPreview && !parsedPreview.error && (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-4 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-                    Filled Orders
-                  </span>
-                  <div className="text-lg font-bold font-mono text-[#F8FAFC] mt-1">
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div className="eyebrow-label">FILLED ORDERS</div>
+                  <div
+                    className="tabular-nums"
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color: 'var(--text)',
+                    }}
+                  >
                     {parsedPreview.filledOrdersCount}
                   </div>
                 </div>
-                <div className="p-4 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-                    Paired Trades
-                  </span>
-                  <div className="text-lg font-bold font-mono text-[#10B981] mt-1">
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div className="eyebrow-label">PAIRED TRADES</div>
+                  <div
+                    className="tabular-nums"
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color: 'var(--green)',
+                    }}
+                  >
                     {parsedPreview.trades.length}
                   </div>
                 </div>
-                <div className="p-4 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-                    Net Result
-                  </span>
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div className="eyebrow-label">NET RESULT</div>
                   <div
-                    className={`text-lg font-bold font-mono mt-1 ${
-                      totalPreviewNetPnl >= 0
-                        ? 'text-[#10B981]'
-                        : 'text-[#EF4444]'
-                    }`}
+                    className="tabular-nums"
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color:
+                        totalPreviewNetPnl >= 0
+                          ? 'var(--green)'
+                          : 'var(--red)',
+                    }}
                   >
                     {formatUSD(totalPreviewNetPnl)}
                   </div>
                 </div>
-                <div className="p-4 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-                    &lt; 15m Revenge Flags
-                  </span>
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div className="eyebrow-label">&lt;15M REVENGE FLAGS</div>
                   <div
-                    className={`text-lg font-bold font-mono mt-1 ${
-                      parsedPreview.revengeTradesCount > 0
-                        ? 'text-[#EF4444]'
-                        : 'text-[#10B981]'
-                    }`}
+                    className="tabular-nums"
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color:
+                        parsedPreview.revengeTradesCount > 0
+                          ? 'var(--red)'
+                          : 'var(--green)',
+                    }}
                   >
                     {parsedPreview.revengeTradesCount > 0
                       ? `🚨 ${parsedPreview.revengeTradesCount} Flagged`
@@ -265,44 +471,140 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-800/80 bg-[#0A0D12] overflow-hidden">
-                <div className="overflow-x-auto max-h-64">
-                  <table className="w-full text-left border-collapse">
+              <div
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface-2)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ overflowX: 'auto', maxHeight: '260px' }}>
+                  <table
+                    style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      textAlign: 'left',
+                    }}
+                  >
                     <thead>
-                      <tr className="border-b border-slate-800/80 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-                        <th className="py-3 px-4">Date &amp; Time (EST)</th>
-                        <th className="py-3 px-4">Liquidity Window</th>
-                        <th className="py-3 px-4">Contract</th>
-                        <th className="py-3 px-4">Direction &amp; Lots</th>
-                        <th className="py-3 px-4">Entry → Exit</th>
-                        <th className="py-3 px-4 text-right">Net P&amp;L</th>
-                        <th className="py-3 px-4">Revenge Guard</th>
+                      <tr
+                        style={{
+                          borderBottom: '1px solid var(--border)',
+                          backgroundColor: 'var(--surface)',
+                        }}
+                      >
+                        <th
+                          className="eyebrow-label"
+                          style={{ padding: '12px 14px' }}
+                        >
+                          Date &amp; Time (EST)
+                        </th>
+                        <th
+                          className="eyebrow-label"
+                          style={{ padding: '12px 14px' }}
+                        >
+                          Liquidity Window
+                        </th>
+                        <th
+                          className="eyebrow-label"
+                          style={{ padding: '12px 14px' }}
+                        >
+                          Contract
+                        </th>
+                        <th
+                          className="eyebrow-label"
+                          style={{ padding: '12px 14px' }}
+                        >
+                          Direction &amp; Lots
+                        </th>
+                        <th
+                          className="eyebrow-label"
+                          style={{ padding: '12px 14px' }}
+                        >
+                          Entry → Exit
+                        </th>
+                        <th
+                          className="eyebrow-label"
+                          style={{ padding: '12px 14px', textAlign: 'right' }}
+                        >
+                          Net P&amp;L
+                        </th>
+                        <th
+                          className="eyebrow-label"
+                          style={{ padding: '12px 14px' }}
+                        >
+                          Revenge Guard
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/50 text-sm">
+                    <tbody>
                       {parsedPreview.trades.map((t, idx) => (
                         <tr
                           key={t.id || idx}
-                          className="hover:bg-slate-800/30 transition-colors"
+                          style={{ borderBottom: '1px solid var(--border)' }}
                         >
-                          <td className="py-3 px-4 font-mono text-xs text-[#F8FAFC] whitespace-nowrap">
-                            <div>{t.formattedDateEST}</div>
-                            <div className="text-[11px] text-[#94A3B8]">
+                          <td
+                            className="tabular-nums"
+                            style={{
+                              padding: '12px 14px',
+                              fontSize: '13px',
+                              color: 'var(--text)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <div>{t.formattedDateEST} EST</div>
+                            <div
+                              style={{
+                                fontSize: '12px',
+                                color: 'var(--text-muted)',
+                              }}
+                            >
                               Exit: {t.exitTimeEST}
                             </div>
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td
+                            style={{
+                              padding: '12px 14px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                                t.sessionWindow ===
-                                LIQUIDITY_WINDOWS.ASIAN_LONDON
-                                  ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
-                                  : t.sessionWindow === LIQUIDITY_WINDOWS.NY_OPEN
-                                  ? 'bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30'
-                                  : 'bg-slate-800/80 text-[#94A3B8] border-slate-700/70'
-                              }`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '3px 10px',
+                                borderRadius: 'var(--radius-pill)',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                backgroundColor:
+                                  t.sessionWindow ===
+                                  LIQUIDITY_WINDOWS.ASIAN_LONDON
+                                    ? 'rgba(16, 185, 129, 0.15)'
+                                    : t.sessionWindow ===
+                                      LIQUIDITY_WINDOWS.NY_OPEN
+                                    ? 'rgba(59, 130, 246, 0.15)'
+                                    : 'rgba(148, 163, 184, 0.1)',
+                                color:
+                                  t.sessionWindow ===
+                                  LIQUIDITY_WINDOWS.ASIAN_LONDON
+                                    ? 'var(--green)'
+                                    : t.sessionWindow ===
+                                      LIQUIDITY_WINDOWS.NY_OPEN
+                                    ? '#60A5FA'
+                                    : 'var(--text-muted)',
+                                border:
+                                  t.sessionWindow ===
+                                  LIQUIDITY_WINDOWS.ASIAN_LONDON
+                                    ? '1px solid rgba(16, 185, 129, 0.38)'
+                                    : t.sessionWindow ===
+                                      LIQUIDITY_WINDOWS.NY_OPEN
+                                    ? '1px solid rgba(59, 130, 246, 0.38)'
+                                    : '1px solid var(--border)',
+                              }}
                             >
-                              <Clock size={11} />
+                              <Clock size={12} />
                               <span>
                                 {formatLiquidityWindowESTLabel(
                                   t.sessionWindow,
@@ -311,47 +613,99 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
                               </span>
                             </span>
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-[#121721] text-[#F8FAFC] border border-slate-800">
+                          <td style={{ padding: '12px 14px' }}>
+                            <span
+                              className="tabular-nums"
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                backgroundColor: 'var(--surface)',
+                                color: 'var(--text)',
+                                border: '1px solid var(--border)',
+                              }}
+                            >
                               {t.contract}
                             </span>
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5">
-                              <span
-                                className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${
+                          <td style={{ padding: '12px 14px' }}>
+                            <span
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                backgroundColor:
                                   t.direction === 'Long'
-                                    ? 'bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30'
-                                    : 'bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30'
-                                }`}
-                              >
-                                {t.direction}
-                              </span>
-                              <span className="text-xs font-mono font-semibold text-[#F8FAFC]">
-                                {t.quantity}x
-                              </span>
-                            </div>
+                                    ? 'rgba(16, 185, 129, 0.15)'
+                                    : 'rgba(239, 68, 68, 0.15)',
+                                color:
+                                  t.direction === 'Long'
+                                    ? 'var(--green)'
+                                    : 'var(--red)',
+                              }}
+                            >
+                              {t.direction} {t.quantity}x
+                            </span>
                           </td>
-                          <td className="py-3 px-4 font-mono text-xs text-[#94A3B8] whitespace-nowrap">
+                          <td
+                            className="tabular-nums"
+                            style={{
+                              padding: '12px 14px',
+                              fontSize: '13px',
+                              color: 'var(--text-muted)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             {t.entryPrice.toFixed(2)} → {t.exitPrice.toFixed(2)}
                           </td>
                           <td
-                            className={`py-3 px-4 font-mono text-xs font-bold text-right whitespace-nowrap ${
-                              t.netPnl >= 0
-                                ? 'text-[#10B981]'
-                                : 'text-[#EF4444]'
-                            }`}
+                            className="tabular-nums"
+                            style={{
+                              padding: '12px 14px',
+                              textAlign: 'right',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color:
+                                t.netPnl >= 0
+                                  ? 'var(--green)'
+                                  : 'var(--red)',
+                              whiteSpace: 'nowrap',
+                            }}
                           >
                             {formatUSD(t.netPnl)}
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td style={{ padding: '12px 14px' }}>
                             {t.isRevengeTrade ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30">
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: 'var(--radius-pill)',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                  color: 'var(--red)',
+                                  border: '1px solid rgba(239, 68, 68, 0.38)',
+                                }}
+                              >
                                 <AlertTriangle size={12} />
                                 <span>😤 Revenge (&lt;15m)</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-[#10B981]">
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  color: 'var(--green)',
+                                }}
+                              >
                                 <CheckCircle2 size={13} />
                                 <span>Clean</span>
                               </span>
@@ -367,12 +721,32 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-7 py-5 border-t border-slate-800/70 flex items-center justify-end gap-3 shrink-0 bg-[#121721]">
+        {/* Sticky Footer */}
+        <div
+          className="px-5 py-4 sm:px-8 sm:py-6"
+          style={{
+            borderTop: '1px solid var(--border)',
+            backgroundColor: 'var(--surface)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexShrink: 0,
+          }}
+        >
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-2xl text-sm font-semibold text-[#F8FAFC] bg-slate-800/80 hover:bg-slate-800 border border-slate-700/70 transition-colors cursor-pointer"
+            style={{
+              height: '52px',
+              padding: '0 24px',
+              borderRadius: 'var(--radius-control)',
+              backgroundColor: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
           >
             Cancel
           </button>
@@ -380,12 +754,25 @@ export default function NinjaTraderImportModal({ isOpen, onClose }) {
             type="button"
             disabled={!parsedPreview || parsedPreview.trades.length === 0}
             onClick={handleConfirmImport}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-bold text-[#0A0D12] bg-[#10B981] hover:bg-emerald-400 disabled:opacity-40 transition-all cursor-pointer"
+            style={{
+              flexGrow: 1,
+              height: '52px',
+              padding: '0 24px',
+              borderRadius: 'var(--radius-control)',
+              backgroundColor: 'var(--green)',
+              border: 'none',
+              color: '#0A0D12',
+              fontSize: '15px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+            }}
           >
             <FileSpreadsheet size={16} />
-            <span>
-              Import {parsedPreview?.trades?.length || 0} Trades
-            </span>
+            <span>Import {parsedPreview?.trades?.length || 0} Trades</span>
           </button>
         </div>
       </div>

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  TrendingUp,
   Clock,
   AlertTriangle,
   CheckCircle2,
@@ -8,9 +7,6 @@ import {
   Trash2,
   Star,
   Calendar as CalendarIcon,
-  ShieldCheck,
-  Sparkles,
-  Award,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
@@ -42,7 +38,6 @@ export default function WorkspaceTabView({
   const [newStratDesc, setNewStratDesc] = useState('');
   const [newRuleText, setNewRuleText] = useState('');
 
-  // Aggregated metrics for filtered trades
   const stats = useMemo(() => {
     const total = trades.length;
     const wins = trades.filter((t) => Number(t.netPnl) > 0);
@@ -69,7 +64,6 @@ export default function WorkspaceTabView({
           ).toFixed(1)
         : '0.0';
 
-    // Window breakdown
     const byWindow = [
       {
         id: LIQUIDITY_WINDOWS.ASIAN_LONDON,
@@ -99,7 +93,6 @@ export default function WorkspaceTabView({
       };
     });
 
-    // Daily group for Calendar
     const byDate = {};
     trades.forEach((t) => {
       const d = t.date || '2026-11-04';
@@ -137,190 +130,358 @@ export default function WorkspaceTabView({
   /* 1. OVERVIEW TAB */
   if (activeTab === 'overview') {
     return (
-      <div className="space-y-5">
-        <div className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8">
-          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-            WORKSPACE OVERVIEW
-          </span>
-          <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1">
-            Performance &amp; Liquidity Window Summary
-          </h2>
-          <p className="text-sm text-[#94A3B8] mt-1">
-            High-level view of your execution consistency across EST liquidity windows.
-          </p>
+      <section className="viper-card">
+        <div className="eyebrow-green">WORKSPACE OVERVIEW</div>
+        <h2
+          className="card-title"
+          style={{ marginTop: '6px', marginBottom: 0 }}
+        >
+          Performance &amp; Liquidity Window Summary
+        </h2>
+        <p
+          style={{
+            marginTop: '4px',
+            marginBottom: 0,
+            fontSize: '15px',
+            color: 'var(--text-muted)',
+          }}
+        >
+          High-level view of your execution consistency across EST liquidity
+          windows.
+        </p>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-                Net P&amp;L
-              </span>
-              <div
-                className={`text-2xl font-bold font-mono mt-1.5 ${
-                  stats.netResult >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
-                }`}
-              >
-                {formatUSD(stats.netResult)}
-              </div>
-              <span className="text-xs text-[#94A3B8] mt-1 block">
-                {stats.total} total trades
-              </span>
+        <div className="viper-metric-grid">
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">NET P&amp;L</div>
+            <div
+              className="metric-value"
+              style={{
+                marginTop: '8px',
+                color: stats.netResult >= 0 ? 'var(--green)' : 'var(--red)',
+              }}
+            >
+              {formatUSD(stats.netResult)}
             </div>
-
-            <div className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-                Win Rate
-              </span>
-              <div className="text-2xl font-bold font-mono text-[#F8FAFC] mt-1.5">
-                {stats.winRate}%
-              </div>
-              <span className="text-xs text-[#94A3B8] mt-1 block">
-                {stats.winsCount}W / {stats.lossesCount}L • PF {stats.profitFactor}
-              </span>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-                Revenge Guard (&lt;15m)
-              </span>
-              <div
-                className={`text-2xl font-bold font-mono mt-1.5 ${
-                  stats.revengeCount > 0 ? 'text-[#EF4444]' : 'text-[#10B981]'
-                }`}
-              >
-                {stats.revengeCount === 0
-                  ? '0 Flagged'
-                  : `${stats.revengeCount} Flagged`}
-              </div>
-              <span className="text-xs text-[#94A3B8] mt-1 block">
-                Impact: {formatUSD(stats.revengeNetPnl)}
-              </span>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-                Avg Execution Grade
-              </span>
-              <div className="text-2xl font-bold font-mono text-[#10B981] mt-1.5 flex items-center gap-1.5">
-                <span>{stats.avgStars}</span>
-                <Star size={18} className="fill-[#10B981] text-[#10B981]" />
-              </div>
-              <span className="text-xs text-[#94A3B8] mt-1 block">
-                Out of 5.0★ self-rating
-              </span>
+            <div
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {stats.total} total trades
             </div>
           </div>
 
-          {/* Liquidity Window Performance Cards */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {stats.byWindow.map((w) => (
-              <div
-                key={w.id}
-                className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#F8FAFC]">
-                      {w.label}
-                    </span>
-                    <span className="text-xs font-mono text-[#94A3B8]">
-                      {w.count} trades
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#94A3B8] mt-0.5">{w.ct}</p>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-800/70 flex items-baseline justify-between">
-                  <span
-                    className={`text-lg font-bold font-mono ${
-                      w.netPnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
-                    }`}
-                  >
-                    {formatUSD(w.netPnl)}
-                  </span>
-                  <span className="text-xs font-mono text-[#94A3B8]">
-                    Win Rate: <strong className="text-[#F8FAFC]">{w.winRate}%</strong>
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">WIN RATE</div>
+            <div
+              className="metric-value"
+              style={{ marginTop: '8px', color: 'var(--text)' }}
+            >
+              {stats.winRate}%
+            </div>
+            <div
+              className="tabular-nums"
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {stats.winsCount}W / {stats.lossesCount}L • PF {stats.profitFactor}
+            </div>
+          </div>
+
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">REVENGE GUARD (&lt;15M)</div>
+            <div
+              className="metric-value"
+              style={{
+                marginTop: '8px',
+                color:
+                  stats.revengeCount > 0 ? 'var(--red)' : 'var(--green)',
+              }}
+            >
+              {stats.revengeCount === 0
+                ? '0 Flagged'
+                : `${stats.revengeCount} Flagged`}
+            </div>
+            <div
+              className="tabular-nums"
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Impact: {formatUSD(stats.revengeNetPnl)}
+            </div>
+          </div>
+
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">AVG EXECUTION GRADE</div>
+            <div
+              className="metric-value"
+              style={{
+                marginTop: '8px',
+                color: 'var(--green)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <span>{stats.avgStars}</span>
+              <Star
+                size={22}
+                style={{ fill: 'var(--green)', color: 'var(--green)' }}
+              />
+            </div>
+            <div
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Out of 5.0★ self-rating
+            </div>
           </div>
         </div>
-      </div>
+
+        <div
+          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          style={{ marginTop: '24px' }}
+        >
+          {stats.byWindow.map((w) => (
+            <div
+              key={w.id}
+              style={{
+                padding: '20px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '16px',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                    }}
+                  >
+                    {w.label}
+                  </span>
+                  <span
+                    className="tabular-nums"
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    {w.count} trades
+                  </span>
+                </div>
+                <div
+                  style={{
+                    marginTop: '4px',
+                    fontSize: '12px',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  {w.ct}
+                </div>
+              </div>
+              <div
+                style={{
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: w.netPnl >= 0 ? 'var(--green)' : 'var(--red)',
+                  }}
+                >
+                  {formatUSD(w.netPnl)}
+                </span>
+                <span
+                  className="tabular-nums"
+                  style={{ fontSize: '12px', color: 'var(--text-muted)' }}
+                >
+                  Win Rate:{' '}
+                  <strong style={{ color: 'var(--text)' }}>{w.winRate}%</strong>
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     );
   }
 
   /* 2. CALENDAR TAB */
   if (activeTab === 'calendar') {
     return (
-      <div className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8">
-        <div className="flex items-center justify-between">
+      <section className="viper-card">
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+          }}
+        >
           <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-              SESSION CALENDAR
-            </span>
-            <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1">
+            <div className="eyebrow-green">SESSION CALENDAR</div>
+            <h2
+              className="card-title"
+              style={{ marginTop: '6px', marginBottom: 0 }}
+            >
               Daily Execution Breakdown
             </h2>
-            <p className="text-sm text-[#94A3B8] mt-1">
-              Review daily P&amp;L, trade count, and 15-minute cooldown adherence by session date.
+            <p
+              style={{
+                marginTop: '4px',
+                marginBottom: 0,
+                fontSize: '15px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Review daily P&amp;L, trade count, and 15-minute cooldown
+              adherence by session date.
             </p>
           </div>
           <button
             type="button"
             onClick={onOpenLogModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#0A0D12] bg-[#10B981] hover:bg-emerald-400 cursor-pointer"
+            style={{
+              height: '40px',
+              padding: '0 18px',
+              borderRadius: 'var(--radius-control)',
+              backgroundColor: 'var(--green)',
+              color: '#0A0D12',
+              fontSize: '14px',
+              fontWeight: 600,
+              border: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+            }}
           >
             <Plus size={16} />
             <span>Log trade</span>
           </button>
         </div>
 
-        {stats.dailyList.length === 0 ? (
-          <div className="py-12 text-center text-[#94A3B8] text-sm">
-            No trading sessions recorded yet.
-          </div>
-        ) : (
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stats.dailyList.map((day) => (
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          style={{ marginTop: '24px' }}
+        >
+          {stats.dailyList.map((day) => (
+            <div
+              key={day.date}
+              onClick={onSwitchToTradeLog}
+              style={{
+                padding: '20px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                cursor: 'pointer',
+              }}
+            >
               <div
-                key={day.date}
-                onClick={onSwitchToTradeLog}
-                className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-2 text-sm font-mono font-bold text-[#F8FAFC]">
-                    <CalendarIcon size={15} className="text-[#10B981]" />
-                    <span>{day.date}</span>
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-[#121721] text-[#94A3B8] border border-slate-800">
-                    {day.count} {day.count === 1 ? 'trade' : 'trades'}
-                  </span>
-                </div>
-                <div
-                  className={`text-2xl font-bold font-mono mt-4 ${
-                    day.netPnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
-                  }`}
+                <span
+                  className="tabular-nums"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                  }}
                 >
-                  {formatUSD(day.netPnl)}
-                </div>
-                <div className="mt-3 pt-3 border-t border-slate-800/70 flex items-center justify-between text-xs">
-                  {day.revengeCount > 0 ? (
-                    <span className="text-[#EF4444] font-semibold">
-                      🚨 {day.revengeCount} Revenge (&lt;15m gap)
-                    </span>
-                  ) : (
-                    <span className="text-[#10B981] font-medium">
-                      ✓ 15m Cooldown Respected
-                    </span>
-                  )}
-                  <span className="text-[#94A3B8] hover:text-[#F8FAFC]">
-                    View trades →
-                  </span>
-                </div>
+                  <CalendarIcon size={15} style={{ color: 'var(--green)' }} />
+                  <span>{day.date}</span>
+                </span>
+                <span
+                  className="tabular-nums"
+                  style={{
+                    padding: '2px 10px',
+                    borderRadius: 'var(--radius-pill)',
+                    fontSize: '12px',
+                    backgroundColor: 'var(--surface)',
+                    color: 'var(--text-muted)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  {day.count} {day.count === 1 ? 'trade' : 'trades'}
+                </span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div
+                className="metric-value"
+                style={{
+                  marginTop: '16px',
+                  color: day.netPnl >= 0 ? 'var(--green)' : 'var(--red)',
+                }}
+              >
+                {formatUSD(day.netPnl)}
+              </div>
+              <div
+                style={{
+                  marginTop: '12px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12px',
+                }}
+              >
+                {day.revengeCount > 0 ? (
+                  <span style={{ color: 'var(--red)', fontWeight: 600 }}>
+                    🚨 {day.revengeCount} Revenge (&lt;15m gap)
+                  </span>
+                ) : (
+                  <span style={{ color: 'var(--green)', fontWeight: 500 }}>
+                    ✓ 15m Cooldown Respected
+                  </span>
+                )}
+                <span style={{ color: 'var(--text-muted)' }}>
+                  View trades →
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     );
   }
 
@@ -342,16 +503,28 @@ export default function WorkspaceTabView({
     };
 
     return (
-      <div className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 space-y-6">
+      <section
+        className="viper-card"
+        style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+      >
         <div>
-          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-            PLAYBOOK &amp; SETUPS
-          </span>
-          <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1">
+          <div className="eyebrow-green">PLAYBOOK &amp; SETUPS</div>
+          <h2
+            className="card-title"
+            style={{ marginTop: '6px', marginBottom: 0 }}
+          >
             Trading Strategies
           </h2>
-          <p className="text-sm text-[#94A3B8] mt-1">
-            Define your repeatable setups for the 2–5 AM EST London and 9–12 PM EST New York windows.
+          <p
+            style={{
+              marginTop: '4px',
+              marginBottom: 0,
+              fontSize: '15px',
+              color: 'var(--text-muted)',
+            }}
+          >
+            Define your repeatable setups for the 2–5 AM EST London and 9–12 PM
+            EST New York windows.
           </p>
         </div>
 
@@ -359,32 +532,94 @@ export default function WorkspaceTabView({
           {strategies.map((strat) => (
             <div
               key={strat.id}
-              className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80 flex flex-col justify-between"
+              style={{
+                padding: '20px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '16px',
+              }}
             >
               <div>
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-base font-bold text-[#F8FAFC]">
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                  }}
+                >
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                    }}
+                  >
                     {strat.name}
                   </h3>
                   <button
                     type="button"
                     onClick={() => deleteStrategy(strat.id)}
-                    className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#EF4444] cursor-pointer"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                    }}
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 mt-2">
-                  <Clock size={11} />
+                <span
+                  style={{
+                    marginTop: '8px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-pill)',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    color: 'var(--green)',
+                    border: '1px solid rgba(16, 185, 129, 0.38)',
+                  }}
+                >
+                  <Clock size={12} />
                   <span>{strat.window}</span>
                 </span>
-                <p className="text-sm text-[#94A3B8] mt-3 leading-relaxed">
+                <p
+                  style={{
+                    marginTop: '12px',
+                    marginBottom: 0,
+                    fontSize: '14px',
+                    color: 'var(--text-muted)',
+                  }}
+                >
                   {strat.description}
                 </p>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/70 flex items-center justify-between text-xs text-[#94A3B8]">
+              <div
+                style={{
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12px',
+                  color: 'var(--text-muted)',
+                }}
+              >
                 <span>Target Profile</span>
-                <strong className="font-mono text-[#F8FAFC]">
+                <strong
+                  className="tabular-nums"
+                  style={{ color: 'var(--text)' }}
+                >
                   {strat.targetR || '2.0R'}
                 </strong>
               </div>
@@ -392,26 +627,31 @@ export default function WorkspaceTabView({
           ))}
         </div>
 
-        {/* Add Strategy Form */}
         <form
           onSubmit={handleCreateStrategy}
-          className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80 space-y-4"
+          style={{
+            padding: '20px',
+            borderRadius: '12px',
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}
         >
-          <h4 className="text-sm font-bold text-[#F8FAFC]">
-            + Add New Playbook Strategy
-          </h4>
+          <div className="eyebrow-label">ADD NEW PLAYBOOK STRATEGY</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               type="text"
               placeholder="Strategy name (e.g. NY Open Liquidity Sweep)"
               value={newStratName}
               onChange={(e) => setNewStratName(e.target.value)}
-              className="bg-[#121721] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none"
+              className="viper-input"
             />
             <select
               value={newStratWindow}
               onChange={(e) => setNewStratWindow(e.target.value)}
-              className="bg-[#121721] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] outline-none"
+              className="viper-input"
             >
               <option value="2:00–5:00 AM EST (London)">
                 2:00–5:00 AM EST (London)
@@ -428,77 +668,155 @@ export default function WorkspaceTabView({
               placeholder="Entry confirmation & risk rules..."
               value={newStratDesc}
               onChange={(e) => setNewStratDesc(e.target.value)}
-              className="flex-1 bg-[#121721] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none"
+              className="viper-input"
             />
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-400 text-[#0A0D12] font-bold text-sm cursor-pointer shrink-0"
+              style={{
+                height: '48px',
+                padding: '0 24px',
+                borderRadius: 'var(--radius-control)',
+                backgroundColor: 'var(--green)',
+                color: '#0A0D12',
+                fontSize: '14px',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
             >
               Save Strategy
             </button>
           </div>
         </form>
-      </div>
+      </section>
     );
   }
 
   /* 4. INSIGHTS TAB */
   if (activeTab === 'insights') {
     return (
-      <div className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 space-y-6">
+      <section
+        className="viper-card"
+        style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+      >
         <div>
-          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-            BEHAVIORAL INSIGHTS
-          </span>
-          <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1">
+          <div className="eyebrow-green">BEHAVIORAL INSIGHTS</div>
+          <h2
+            className="card-title"
+            style={{ marginTop: '6px', marginBottom: 0 }}
+          >
             Psychology, Emotions &amp; 15-Minute Revenge Audit
           </h2>
-          <p className="text-sm text-[#94A3B8] mt-1">
-            Compare how your emotional state and trade spacing directly impact your bottom line.
+          <p
+            style={{
+              marginTop: '4px',
+              marginBottom: 0,
+              fontSize: '15px',
+              color: 'var(--text-muted)',
+            }}
+          >
+            Compare how your emotional state and trade spacing directly impact
+            your bottom line.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-            <div className="flex items-center gap-2 text-sm font-bold text-[#10B981]">
+          <div
+            style={{
+              padding: '20px',
+              borderRadius: '12px',
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                color: 'var(--green)',
+              }}
+            >
               <CheckCircle2 size={16} />
               <span>Clean Trades (&ge; 15m Cooldown Respected)</span>
             </div>
             <div
-              className={`text-2xl font-bold font-mono mt-3 ${
-                stats.cleanNetPnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
-              }`}
+              className="metric-value"
+              style={{
+                marginTop: '12px',
+                color: stats.cleanNetPnl >= 0 ? 'var(--green)' : 'var(--red)',
+              }}
             >
               {formatUSD(stats.cleanNetPnl)}
             </div>
-            <p className="text-xs text-[#94A3B8] mt-1">
+            <div
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
               {stats.total - stats.revengeCount} disciplined executions
-            </p>
+            </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-            <div className="flex items-center gap-2 text-sm font-bold text-[#EF4444]">
+          <div
+            style={{
+              padding: '20px',
+              borderRadius: '12px',
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                color: 'var(--red)',
+              }}
+            >
               <AlertTriangle size={16} />
               <span>Revenge Trades (&lt; 15m Gap Flagged)</span>
             </div>
             <div
-              className={`text-2xl font-bold font-mono mt-3 ${
-                stats.revengeNetPnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
-              }`}
+              className="metric-value"
+              style={{
+                marginTop: '12px',
+                color: stats.revengeNetPnl >= 0 ? 'var(--green)' : 'var(--red)',
+              }}
             >
               {formatUSD(stats.revengeNetPnl)}
             </div>
-            <p className="text-xs text-[#94A3B8] mt-1">
-              {stats.revengeCount} rapid re-entries within 15 minutes of prior close
-            </p>
+            <div
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {stats.revengeCount} rapid re-entries within 15 minutes of prior
+              close
+            </div>
           </div>
         </div>
 
-        {/* Emotion Performance Breakdown */}
-        <div className="p-5 rounded-2xl bg-[#0A0D12] border border-slate-800/80">
-          <h3 className="text-sm font-bold text-[#F8FAFC] mb-4">
-            Performance by Emotional Tag
-          </h3>
+        <div
+          style={{
+            padding: '20px',
+            borderRadius: '12px',
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <div className="eyebrow-label" style={{ marginBottom: '12px' }}>
+            PERFORMANCE BY EMOTIONAL TAG
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {FEELING_OPTIONS.map((feel) => {
               const matching = trades.filter((t) =>
@@ -511,24 +829,48 @@ export default function WorkspaceTabView({
               return (
                 <div
                   key={feel.id}
-                  className="p-3.5 rounded-xl bg-[#121721] border border-slate-800/80"
+                  style={{
+                    padding: '14px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                  }}
                 >
-                  <div className="text-sm font-medium text-[#F8FAFC]">
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: 'var(--text)',
+                    }}
+                  >
                     {feel.label}
                   </div>
-                  <div className="flex items-baseline justify-between mt-2">
+                  <div
+                    className="tabular-nums"
+                    style={{
+                      marginTop: '8px',
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      justifyContent: 'space-between',
+                    }}
+                  >
                     <span
-                      className={`font-mono text-sm font-bold ${
-                        matching.length === 0
-                          ? 'text-[#94A3B8]'
-                          : sum >= 0
-                          ? 'text-[#10B981]'
-                          : 'text-[#EF4444]'
-                      }`}
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color:
+                          matching.length === 0
+                            ? 'var(--text-muted)'
+                            : sum >= 0
+                            ? 'var(--green)'
+                            : 'var(--red)',
+                      }}
                     >
                       {matching.length > 0 ? formatUSD(sum) : '—'}
                     </span>
-                    <span className="text-xs font-mono text-[#94A3B8]">
+                    <span
+                      style={{ fontSize: '12px', color: 'var(--text-muted)' }}
+                    >
                       {matching.length}x
                     </span>
                   </div>
@@ -537,7 +879,7 @@ export default function WorkspaceTabView({
             })}
           </div>
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -551,37 +893,91 @@ export default function WorkspaceTabView({
     };
 
     return (
-      <div className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 space-y-6">
+      <section
+        className="viper-card"
+        style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+      >
         <div>
-          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-            TRADING CONSTITUTION
-          </span>
-          <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1">
+          <div className="eyebrow-green">TRADING CONSTITUTION</div>
+          <h2
+            className="card-title"
+            style={{ marginTop: '6px', marginBottom: 0 }}
+          >
             Core Execution &amp; Risk Rules
           </h2>
-          <p className="text-sm text-[#94A3B8] mt-1">
-            Non-negotiable guardrails for liquidity window timing, risk management, and emotional discipline.
+          <p
+            style={{
+              marginTop: '4px',
+              marginBottom: 0,
+              fontSize: '15px',
+              color: 'var(--text-muted)',
+            }}
+          >
+            Non-negotiable guardrails for liquidity window timing, risk
+            management, and emotional discipline.
           </p>
         </div>
 
-        <div className="space-y-2.5">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {rules.map((rule) => (
             <div
               key={rule.id}
-              className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-[#0A0D12] border border-slate-800/80"
+              style={{
+                padding: '14px 16px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}
             >
-              <div className="flex items-center gap-3.5">
-                <span className="w-7 h-7 rounded-lg bg-[#10B981]/15 border border-[#10B981]/30 text-[#10B981] font-mono text-xs font-bold flex items-center justify-center shrink-0">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
+                <span
+                  className="tabular-nums"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.38)',
+                    color: 'var(--green)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
                   {rule.number}
                 </span>
-                <span className="text-[15px] font-medium text-[#F8FAFC]">
+                <span
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 500,
+                    color: 'var(--text)',
+                  }}
+                >
                   {rule.label}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => deleteRule(rule.id)}
-                className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#EF4444] cursor-pointer shrink-0"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                }}
               >
                 <Trash2 size={15} />
               </button>
@@ -595,35 +991,58 @@ export default function WorkspaceTabView({
             placeholder="Add a new personal trading rule..."
             value={newRuleText}
             onChange={(e) => setNewRuleText(e.target.value)}
-            className="flex-1 bg-[#0A0D12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none"
+            className="viper-input"
           />
           <button
             type="submit"
-            className="px-5 py-3 rounded-xl bg-[#10B981] hover:bg-emerald-400 text-[#0A0D12] font-bold text-sm cursor-pointer"
+            style={{
+              height: '48px',
+              padding: '0 24px',
+              borderRadius: 'var(--radius-control)',
+              backgroundColor: 'var(--green)',
+              color: '#0A0D12',
+              fontSize: '14px',
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
           >
             + Add Rule
           </button>
         </form>
-      </div>
+      </section>
     );
   }
 
   /* 6. REPORT TAB */
   return (
-    <div className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 space-y-6">
+    <section
+      className="viper-card"
+      style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+    >
       <div>
-        <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-          POST-TRADE SELF-GRADING REPORT
-        </span>
-        <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1">
+        <div className="eyebrow-green">POST-TRADE SELF-GRADING REPORT</div>
+        <h2
+          className="card-title"
+          style={{ marginTop: '6px', marginBottom: 0 }}
+        >
           Execution Quality &amp; Self-Evaluation Scorecard
         </h2>
-        <p className="text-sm text-[#94A3B8] mt-1">
-          Aggregated scores across your 5 post-trade self-grading dimensions and pre-trade checklist.
+        <p
+          style={{
+            marginTop: '4px',
+            marginBottom: 0,
+            fontSize: '15px',
+            color: 'var(--text-muted)',
+          }}
+        >
+          Aggregated scores across your 5 post-trade self-grading dimensions and
+          pre-trade checklist.
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {SELF_GRADING_QUESTIONS.map((q) => {
           const ratedTrades = trades.filter(
             (t) => t.selfGrading && Number(t.selfGrading[q.id]) > 0
@@ -642,26 +1061,64 @@ export default function WorkspaceTabView({
           return (
             <div
               key={q.id}
-              className="p-4 rounded-2xl bg-[#0A0D12] border border-slate-800/80"
+              style={{
+                padding: '16px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+              }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[15px] font-medium text-[#F8FAFC]">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 500,
+                    color: 'var(--text)',
+                  }}
+                >
                   {q.question}
                 </span>
-                <span className="font-mono text-sm font-bold text-[#10B981]">
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--green)',
+                  }}
+                >
                   {avgScore} / 5.0
                 </span>
               </div>
-              <div className="w-full h-2 rounded-full bg-[#121721] overflow-hidden">
+              <div
+                style={{
+                  width: '100%',
+                  height: '8px',
+                  borderRadius: '999px',
+                  backgroundColor: 'var(--surface)',
+                  overflow: 'hidden',
+                }}
+              >
                 <div
-                  className="h-full rounded-full bg-[#10B981] transition-all duration-300"
-                  style={{ width: `${pct}%` }}
+                  style={{
+                    height: '100%',
+                    width: `${pct}%`,
+                    borderRadius: '999px',
+                    backgroundColor: 'var(--green)',
+                    transition: 'width 250ms ease',
+                  }}
                 />
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

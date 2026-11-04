@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   X,
   Calendar,
   ChevronDown,
-  ChevronUp,
   Plus,
+  Minus,
   Star,
   Check,
   Clock,
@@ -24,9 +24,6 @@ import {
 } from '../utils/ninjaTraderCsvParser';
 import { formatUSD } from '../utils/viperAnalytics';
 
-/**
- * Converts a 24h time string ("09:04") to 12h components ({ hour12: "09", minute: "04", ampm: "AM" })
- */
 function parse24hTo12hParts(time24 = '09:04') {
   const parts = String(time24 || '09:04').split(':');
   const h24 = parseInt(parts[0], 10);
@@ -39,9 +36,6 @@ function parse24hTo12hParts(time24 = '09:04') {
   return { hour12: h12, minute: min, ampm };
 }
 
-/**
- * Converts 12h components back to 24h "HH:mm"
- */
 function convert12hPartsTo24h(hour12, minute, ampm) {
   let h = parseInt(hour12, 10) || 12;
   const m = String(Math.min(59, Math.max(0, parseInt(minute, 10) || 0))).padStart(
@@ -67,7 +61,7 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
   const [ampm, setAmpm] = useState('AM');
   const [showDatePickerPopover, setShowDatePickerPopover] = useState(false);
 
-  // Accordion state for Part 2 ("More details")
+  // §7. Part 2 Accordion ("More details") — Default state: COLLAPSED
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   // Part 2 fields
@@ -92,6 +86,10 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
   });
   const [executionGrade, setExecutionGrade] = useState(0);
   const [hoverStar, setHoverStar] = useState(0);
+
+  // Validation errors & dirty tracking
+  const [errors, setErrors] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -146,7 +144,7 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
         }
       );
       setExecutionGrade(Number(editTrade.executionGrade) || 0);
-      setIsMoreOpen(true);
+      setIsMoreOpen(false);
     } else {
       setContract('MGCZ6');
       setDirection('Long');
@@ -179,8 +177,32 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
       setExecutionGrade(0);
       setIsMoreOpen(false);
     }
+    setErrors({});
+    setIsDirty(false);
     setShowDatePickerPopover(false);
   }, [editTrade, isOpen]);
+
+  const handleRequestClose = useCallback(() => {
+    if (isDirty) {
+      const ok = window.confirm(
+        'You have unsaved changes in this trade entry. Discard changes?'
+      );
+      if (!ok) return;
+    }
+    onClose();
+  }, [isDirty, onClose]);
+
+  // Esc key handler (§7)
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        handleRequestClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, handleRequestClose]);
 
   const time24 = useMemo(
     () => convert12hPartsTo24h(hour12, minute, ampm),
@@ -197,34 +219,39 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
     [date, time24]
   );
 
-  const windowBadgeMeta = useMemo(() => {
+  // §7. Auto liquidity-window pill under date field (green London / blue NY / grey Outside Window)
+  const windowBadgeStyle = useMemo(() => {
     if (detectedWindow === LIQUIDITY_WINDOWS.ASIAN_LONDON) {
       return {
-        label: '2–5 AM EST (London Liquidity Window)',
-        classes:
-          'bg-sky-500/15 text-sky-300 border-sky-500/30',
+        label: '2:00–5:00 AM EST • London Window',
+        bg: 'rgba(16, 185, 129, 0.15)',
+        color: 'var(--green)',
+        border: '1px solid rgba(16, 185, 129, 0.4)',
       };
     }
     if (detectedWindow === LIQUIDITY_WINDOWS.NY_OPEN) {
       return {
-        label: '9–12 PM EST (NY Opening Window)',
-        classes:
-          'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+        label: '9:00 AM–12:00 PM EST • NY Window',
+        bg: 'rgba(59, 130, 246, 0.15)',
+        color: '#60A5FA',
+        border: '1px solid rgba(59, 130, 246, 0.4)',
       };
     }
     return {
       label: 'Outside Window',
-      classes: 'bg-slate-800/80 text-[#94A3B8] border-slate-700/70',
+      bg: 'var(--surface-2)',
+      color: 'var(--text-muted)',
+      border: '1px solid var(--border)',
     };
   }, [detectedWindow]);
 
-  // Live P&L preview from Entry & Exit price
+  // §7. Live P&L preview chip ("Estimated P&L: +$X.XX")
   const estimatedNetPnl = useMemo(() => {
     const entry = parseFloat(entryPrice);
     const exit = parseFloat(exitPrice);
     const qty = Math.max(1, Number(quantity) || 1);
     if (Number.isNaN(entry) || Number.isNaN(exit) || entry <= 0 || exit <= 0) {
-      return null;
+      return 0;
     }
     const contractMeta =
       CONTRACTS.find((c) => c.id === contract) || CONTRACTS[0];
@@ -243,21 +270,25 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
     if (!trimmed) return;
     if (!customTags.includes(trimmed)) {
       setCustomTags((prev) => [...prev, trimmed]);
+      setIsDirty(true);
     }
     setTagInput('');
   };
 
   const handleRemoveTag = (tagToRemove) => {
     setCustomTags((prev) => prev.filter((t) => t !== tagToRemove));
+    setIsDirty(true);
   };
 
   const toggleFeeling = (id) => {
+    setIsDirty(true);
     setFeelings((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
   const toggleChecklist = (id) => {
+    setIsDirty(true);
     setPreTradeChecklist((prev) => ({
       ...prev,
       [id]: !prev[id],
@@ -265,36 +296,54 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
   };
 
   const toggleMarketCondition = (id) => {
+    setIsDirty(true);
     setMarketConditions((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
   const handleSelfGradeChange = (questionId, rating) => {
+    setIsDirty(true);
     setSelfGrading((prev) => ({
       ...prev,
       [questionId]: prev[questionId] === rating ? 0 : rating,
     }));
   };
 
+  const validateForm = () => {
+    const nextErrors = {};
+    const entryVal = parseFloat(entryPrice);
+    const exitVal = parseFloat(exitPrice);
+    const qtyVal = Number(quantity);
+
+    if (Number.isNaN(entryVal) || entryVal <= 0) {
+      nextErrors.entryPrice = 'Enter a valid entry price greater than 0.';
+    }
+    if (Number.isNaN(exitVal) || exitVal <= 0) {
+      nextErrors.exitPrice = 'Enter a valid exit price greater than 0.';
+    }
+    if (Number.isNaN(qtyVal) || qtyVal < 1) {
+      nextErrors.quantity = 'Contracts must be at least 1.';
+    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     addOrUpdateTrade({
       id: editTrade?.id,
       contract,
       direction,
-      entryPrice: parseFloat(entryPrice) || 0,
-      exitPrice: parseFloat(exitPrice) || 0,
+      entryPrice: parseFloat(entryPrice),
+      exitPrice: parseFloat(exitPrice),
       quantity: Math.max(1, Number(quantity) || 1),
       date,
       time: time24,
       sessionWindow: detectedWindow,
-      netPnl:
-        estimatedNetPnl !== null
-          ? estimatedNetPnl
-          : editTrade?.netPnl !== undefined
-          ? editTrade.netPnl
-          : 0,
+      netPnl: estimatedNetPnl,
       customTags,
       notes,
       chartUrl,
@@ -308,523 +357,1156 @@ export default function TradeLogModal({ isOpen, onClose, editTrade = null }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-[600px] bg-[#121721] border border-slate-800/80 rounded-3xl shadow-2xl overflow-hidden my-8 max-h-[92vh] flex flex-col">
-        {/* Modal Header */}
-        <div className="px-7 pt-7 pb-4 flex items-start justify-between shrink-0">
+    <div
+      onClick={handleRequestClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        backgroundColor: 'rgba(2, 6, 12, 0.75)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      className="p-0 sm:p-4"
+    >
+      {/* §7. Modal Container: min(880px, 94vw) on desktop, full-screen sheet on mobile (<640px) */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="viper-modal-animate w-screen h-screen max-h-screen rounded-none sm:w-[min(880px,94vw)] sm:h-auto sm:max-h-[90vh] sm:rounded-[20px]"
+        style={{
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {/* §7. STICKY HEADER (padding 24px 32px desktop, 16px 20px mobile) */}
+        <div
+          className="px-5 py-4 sm:px-8 sm:py-6"
+          style={{
+            borderBottom: '1px solid var(--border)',
+            backgroundColor: 'var(--surface)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}
+        >
           <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
+            <div className="eyebrow-green">
               {editTrade ? 'UPDATE JOURNAL ENTRY' : 'NEW JOURNAL ENTRY'}
-            </span>
-            <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1 tracking-tight">
+            </div>
+            <h2
+              style={{
+                marginTop: '4px',
+                marginBottom: 0,
+                fontSize: '26px',
+                lineHeight: 1.2,
+                fontWeight: 700,
+                color: 'var(--text)',
+              }}
+            >
               {editTrade ? 'Edit trade' : 'Log a trade'}
             </h2>
           </div>
+
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800/60 transition-colors cursor-pointer"
+            onClick={handleRequestClose}
+            aria-label="Close modal"
+            className="cursor-pointer transition-colors hover:bg-slate-800/70"
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '999px',
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
+        {/* §7. SCROLLABLE BODY (Only the body scrolls, padding 32px desktop / 20px mobile, section gap 28px) */}
         <form
+          id="viper-log-trade-form"
           onSubmit={handleSubmit}
-          className="px-7 pb-7 overflow-y-auto space-y-5 flex-1"
+          className="p-5 sm:p-8"
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '28px',
+          }}
         >
-          {/* PART 1: CORE TRADE DETAILS (2-Column Grid Layout) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* CONTRACT */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                CONTRACT
-              </label>
-              <div className="relative">
-                <select
-                  value={contract}
-                  onChange={(e) => setContract(e.target.value)}
-                  className="w-full appearance-none bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-2xl px-4 py-3.5 pr-10 text-[15px] font-medium text-[#F8FAFC] outline-none transition-colors cursor-pointer"
+          {/* PART 1 — Core details (always visible), 2-column grid with 20px gap (1 col under 640px) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* CONTRACT */}
+              <div style={{ minWidth: 0 }}>
+                <label
+                  className="eyebrow-label"
+                  style={{ display: 'block', marginBottom: '8px' }}
                 >
-                  {CONTRACTS.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={16}
-                  className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                />
-              </div>
-            </div>
-
-            {/* DIRECTION (Segmented 2-button toggle) */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                DIRECTION
-              </label>
-              <div className="grid grid-cols-2 bg-[#0A0D12] border border-slate-800/90 rounded-2xl overflow-hidden p-1 h-[52px]">
-                <button
-                  type="button"
-                  onClick={() => setDirection('Long')}
-                  className={`rounded-xl text-[15px] font-semibold transition-all cursor-pointer ${
-                    direction === 'Long'
-                      ? 'bg-[#10B981] text-[#FFFFFF] shadow-sm'
-                      : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-                  }`}
-                >
-                  Long
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDirection('Short')}
-                  className={`rounded-xl text-[15px] font-semibold transition-all cursor-pointer ${
-                    direction === 'Short'
-                      ? 'bg-[#EF4444] text-[#FFFFFF] shadow-sm'
-                      : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-                  }`}
-                >
-                  Short
-                </button>
-              </div>
-            </div>
-
-            {/* ENTRY PRICE */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                ENTRY PRICE
-              </label>
-              <input
-                type="number"
-                step="any"
-                placeholder="0.00"
-                value={entryPrice}
-                onChange={(e) => setEntryPrice(e.target.value)}
-                className="w-full bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-2xl px-4 py-3.5 text-[15px] font-mono text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none transition-colors"
-              />
-            </div>
-
-            {/* EXIT PRICE */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-                  EXIT PRICE
+                  CONTRACT
                 </label>
-                {estimatedNetPnl !== null && (
-                  <span
-                    className={`text-xs font-mono font-bold ${
-                      estimatedNetPnl >= 0
-                        ? 'text-[#10B981]'
-                        : 'text-[#EF4444]'
-                    }`}
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={contract}
+                    onChange={(e) => {
+                      setContract(e.target.value);
+                      setIsDirty(true);
+                    }}
+                    className="viper-input"
+                    style={{
+                      appearance: 'none',
+                      paddingRight: '40px',
+                      cursor: 'pointer',
+                    }}
                   >
-                    Est. {formatUSD(estimatedNetPnl)}
-                  </span>
+                    {CONTRACTS.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    style={{
+                      position: 'absolute',
+                      right: '14px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* DIRECTION (segmented toggle: Long = solid green when active, Short = solid red when active; 48px high) */}
+              <div style={{ minWidth: 0 }}>
+                <label
+                  className="eyebrow-label"
+                  style={{ display: 'block', marginBottom: '8px' }}
+                >
+                  DIRECTION
+                </label>
+                <div
+                  style={{
+                    height: '48px',
+                    padding: '4px',
+                    borderRadius: 'var(--radius-control)',
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '4px',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDirection('Long');
+                      setIsDirty(true);
+                    }}
+                    style={{
+                      borderRadius: '7px',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease',
+                      backgroundColor:
+                        direction === 'Long' ? 'var(--green)' : 'transparent',
+                      color:
+                        direction === 'Long' ? '#0A0D12' : 'var(--text-muted)',
+                    }}
+                  >
+                    Long
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDirection('Short');
+                      setIsDirty(true);
+                    }}
+                    style={{
+                      borderRadius: '7px',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease',
+                      backgroundColor:
+                        direction === 'Short' ? 'var(--red)' : 'transparent',
+                      color:
+                        direction === 'Short' ? '#FFFFFF' : 'var(--text-muted)',
+                    }}
+                  >
+                    Short
+                  </button>
+                </div>
+              </div>
+
+              {/* ENTRY PRICE */}
+              <div style={{ minWidth: 0 }}>
+                <label
+                  className="eyebrow-label"
+                  style={{ display: 'block', marginBottom: '8px' }}
+                >
+                  ENTRY PRICE
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={entryPrice}
+                  onChange={(e) => {
+                    setEntryPrice(e.target.value);
+                    setIsDirty(true);
+                    if (errors.entryPrice) {
+                      setErrors((prev) => ({ ...prev, entryPrice: null }));
+                    }
+                  }}
+                  className="viper-input tabular-nums"
+                  style={{
+                    borderColor: errors.entryPrice
+                      ? 'var(--red)'
+                      : 'var(--border)',
+                  }}
+                />
+                {errors.entryPrice && (
+                  <div
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '12px',
+                      color: 'var(--red)',
+                    }}
+                  >
+                    {errors.entryPrice}
+                  </div>
                 )}
               </div>
-              <input
-                type="number"
-                step="any"
-                placeholder="0.00"
-                value={exitPrice}
-                onChange={(e) => setExitPrice(e.target.value)}
-                className="w-full bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-2xl px-4 py-3.5 text-[15px] font-mono text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none transition-colors"
-              />
-            </div>
 
-            {/* CONTRACTS (Lots) */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                CONTRACTS
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="w-full bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-2xl px-4 py-3.5 text-[15px] font-mono text-[#F8FAFC] outline-none transition-colors"
-              />
-            </div>
-
-            {/* DATE & TIME (EST) */}
-            <div className="relative">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                DATE &amp; TIME (EST)
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  setShowDatePickerPopover((prev) => !prev)
-                }
-                className="w-full flex items-center justify-between bg-[#0A0D12] border border-slate-800/90 hover:border-slate-700 focus:border-[#10B981] rounded-2xl px-4 py-3.5 text-[15px] font-mono text-[#F8FAFC] transition-colors cursor-pointer"
-              >
-                <span>{formattedDisplayDateEST}</span>
-                <Calendar size={16} className="text-[#94A3B8]" />
-              </button>
-
-              {/* Auto-detected Liquidity Window Pill beneath Date & Time */}
-              <div className="mt-2 flex items-center gap-1.5">
-                <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${windowBadgeMeta.classes}`}
+              {/* EXIT PRICE */}
+              <div style={{ minWidth: 0 }}>
+                <label
+                  className="eyebrow-label"
+                  style={{ display: 'block', marginBottom: '8px' }}
                 >
-                  <Clock size={11} />
-                  <span>{windowBadgeMeta.label}</span>
-                </span>
+                  EXIT PRICE
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={exitPrice}
+                  onChange={(e) => {
+                    setExitPrice(e.target.value);
+                    setIsDirty(true);
+                    if (errors.exitPrice) {
+                      setErrors((prev) => ({ ...prev, exitPrice: null }));
+                    }
+                  }}
+                  className="viper-input tabular-nums"
+                  style={{
+                    borderColor: errors.exitPrice
+                      ? 'var(--red)'
+                      : 'var(--border)',
+                  }}
+                />
+                {errors.exitPrice && (
+                  <div
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '12px',
+                      color: 'var(--red)',
+                    }}
+                  >
+                    {errors.exitPrice}
+                  </div>
+                )}
               </div>
 
-              {/* 12-Hour EST Date & Time Picker Popover */}
-              {showDatePickerPopover && (
-                <div className="mt-2 p-3.5 rounded-2xl bg-[#0A0D12] border border-slate-700/80 shadow-xl space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8] mb-1">
-                      Execution Date
-                    </label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full bg-[#121721] border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-[#F8FAFC] outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8] mb-1">
-                      12-Hour Time (EST)
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <select
-                        value={hour12}
-                        onChange={(e) => setHour12(e.target.value)}
-                        className="bg-[#121721] border border-slate-800 rounded-xl px-2.5 py-2 text-sm font-mono text-[#F8FAFC] outline-none"
-                      >
-                        {Array.from({ length: 12 }, (_, idx) => {
-                          const val = String(idx + 1).padStart(2, '0');
-                          return (
-                            <option key={val} value={val}>
-                              {val}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      <select
-                        value={minute}
-                        onChange={(e) => setMinute(e.target.value)}
-                        className="bg-[#121721] border border-slate-800 rounded-xl px-2.5 py-2 text-sm font-mono text-[#F8FAFC] outline-none"
-                      >
-                        {Array.from({ length: 60 }, (_, idx) => {
-                          const val = String(idx).padStart(2, '0');
-                          return (
-                            <option key={val} value={val}>
-                              {val}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      <select
-                        value={ampm}
-                        onChange={(e) => setAmpm(e.target.value)}
-                        className="bg-[#121721] border border-slate-800 rounded-xl px-2.5 py-2 text-sm font-mono font-bold text-[#10B981] outline-none"
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* COLLAPSIBLE "More details ⌄" ACCORDION BUTTON */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setIsMoreOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between bg-[#0A0D12] hover:bg-slate-900/90 border border-slate-800/90 rounded-2xl px-4 py-3.5 text-[15px] font-medium text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer"
-            >
-              <span>More details</span>
-              {isMoreOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </button>
-          </div>
-
-          {/* PART 2: EXPANDABLE BEHAVIORAL & GRADING SECTION */}
-          {isMoreOpen && (
-            <div className="space-y-6 pt-2 border-t border-slate-800/60">
-              {/* 1. TAGS */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                  TAGS
+              {/* CONTRACTS (number stepper with − / + buttons, default 1) */}
+              <div style={{ minWidth: 0 }}>
+                <label
+                  className="eyebrow-label"
+                  style={{ display: 'block', marginBottom: '8px' }}
+                >
+                  CONTRACTS
                 </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Type and press Enter"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddTag();
-                      }
+                <div
+                  style={{
+                    height: '48px',
+                    borderRadius: 'var(--radius-control)',
+                    backgroundColor: 'var(--surface-2)',
+                    border: errors.quantity
+                      ? '1px solid var(--red)'
+                      : '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuantity((q) => Math.max(1, (Number(q) || 1) - 1));
+                      setIsDirty(true);
                     }}
-                    className="flex-1 bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-2xl px-4 py-3 text-[15px] text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none transition-colors"
+                    aria-label="Decrease contracts"
+                    className="hover:bg-slate-800/60 transition-colors cursor-pointer"
+                    style={{
+                      width: '48px',
+                      height: '100%',
+                      border: 'none',
+                      borderRight: '1px solid var(--border)',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={quantity}
+                    onChange={(e) => {
+                      setQuantity(e.target.value);
+                      setIsDirty(true);
+                    }}
+                    className="tabular-nums"
+                    style={{
+                      flex: 1,
+                      height: '100%',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      textAlign: 'center',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                      outline: 'none',
+                      minWidth: 0,
+                    }}
                   />
                   <button
                     type="button"
-                    onClick={handleAddTag}
-                    className="w-12 h-12 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-[#10B981] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                    onClick={() => {
+                      setQuantity((q) => (Number(q) || 1) + 1);
+                      setIsDirty(true);
+                    }}
+                    aria-label="Increase contracts"
+                    className="hover:bg-slate-800/60 transition-colors cursor-pointer"
+                    style={{
+                      width: '48px',
+                      height: '100%',
+                      border: 'none',
+                      borderLeft: '1px solid var(--border)',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
                   >
-                    <Plus size={18} />
+                    <Plus size={16} />
                   </button>
                 </div>
-                {customTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2.5">
-                    {customTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-[#10B981] border border-emerald-500/30"
-                      >
-                        <span>{tag}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(tag)}
-                          className="hover:text-[#F8FAFC] cursor-pointer"
-                        >
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))}
+                {errors.quantity && (
+                  <div
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '12px',
+                      color: 'var(--red)',
+                    }}
+                  >
+                    {errors.quantity}
                   </div>
                 )}
               </div>
 
-              {/* 2. NOTES */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                  NOTES
+              {/* DATE & TIME (EST) (MM/DD/YYYY hh:mm AM/PM) */}
+              <div style={{ minWidth: 0, position: 'relative' }}>
+                <label
+                  className="eyebrow-label"
+                  style={{ display: 'block', marginBottom: '8px' }}
+                >
+                  DATE &amp; TIME (EST)
                 </label>
-                <textarea
-                  rows={3}
-                  placeholder="Observations, market context, lessons learned..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-2xl px-4 py-3.5 text-[15px] text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none transition-colors resize-none"
-                />
-              </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDatePickerPopover((prev) => !prev)}
+                  className="viper-input tabular-nums"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span>{formattedDisplayDateEST}</span>
+                  <Calendar size={16} style={{ color: 'var(--text-muted)' }} />
+                </button>
 
-              {/* 3. CHART URL */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2">
-                  CHART URL
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={chartUrl}
-                  onChange={(e) => setChartUrl(e.target.value)}
-                  className="w-full bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-2xl px-4 py-3 text-[15px] text-[#F8FAFC] placeholder-[#94A3B8]/50 outline-none transition-colors"
-                />
-              </div>
+                {/* Auto liquidity-window pill under the date field */}
+                <div style={{ marginTop: '8px' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 12px',
+                      borderRadius: 'var(--radius-pill)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      backgroundColor: windowBadgeStyle.bg,
+                      color: windowBadgeStyle.color,
+                      border: windowBadgeStyle.border,
+                    }}
+                  >
+                    <Clock size={12} />
+                    <span>{windowBadgeStyle.label}</span>
+                  </span>
+                </div>
 
-              {/* 4. HOW ARE YOU FEELING? (Selectable Emoji Pills) */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2.5">
-                  HOW ARE YOU FEELING?
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {FEELING_OPTIONS.map((item) => {
-                    const isSelected = feelings.includes(item.id);
-                    const isRevengePill = item.id === 'Revenge';
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => toggleFeeling(item.id)}
-                        className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all cursor-pointer ${
-                          isSelected
-                            ? isRevengePill
-                              ? 'bg-[#EF4444]/20 text-[#EF4444] border-[#EF4444]/50 shadow-xs'
-                              : 'bg-[#10B981]/20 text-[#10B981] border-[#10B981]/50 shadow-xs'
-                            : 'bg-[#0A0D12] text-[#F8FAFC] border-slate-800/90 hover:border-slate-700'
-                        }`}
+                {/* Date & Time 12h EST Popover */}
+                {showDatePickerPopover && (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    <div>
+                      <span
+                        className="eyebrow-label"
+                        style={{ display: 'block', marginBottom: '6px' }}
                       >
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 5. PRE-TRADE CHECKLIST (Interactive Checkboxes with 0/4 checked counter) */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2.5">
-                  PRE-TRADE CHECKLIST
-                </label>
-                <div className="space-y-2.5">
-                  {PRE_TRADE_CHECKLIST_ITEMS.map((item) => {
-                    const isChecked = Boolean(preTradeChecklist[item.id]);
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => toggleChecklist(item.id)}
-                        className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                          isChecked
-                            ? 'bg-emerald-950/20 border-[#10B981]/40 text-[#F8FAFC]'
-                            : 'bg-[#0A0D12] border-slate-800/90 text-[#F8FAFC] hover:border-slate-700'
-                        }`}
+                        Date
+                      </span>
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => {
+                          setDate(e.target.value);
+                          setIsDirty(true);
+                        }}
+                        className="viper-input tabular-nums"
+                        style={{ height: '40px' }}
+                      />
+                    </div>
+                    <div>
+                      <span
+                        className="eyebrow-label"
+                        style={{ display: 'block', marginBottom: '6px' }}
                       >
-                        <div
-                          className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
-                            isChecked
-                              ? 'bg-[#10B981] border-[#10B981] text-[#0A0D12]'
-                              : 'border-slate-600 bg-transparent'
-                          }`}
-                        >
-                          {isChecked && <Check size={14} strokeWidth={3} />}
-                        </div>
-                        <span className="text-[15px] font-medium">
-                          {item.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-2 text-xs font-medium text-[#94A3B8]">
-                  {checkedCount}/4 checked
-                </div>
-              </div>
-
-              {/* 6. MARKET CONDITIONS (Selectable Pills) */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2.5">
-                  MARKET CONDITIONS
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {MARKET_CONDITION_OPTIONS.map((item) => {
-                    const isSelected = marketConditions.includes(item.id);
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => toggleMarketCondition(item.id)}
-                        className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#10B981]/20 text-[#10B981] border-[#10B981]/50 shadow-xs'
-                            : 'bg-[#0A0D12] text-[#F8FAFC] border-slate-800/90 hover:border-slate-700'
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 7. POST-TRADE SELF-GRADING (1 to 5 Numbered Buttons per Row) */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-2.5">
-                  POST-TRADE SELF-GRADING
-                </label>
-                <div className="space-y-2.5">
-                  {SELF_GRADING_QUESTIONS.map((q) => {
-                    const currentVal = selfGrading[q.id] || 0;
-                    return (
+                        Time (12-Hour EST)
+                      </span>
                       <div
-                        key={q.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3.5 rounded-2xl bg-[#0A0D12] border border-slate-800/90"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr 1fr',
+                          gap: '8px',
+                        }}
                       >
-                        <span className="text-[15px] font-medium text-[#F8FAFC]">
-                          {q.question}
-                        </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {[1, 2, 3, 4, 5].map((num) => {
-                            const active = currentVal === num;
+                        <select
+                          value={hour12}
+                          onChange={(e) => {
+                            setHour12(e.target.value);
+                            setIsDirty(true);
+                          }}
+                          className="viper-input tabular-nums"
+                          style={{ height: '40px', padding: '0 10px' }}
+                        >
+                          {Array.from({ length: 12 }, (_, idx) => {
+                            const val = String(idx + 1).padStart(2, '0');
                             return (
-                              <button
-                                key={num}
-                                type="button"
-                                onClick={() =>
-                                  handleSelfGradeChange(q.id, num)
-                                }
-                                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                  active
-                                    ? 'bg-[#10B981] text-[#0A0D12] shadow-xs'
-                                    : 'bg-slate-800/80 text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-700/80'
-                                }`}
-                              >
-                                {num}
-                              </button>
+                              <option key={val} value={val}>
+                                {val}
+                              </option>
                             );
                           })}
-                        </div>
+                        </select>
+                        <select
+                          value={minute}
+                          onChange={(e) => {
+                            setMinute(e.target.value);
+                            setIsDirty(true);
+                          }}
+                          className="viper-input tabular-nums"
+                          style={{ height: '40px', padding: '0 10px' }}
+                        >
+                          {Array.from({ length: 60 }, (_, idx) => {
+                            const val = String(idx).padStart(2, '0');
+                            return (
+                              <option key={val} value={val}>
+                                {val}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <select
+                          value={ampm}
+                          onChange={(e) => {
+                            setAmpm(e.target.value);
+                            setIsDirty(true);
+                          }}
+                          className="viper-input tabular-nums"
+                          style={{
+                            height: '40px',
+                            padding: '0 10px',
+                            color: 'var(--green)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <option value="AM">AM</option>
+                          <option value="PM">PM</option>
+                        </select>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  </div>
+                )}
               </div>
+            </div>
 
-              {/* 8. EXECUTION GRADE (Interactive 5-Star rating selector) */}
-              <div>
-                <label className="block text-sm font-medium text-[#94A3B8] mb-2">
-                  Execution Grade
-                </label>
-                <div className="flex items-center gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => {
-                    const filled = (hoverStar || executionGrade) >= star;
-                    return (
-                      <button
-                        key={star}
-                        type="button"
-                        onMouseEnter={() => setHoverStar(star)}
-                        onMouseLeave={() => setHoverStar(0)}
-                        onClick={() =>
-                          setExecutionGrade((prev) =>
-                            prev === star ? 0 : star
-                          )
-                        }
-                        className="p-1 text-[#94A3B8] hover:scale-110 transition-transform cursor-pointer"
-                      >
-                        <Star
-                          size={26}
-                          className={
-                            filled
-                              ? 'text-[#10B981] fill-[#10B981]'
-                              : 'text-slate-600'
+            {/* Live P&L preview chip under the form */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-control)',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                Estimated P&amp;L ({quantity || 1}x {contract} {direction})
+              </span>
+              <span
+                className="tabular-nums"
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  color:
+                    estimatedNetPnl > 0
+                      ? 'var(--green)'
+                      : estimatedNetPnl < 0
+                      ? 'var(--red)'
+                      : 'var(--text-muted)',
+                }}
+              >
+                Estimated P&amp;L: {formatUSD(estimatedNetPnl)}
+              </span>
+            </div>
+          </div>
+
+          {/* §7. PART 2 — "More details" Accordion (52px high, default COLLAPSED) */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <button
+              type="button"
+              onClick={() => setIsMoreOpen((prev) => !prev)}
+              style={{
+                width: '100%',
+                height: '52px',
+                padding: '0 18px',
+                borderRadius: 'var(--radius-control)',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                fontSize: '15px',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+              }}
+            >
+              <span>More details</span>
+              <ChevronDown
+                size={18}
+                style={{
+                  color: 'var(--text-muted)',
+                  transform: isMoreOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 250ms ease',
+                }}
+              />
+            </button>
+
+            {/* Animated Grid Accordion Wrapper — Nothing visible while collapsed */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateRows: isMoreOpen ? '1fr' : '0fr',
+                transition: 'grid-template-rows 250ms ease',
+              }}
+            >
+              <div style={{ overflow: 'hidden' }}>
+                <div
+                  style={{
+                    paddingTop: '28px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '28px',
+                  }}
+                >
+                  {/* 1. TAGS */}
+                  <div>
+                    <label
+                      className="eyebrow-label"
+                      style={{ display: 'block', marginBottom: '8px' }}
+                    >
+                      TAGS
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Type and press Enter"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTag();
                           }
-                        />
+                        }}
+                        className="viper-input"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTag}
+                        aria-label="Add tag"
+                        className="cursor-pointer transition-opacity hover:opacity-90"
+                        style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: 'var(--radius-control)',
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid rgba(16, 185, 129, 0.4)',
+                          color: 'var(--green)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Plus size={18} />
                       </button>
-                    );
-                  })}
-                  {executionGrade > 0 && (
-                    <span className="ml-2 text-xs font-mono font-semibold text-[#10B981]">
-                      {executionGrade}/5 ★
-                    </span>
-                  )}
+                    </div>
+                    {customTags.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: '10px',
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                        }}
+                      >
+                        {customTags.map((tag) => (
+                          <span
+                            key={tag}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              borderRadius: 'var(--radius-pill)',
+                              fontSize: '13px',
+                              fontWeight: 500,
+                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                              color: 'var(--green)',
+                              border: '1px solid rgba(16, 185, 129, 0.4)',
+                            }}
+                          >
+                            <span>{tag}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'inherit',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                padding: 0,
+                              }}
+                            >
+                              <X size={13} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. NOTES */}
+                  <div>
+                    <label
+                      className="eyebrow-label"
+                      style={{ display: 'block', marginBottom: '8px' }}
+                    >
+                      NOTES
+                    </label>
+                    <textarea
+                      placeholder="Observations, market context, lessons learned..."
+                      value={notes}
+                      onChange={(e) => {
+                        setNotes(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      className="viper-textarea"
+                    />
+                  </div>
+
+                  {/* 3. CHART URL */}
+                  <div>
+                    <label
+                      className="eyebrow-label"
+                      style={{ display: 'block', marginBottom: '8px' }}
+                    >
+                      CHART URL
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={chartUrl}
+                      onChange={(e) => {
+                        setChartUrl(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      className="viper-input"
+                    />
+                  </div>
+
+                  {/* 4. HOW ARE YOU FEELING? (pill height 40px, wraps naturally) */}
+                  <div>
+                    <label
+                      className="eyebrow-label"
+                      style={{ display: 'block', marginBottom: '10px' }}
+                    >
+                      HOW ARE YOU FEELING?
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                      }}
+                    >
+                      {FEELING_OPTIONS.map((item) => {
+                        const isSelected = feelings.includes(item.id);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => toggleFeeling(item.id)}
+                            style={{
+                              height: '40px',
+                              padding: '0 16px',
+                              borderRadius: 'var(--radius-pill)',
+                              fontSize: '14px',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              transition: 'all 150ms ease',
+                              backgroundColor: isSelected
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : 'var(--surface-2)',
+                              color: isSelected
+                                ? 'var(--green)'
+                                : 'var(--text)',
+                              border: isSelected
+                                ? '1px solid var(--green)'
+                                : '1px solid var(--border)',
+                            }}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 5. PRE-TRADE CHECKLIST (header with "0/4 checked" counter; 2×2 grid of checkbox cards, 52px high each) */}
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <label className="eyebrow-label">
+                        PRE-TRADE CHECKLIST
+                      </label>
+                      <span
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color:
+                            checkedCount === 4
+                              ? 'var(--green)'
+                              : 'var(--text-muted)',
+                        }}
+                      >
+                        {checkedCount}/4 checked
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {PRE_TRADE_CHECKLIST_ITEMS.map((item) => {
+                        const isChecked = Boolean(preTradeChecklist[item.id]);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => toggleChecklist(item.id)}
+                            style={{
+                              height: '52px',
+                              padding: '0 16px',
+                              borderRadius: 'var(--radius-control)',
+                              backgroundColor: isChecked
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : 'var(--surface-2)',
+                              border: isChecked
+                                ? '1px solid var(--green)'
+                                : '1px solid var(--border)',
+                              color: 'var(--text)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              transition: 'all 150ms ease',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '6px',
+                                backgroundColor: isChecked
+                                  ? 'var(--green)'
+                                  : 'transparent',
+                                border: isChecked
+                                  ? '1px solid var(--green)'
+                                  : '1px solid var(--text-dim)',
+                                color: '#0A0D12',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {isChecked && <Check size={14} strokeWidth={3} />}
+                            </div>
+                            <span
+                              style={{
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                color: isChecked
+                                  ? 'var(--green)'
+                                  : 'var(--text)',
+                              }}
+                            >
+                              {item.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 6. MARKET CONDITIONS */}
+                  <div>
+                    <label
+                      className="eyebrow-label"
+                      style={{ display: 'block', marginBottom: '10px' }}
+                    >
+                      MARKET CONDITIONS
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                      }}
+                    >
+                      {MARKET_CONDITION_OPTIONS.map((item) => {
+                        const isSelected = marketConditions.includes(item.id);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => toggleMarketCondition(item.id)}
+                            style={{
+                              height: '40px',
+                              padding: '0 16px',
+                              borderRadius: 'var(--radius-pill)',
+                              fontSize: '14px',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              transition: 'all 150ms ease',
+                              backgroundColor: isSelected
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : 'var(--surface-2)',
+                              color: isSelected
+                                ? 'var(--green)'
+                                : 'var(--text)',
+                              border: isSelected
+                                ? '1px solid var(--green)'
+                                : '1px solid var(--border)',
+                            }}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 7. POST-TRADE SELF-GRADING (5 rows, 44px squares [1][2][3][4][5]) */}
+                  <div>
+                    <label
+                      className="eyebrow-label"
+                      style={{ display: 'block', marginBottom: '10px' }}
+                    >
+                      POST-TRADE SELF-GRADING
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                      }}
+                    >
+                      {SELF_GRADING_QUESTIONS.map((q) => {
+                        const currentVal = selfGrading[q.id] || 0;
+                        return (
+                          <div
+                            key={q.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            style={{
+                              padding: '12px 16px',
+                              borderRadius: 'var(--radius-control)',
+                              backgroundColor: 'var(--surface-2)',
+                              border: '1px solid var(--border)',
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: '15px',
+                                fontWeight: 500,
+                                color: 'var(--text)',
+                              }}
+                            >
+                              {q.question}
+                            </span>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {[1, 2, 3, 4, 5].map((num) => {
+                                const isActive = currentVal === num;
+                                return (
+                                  <button
+                                    key={num}
+                                    type="button"
+                                    onClick={() =>
+                                      handleSelfGradeChange(q.id, num)
+                                    }
+                                    className="tabular-nums"
+                                    style={{
+                                      width: '44px',
+                                      height: '44px',
+                                      borderRadius: '8px',
+                                      fontSize: '14px',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      transition: 'all 150ms ease',
+                                      backgroundColor: isActive
+                                        ? 'var(--green)'
+                                        : 'var(--surface)',
+                                      color: isActive
+                                        ? '#0A0D12'
+                                        : 'var(--text-muted)',
+                                      border: isActive
+                                        ? '1px solid var(--green)'
+                                        : '1px solid var(--border)',
+                                    }}
+                                  >
+                                    {num}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 8. EXECUTION GRADE (5 clickable stars, 32px each, with hover preview) */}
+                  <div>
+                    <label
+                      className="eyebrow-label"
+                      style={{ display: 'block', marginBottom: '10px' }}
+                    >
+                      EXECUTION GRADE
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      {[1, 2, 3, 4, 5].map((star) => {
+                        const filled = (hoverStar || executionGrade) >= star;
+                        return (
+                          <button
+                            key={star}
+                            type="button"
+                            onMouseEnter={() => setHoverStar(star)}
+                            onMouseLeave={() => setHoverStar(0)}
+                            onClick={() => {
+                              setIsDirty(true);
+                              setExecutionGrade((prev) =>
+                                prev === star ? 0 : star
+                              );
+                            }}
+                            aria-label={`Rate ${star} stars`}
+                            style={{
+                              padding: '4px',
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                            }}
+                          >
+                            <Star
+                              size={32}
+                              style={{
+                                color: filled
+                                  ? 'var(--green)'
+                                  : 'var(--text-dim)',
+                                fill: filled ? 'var(--green)' : 'transparent',
+                                transition: 'all 120ms ease',
+                              }}
+                            />
+                          </button>
+                        );
+                      })}
+                      {executionGrade > 0 && (
+                        <span
+                          className="tabular-nums"
+                          style={{
+                            marginLeft: '8px',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: 'var(--green)',
+                          }}
+                        >
+                          {executionGrade} / 5 ★
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* 9. MODAL FOOTER: Full-width primary Add Trade button + Cancel button */}
-          <div className="pt-3 flex items-center gap-3">
-            <button
-              type="submit"
-              className="flex-1 py-3.5 px-6 rounded-2xl bg-[#10B981] hover:bg-emerald-400 text-[#0A0D12] font-bold text-[15px] shadow-md transition-all cursor-pointer"
-            >
-              {editTrade ? 'Save Changes' : 'Add Trade'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="py-3.5 px-6 rounded-2xl bg-slate-800/80 hover:bg-slate-800 text-[#F8FAFC] font-semibold text-[15px] border border-slate-700/70 transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
           </div>
         </form>
+
+        {/* §7. STICKY FOOTER: Cancel (ghost, left of primary) and Add Trade (solid green, flex-grow, 52px high) */}
+        <div
+          className="px-5 py-4 sm:px-8 sm:py-6"
+          style={{
+            borderTop: '1px solid var(--border)',
+            backgroundColor: 'var(--surface)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexShrink: 0,
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleRequestClose}
+            className="cursor-pointer transition-colors hover:bg-slate-800/60"
+            style={{
+              height: '52px',
+              padding: '0 24px',
+              borderRadius: 'var(--radius-control)',
+              backgroundColor: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              fontSize: '15px',
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            form="viper-log-trade-form"
+            className="cursor-pointer transition-opacity hover:opacity-90"
+            style={{
+              flexGrow: 1,
+              height: '52px',
+              padding: '0 24px',
+              borderRadius: 'var(--radius-control)',
+              backgroundColor: 'var(--green)',
+              border: 'none',
+              color: '#0A0D12',
+              fontSize: '15px',
+              fontWeight: 700,
+            }}
+          >
+            {editTrade ? 'Save Changes' : 'Add Trade'}
+          </button>
+        </div>
       </div>
     </div>
   );

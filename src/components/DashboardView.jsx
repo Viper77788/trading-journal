@@ -9,7 +9,6 @@ import {
   Search,
   Star,
   Clock,
-  AlertTriangle,
   Download,
   Sparkles,
 } from 'lucide-react';
@@ -25,13 +24,33 @@ import {
   exportTradingJournalCsv,
 } from '../utils/ninjaTraderCsvParser';
 
-export function LiquidityWindowPill({ sessionWindow, time }) {
+/**
+ * §6. Liquidity Window Badge:
+ * - green = London (2:00–5:00 AM EST)
+ * - blue = NY (9:00 AM–12:00 PM EST)
+ * - grey = Outside Window
+ */
+export function LiquidityWindowBadge({ sessionWindow, time }) {
   const label = formatLiquidityWindowESTLabel(sessionWindow, time);
 
   if (sessionWindow === LIQUIDITY_WINDOWS.ASIAN_LONDON) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sky-500/15 text-sky-300 border border-sky-500/30 whitespace-nowrap">
-        <Clock size={12} className="text-sky-400 shrink-0" />
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          borderRadius: 'var(--radius-pill)',
+          fontSize: '12px',
+          fontWeight: 500,
+          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          color: 'var(--green)',
+          border: '1px solid rgba(16, 185, 129, 0.38)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <Clock size={12} style={{ flexShrink: 0 }} />
         <span>{label}</span>
       </span>
     );
@@ -39,16 +58,44 @@ export function LiquidityWindowPill({ sessionWindow, time }) {
 
   if (sessionWindow === LIQUIDITY_WINDOWS.NY_OPEN) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 whitespace-nowrap">
-        <Clock size={12} className="text-[#10B981] shrink-0" />
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          borderRadius: 'var(--radius-pill)',
+          fontSize: '12px',
+          fontWeight: 500,
+          backgroundColor: 'rgba(59, 130, 246, 0.15)',
+          color: '#60A5FA',
+          border: '1px solid rgba(59, 130, 246, 0.38)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <Clock size={12} style={{ flexShrink: 0 }} />
         <span>{label}</span>
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800/80 text-[#94A3B8] border border-slate-700/70 whitespace-nowrap">
-      <Clock size={12} className="text-[#94A3B8] shrink-0" />
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '4px 10px',
+        borderRadius: 'var(--radius-pill)',
+        fontSize: '12px',
+        fontWeight: 500,
+        backgroundColor: 'rgba(148, 163, 184, 0.1)',
+        color: 'var(--text-muted)',
+        border: '1px solid var(--border)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <Clock size={12} style={{ flexShrink: 0 }} />
       <span>Outside Window</span>
     </span>
   );
@@ -82,7 +129,7 @@ export default function DashboardView({
     );
   });
 
-  // Compute summary metrics for the 4 inline columns in Decision Archive
+  // §5. Decision Archive Metrics
   const totalTrades = searchedTrades.length;
   const netResult = searchedTrades.reduce(
     (sum, t) => sum + (Number(t.netPnl) || 0),
@@ -90,6 +137,9 @@ export default function DashboardView({
   );
   const winsCount = searchedTrades.filter(
     (t) => (Number(t.netPnl) || 0) > 0
+  ).length;
+  const lossesCount = searchedTrades.filter(
+    (t) => (Number(t.netPnl) || 0) < 0
   ).length;
   const winRate =
     totalTrades > 0 ? ((winsCount / totalTrades) * 100).toFixed(1) : '0.0';
@@ -99,9 +149,6 @@ export default function DashboardView({
       ? Math.max(...searchedTrades.map((t) => Number(t.netPnl) || 0))
       : null;
 
-  const tradesWithNotesCount = searchedTrades.filter(
-    (t) => t.notes && t.notes.trim().length > 0
-  ).length;
   const revengeFlaggedCount = searchedTrades.filter(
     (t) => t.isRevengeTrade
   ).length;
@@ -121,61 +168,133 @@ export default function DashboardView({
   };
 
   return (
-    <div className="space-y-5">
-      {/* D. "DECISION ARCHIVE" SUMMARY CARD & ACTION BAR */}
-      <section className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 shadow-lg">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
-              DECISION ARCHIVE
-            </span>
-            <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1 tracking-tight">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* §5. DECISION ARCHIVE CARD */}
+      <section className="viper-card">
+        {/* Top Row */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div className="eyebrow-green">DECISION ARCHIVE</div>
+            <h2
+              className="card-title"
+              style={{ marginTop: '6px', marginBottom: 0 }}
+            >
               Every trade, in context
             </h2>
-            <p className="text-sm text-[#94A3B8] mt-1">
+            <p
+              style={{
+                marginTop: '4px',
+                marginBottom: 0,
+                fontSize: '15px',
+                color: 'var(--text-muted)',
+              }}
+            >
               Search the details behind the result, not just the result itself.
             </p>
           </div>
 
-          {/* Action Buttons (Top Right of Card) */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Right: Button Group (all 40px high, 14px/600, 8px gap, wrap on mobile) */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
             <button
               type="button"
               onClick={onOpenImportModal}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#F8FAFC] bg-[#0A0D12] hover:bg-slate-800/80 border border-slate-800/90 transition-colors cursor-pointer"
+              className="cursor-pointer transition-colors hover:bg-slate-800/50"
+              style={{
+                height: '40px',
+                padding: '0 16px',
+                borderRadius: 'var(--radius-control)',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
             >
-              <Upload size={15} className="text-[#94A3B8]" />
+              <Upload size={15} style={{ color: 'var(--text-muted)' }} />
               <span>Import CSV</span>
             </button>
 
-            {trades.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleExportCsv}
-                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 border border-[#10B981]/30 transition-colors cursor-pointer"
-                  title="Download trading-journal-2026-11-04.csv"
-                >
-                  <Download size={15} />
-                  <span>Export CSV</span>
-                </button>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="cursor-pointer transition-opacity hover:opacity-90"
+              style={{
+                height: '40px',
+                padding: '0 16px',
+                borderRadius: 'var(--radius-control)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.38)',
+                color: 'var(--green)',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Download size={15} />
+              <span>Export CSV</span>
+            </button>
 
-                <button
-                  type="button"
-                  onClick={clearAllTrades}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 transition-colors cursor-pointer"
-                  title="Clear loaded CSV trades"
-                >
-                  <Trash2 size={15} />
-                  <span>Clear CSV</span>
-                </button>
-              </>
+            {trades.length > 0 && (
+              <button
+                type="button"
+                onClick={clearAllTrades}
+                className="cursor-pointer transition-opacity hover:opacity-90"
+                style={{
+                  height: '40px',
+                  padding: '0 16px',
+                  borderRadius: 'var(--radius-control)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.38)',
+                  color: 'var(--red)',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Trash2 size={15} />
+                <span>Clear CSV</span>
+              </button>
             )}
 
             <button
               type="button"
               onClick={onOpenLogModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[#0A0D12] bg-[#10B981] hover:bg-emerald-400 shadow-sm transition-all cursor-pointer"
+              className="cursor-pointer transition-opacity hover:opacity-90"
+              style={{
+                height: '40px',
+                padding: '0 18px',
+                borderRadius: 'var(--radius-control)',
+                backgroundColor: 'var(--green)',
+                border: 'none',
+                color: '#0A0D12',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
             >
               <Plus size={16} strokeWidth={2.5} />
               <span>Log trade</span>
@@ -183,102 +302,218 @@ export default function DashboardView({
           </div>
         </div>
 
-        {/* 4 Clean Inline Metric Columns separated by subtle dividers */}
-        <div className="mt-7 pt-6 border-t border-slate-800/70 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:divide-x sm:divide-slate-800/70">
+        {/* §3 & §5. 4-Column Metric Grid with 1px Vertical Dividers */}
+        <div className="viper-metric-grid">
           {/* 1. NET RESULT */}
-          <div className="sm:pr-4">
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-              NET RESULT
-            </span>
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">NET RESULT</div>
             <div
-              className={`text-2xl font-bold font-mono mt-1.5 tracking-tight ${
-                netResult > 0
-                  ? 'text-[#10B981]'
-                  : netResult < 0
-                  ? 'text-[#EF4444]'
-                  : 'text-[#10B981]'
-              }`}
+              className="metric-value"
+              style={{
+                marginTop: '8px',
+                color:
+                  netResult > 0
+                    ? 'var(--green)'
+                    : netResult < 0
+                    ? 'var(--red)'
+                    : 'var(--green)',
+              }}
             >
               {formatUSD(netResult)}
+            </div>
+            <div
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Across {totalTrades} {totalTrades === 1 ? 'execution' : 'executions'}
             </div>
           </div>
 
           {/* 2. WIN RATE */}
-          <div className="sm:px-6">
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-              WIN RATE
-            </span>
-            <div className="text-2xl font-bold font-mono text-[#F8FAFC] mt-1.5 tracking-tight">
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">WIN RATE</div>
+            <div
+              className="metric-value"
+              style={{ marginTop: '8px', color: 'var(--text)' }}
+            >
               {winRate}%
+            </div>
+            <div
+              className="tabular-nums"
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {winsCount}W / {lossesCount}L record
             </div>
           </div>
 
           {/* 3. BEST RESULT */}
-          <div className="sm:px-6">
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-              BEST RESULT
-            </span>
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">BEST RESULT</div>
             <div
-              className={`text-2xl font-bold font-mono mt-1.5 tracking-tight ${
-                bestTradePnl !== null && bestTradePnl > 0
-                  ? 'text-[#10B981]'
-                  : 'text-[#94A3B8]'
-              }`}
+              className="metric-value"
+              style={{
+                marginTop: '8px',
+                color:
+                  bestTradePnl !== null && bestTradePnl > 0
+                    ? 'var(--green)'
+                    : 'var(--text-muted)',
+              }}
             >
               {bestTradePnl !== null ? formatUSD(bestTradePnl) : '—'}
             </div>
+            <div
+              style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Single trade peak
+            </div>
           </div>
 
-          {/* 4. WITH NOTES / REVENGE GUARD */}
-          <div className="sm:pl-6">
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-              WITH NOTES / REVENGE GUARD
-            </span>
-            <div className="mt-1.5 flex items-center flex-wrap gap-2">
-              <span className="text-2xl font-bold font-mono text-[#F8FAFC] tracking-tight">
-                {tradesWithNotesCount}{' '}
-                <span className="text-base font-sans font-semibold text-[#94A3B8]">
-                  {tradesWithNotesCount === 1 ? 'trade' : 'trades'}
-                </span>
+          {/* 4. TRADES + Clean / Revenge Pills */}
+          <div className="viper-metric-cell">
+            <div className="eyebrow-label">TRADES</div>
+            <div
+              className="metric-value"
+              style={{ marginTop: '8px', color: 'var(--text)' }}
+            >
+              {totalTrades}
+            </div>
+            <div
+              style={{
+                marginTop: '8px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span
+                className="tabular-nums"
+                style={{
+                  padding: '2px 10px',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  color: 'var(--green)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {cleanTradesCount} Clean
               </span>
-              {totalTrades > 0 && (
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+              <span
+                className="tabular-nums"
+                style={{
+                  padding: '2px 10px',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  backgroundColor:
                     revengeFlaggedCount > 0
-                      ? 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30'
-                      : 'bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30'
-                  }`}
-                >
-                  {revengeFlaggedCount > 0
-                    ? `${cleanTradesCount} Clean • 🚨 ${revengeFlaggedCount} <15m Revenge`
-                    : `${cleanTradesCount} Clean`}
-                </span>
-              )}
+                      ? 'rgba(239, 68, 68, 0.15)'
+                      : 'rgba(148, 163, 184, 0.1)',
+                  color:
+                    revengeFlaggedCount > 0
+                      ? 'var(--red)'
+                      : 'var(--text-muted)',
+                  border:
+                    revengeFlaggedCount > 0
+                      ? '1px solid rgba(239, 68, 68, 0.38)'
+                      : '1px solid var(--border)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {revengeFlaggedCount} &lt;15m Revenge
+              </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* E. TRADE LOG TABLE / EMPTY STATE */}
-      <section className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 shadow-lg">
+      {/* §6. TRADE LOG TABLE / EMPTY STATE CARD */}
+      <section className="viper-card">
         {trades.length === 0 ? (
-          /* EMPTY STATE (Matches Screenshot 4) */
-          <div className="py-14 flex flex-col items-center justify-center text-center max-w-md mx-auto">
-            <div className="w-14 h-14 rounded-2xl bg-[#10B981]/15 border border-[#10B981]/30 flex items-center justify-center text-[#10B981] mb-5">
+          /* Empty State (§6) */
+          <div
+            style={{
+              padding: '48px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              maxWidth: '460px',
+              margin: '0 auto',
+            }}
+          >
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '16px',
+                backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                border: '1px solid rgba(16, 185, 129, 0.32)',
+                color: 'var(--green)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '16px',
+              }}
+            >
               <CalendarIcon size={26} />
             </div>
-            <h3 className="text-xl font-bold text-[#F8FAFC] tracking-tight">
+            <h3 className="card-title" style={{ margin: 0 }}>
               Your trade log is ready
             </h3>
-            <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
+            <p
+              style={{
+                marginTop: '8px',
+                marginBottom: 0,
+                fontSize: '15px',
+                color: 'var(--text-muted)',
+              }}
+            >
               Once you log a trade, this is where you&apos;ll review the
               decision, context and result.
             </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <div
+              style={{
+                marginTop: '24px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+              }}
+            >
               <button
                 type="button"
                 onClick={onOpenLogModal}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[#0A0D12] bg-[#10B981] hover:bg-emerald-400 transition-all cursor-pointer"
+                className="cursor-pointer transition-opacity hover:opacity-90"
+                style={{
+                  height: '40px',
+                  padding: '0 18px',
+                  borderRadius: 'var(--radius-control)',
+                  backgroundColor: 'var(--green)',
+                  border: 'none',
+                  color: '#0A0D12',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
               >
                 <Plus size={16} strokeWidth={2.5} />
                 <span>Log a trade</span>
@@ -286,57 +521,181 @@ export default function DashboardView({
               <button
                 type="button"
                 onClick={() => loadSampleNinjaTraderCsv()}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#F8FAFC] bg-[#0A0D12] hover:bg-slate-800/80 border border-slate-800 transition-colors cursor-pointer"
+                className="cursor-pointer transition-colors hover:bg-slate-800/50"
+                style={{
+                  height: '40px',
+                  padding: '0 16px',
+                  borderRadius: 'var(--radius-control)',
+                  backgroundColor: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
               >
-                <Sparkles size={15} className="text-[#10B981]" />
-                <span>Load Orders.csv Sample</span>
+                <Sparkles size={15} style={{ color: 'var(--green)' }} />
+                <span>Load Sample Orders.csv</span>
               </button>
             </div>
           </div>
         ) : (
-          /* POPULATED TRADE LOG TABLE */
-          <div className="space-y-5">
-            {/* Search & Count Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="relative flex-1 max-w-md">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Top Search Bar (44px high) + Result Count on the Right */}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+              }}
+            >
+              <div
+                style={{
+                  position: 'relative',
+                  flex: '1 1 320px',
+                  maxWidth: '560px',
+                  minWidth: 0,
+                }}
+              >
                 <Search
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                  style={{
+                    position: 'absolute',
+                    left: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-dim)',
+                    pointerEvents: 'none',
+                  }}
                 />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by contract, liquidity window, emotion, tag or notes..."
-                  className="w-full bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#F8FAFC] placeholder-[#94A3B8]/60 outline-none transition-colors"
+                  className="viper-input"
+                  style={{
+                    height: '44px',
+                    paddingLeft: '40px',
+                    paddingRight: '16px',
+                  }}
                 />
               </div>
-              <div className="text-xs font-medium text-[#94A3B8]">
+
+              <div
+                className="tabular-nums"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 Showing{' '}
-                <strong className="text-[#F8FAFC] font-mono">
+                <strong style={{ color: 'var(--text)', fontWeight: 600 }}>
                   {searchedTrades.length}
                 </strong>{' '}
-                {searchedTrades.length === 1 ? 'execution' : 'executions'} in
-                12-Hour EST
+                {searchedTrades.length === 1 ? 'execution' : 'executions'} •
+                12-hour EST
               </div>
             </div>
 
-            {/* Spacious Dark Table */}
-            <div className="overflow-x-auto rounded-2xl border border-slate-800/80 bg-[#0A0D12]/60">
-              <table className="w-full text-left border-collapse">
+            {/* DESKTOP & TABLET TABLE (≥768px): fixed layout with exact column percentages */}
+            <div
+              className="hidden md:block"
+              style={{
+                width: '100%',
+                overflowX: 'auto',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface-2)',
+              }}
+            >
+              <table
+                className="w-full min-w-[1100px] xl:min-w-0"
+                style={{
+                  width: '100%',
+                  tableLayout: 'fixed',
+                  borderCollapse: 'collapse',
+                  textAlign: 'left',
+                }}
+              >
+                <colgroup>
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '19%' }} />
+                  <col style={{ width: '8%' }} />
+                </colgroup>
                 <thead>
-                  <tr className="border-b border-slate-800/80 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-                    <th className="py-3.5 px-4">Date &amp; Time (EST)</th>
-                    <th className="py-3.5 px-4">Liquidity Window</th>
-                    <th className="py-3.5 px-4">Contract</th>
-                    <th className="py-3.5 px-4">Direction &amp; Lots</th>
-                    <th className="py-3.5 px-4">Entry → Exit</th>
-                    <th className="py-3.5 px-4 text-right">Net P&amp;L</th>
-                    <th className="py-3.5 px-4">Execution Grade &amp; Tags</th>
-                    <th className="py-3.5 px-4 text-right">Actions</th>
+                  <tr
+                    style={{
+                      borderBottom: '1px solid var(--border)',
+                      backgroundColor: 'var(--surface)',
+                    }}
+                  >
+                    <th
+                      className="eyebrow-label"
+                      style={{
+                        padding: '14px 16px',
+                        position: 'sticky',
+                        top: 0,
+                      }}
+                    >
+                      Date &amp; Time
+                    </th>
+                    <th
+                      className="eyebrow-label"
+                      style={{ padding: '14px 16px' }}
+                    >
+                      Liquidity Window
+                    </th>
+                    <th
+                      className="eyebrow-label"
+                      style={{ padding: '14px 16px' }}
+                    >
+                      Contract
+                    </th>
+                    <th
+                      className="eyebrow-label"
+                      style={{ padding: '14px 16px' }}
+                    >
+                      Direction &amp; Lots
+                    </th>
+                    <th
+                      className="eyebrow-label"
+                      style={{ padding: '14px 16px' }}
+                    >
+                      Entry → Exit
+                    </th>
+                    <th
+                      className="eyebrow-label"
+                      style={{ padding: '14px 16px', textAlign: 'right' }}
+                    >
+                      Net P&amp;L
+                    </th>
+                    <th
+                      className="eyebrow-label"
+                      style={{ padding: '14px 16px' }}
+                    >
+                      Execution Grade &amp; Tags
+                    </th>
+                    <th
+                      className="eyebrow-label"
+                      style={{ padding: '14px 16px', textAlign: 'right' }}
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 text-[14px]">
+                <tbody>
                   {searchedTrades.map((trade) => {
                     const isPositive = Number(trade.netPnl) > 0;
                     const isNegative = Number(trade.netPnl) < 0;
@@ -345,100 +704,237 @@ export default function DashboardView({
                     return (
                       <tr
                         key={trade.id}
-                        className="hover:bg-slate-800/40 transition-colors group"
+                        className="transition-colors hover:bg-slate-800/35"
+                        style={{
+                          borderBottom: '1px solid var(--border)',
+                          minHeight: '64px',
+                        }}
                       >
-                        {/* Date & Time (12-Hour EST with AM/PM) */}
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <div className="font-mono font-semibold text-[#F8FAFC] text-sm">
+                        {/* 1. Date & Time (16%) */}
+                        <td
+                          className="tabular-nums"
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                            fontSize: '14px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              color: 'var(--text)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             {trade.formattedDateEST} EST
                           </div>
-                          <div className="text-xs font-mono text-[#94A3B8] mt-0.5">
+                          <div
+                            style={{
+                              marginTop: '4px',
+                              fontSize: '12px',
+                              color: 'var(--text-muted)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             Exit: {trade.exitTimeEST} • {trade.timeCT}
                           </div>
                         </td>
 
-                        {/* Liquidity Window Badge */}
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <LiquidityWindowPill
+                        {/* 2. Liquidity Window (14%) */}
+                        <td
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <LiquidityWindowBadge
                             sessionWindow={trade.sessionWindow}
                             time={trade.time}
                           />
                         </td>
 
-                        {/* Contract */}
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#121721] text-[#F8FAFC] border border-slate-700/80">
+                        {/* 3. Contract (8%) */}
+                        <td
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <span
+                            className="tabular-nums"
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              backgroundColor: 'var(--surface)',
+                              color: 'var(--text)',
+                              border: '1px solid var(--border)',
+                            }}
+                          >
                             {trade.contract || 'MGCZ6'}
                           </span>
                         </td>
 
-                        {/* Direction & Lots */}
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <div className="inline-flex items-center gap-2">
+                        {/* 4. Direction & Lots (11%) */}
+                        <td
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              gap: '6px',
+                            }}
+                          >
                             <span
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide ${
-                                trade.direction === 'Long'
-                                  ? 'bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30'
-                                  : 'bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30'
-                              }`}
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                backgroundColor:
+                                  trade.direction === 'Long'
+                                    ? 'rgba(16, 185, 129, 0.15)'
+                                    : 'rgba(239, 68, 68, 0.15)',
+                                color:
+                                  trade.direction === 'Long'
+                                    ? 'var(--green)'
+                                    : 'var(--red)',
+                                border:
+                                  trade.direction === 'Long'
+                                    ? '1px solid rgba(16, 185, 129, 0.38)'
+                                    : '1px solid rgba(239, 68, 68, 0.38)',
+                              }}
                             >
                               {trade.direction}
                             </span>
-                            <span className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-[#121721] text-[#F8FAFC] border border-slate-800">
+                            <span
+                              className="tabular-nums"
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                backgroundColor: 'var(--surface)',
+                                color: 'var(--text)',
+                                border: '1px solid var(--border)',
+                              }}
+                            >
                               {trade.quantity || 1}x
                             </span>
                           </div>
                         </td>
 
-                        {/* Entry -> Exit Price */}
-                        <td className="py-4 px-4 whitespace-nowrap font-mono text-sm text-[#F8FAFC]">
-                          <span>
-                            {Number(trade.entryPrice || 0).toFixed(2)}
+                        {/* 5. Entry -> Exit (14%) */}
+                        <td
+                          className="tabular-nums"
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            color: 'var(--text)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <span>{Number(trade.entryPrice || 0).toFixed(2)}</span>
+                          <span
+                            style={{
+                              color: 'var(--text-dim)',
+                              margin: '0 6px',
+                            }}
+                          >
+                            →
                           </span>
-                          <span className="text-[#94A3B8] mx-1.5">→</span>
                           <span>{Number(trade.exitPrice || 0).toFixed(2)}</span>
                         </td>
 
-                        {/* Net P&L ($) */}
-                        <td className="py-4 px-4 whitespace-nowrap text-right">
-                          <span
-                            className={`font-mono text-base font-bold ${
-                              isPositive
-                                ? 'text-[#10B981]'
-                                : isNegative
-                                ? 'text-[#EF4444]'
-                                : 'text-[#94A3B8]'
-                            }`}
-                          >
-                            {formatUSD(trade.netPnl)}
-                          </span>
+                        {/* 6. Net P&L (10%) */}
+                        <td
+                          className="tabular-nums"
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                            textAlign: 'right',
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            color: isPositive
+                              ? 'var(--green)'
+                              : isNegative
+                              ? 'var(--red)'
+                              : 'var(--text-muted)',
+                          }}
+                        >
+                          {formatUSD(trade.netPnl)}
                         </td>
 
-                        {/* Execution Grade & Tags */}
-                        <td className="py-4 px-4">
-                          <div className="flex flex-wrap items-center gap-1.5 max-w-xs">
-                            {/* Star Rating (1-5★) */}
-                            {stars > 0 && (
-                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-[#121721] border border-slate-800 text-xs font-mono font-semibold text-[#10B981]">
-                                {Array.from({ length: stars }).map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    size={11}
-                                    className="text-[#10B981] fill-[#10B981]"
-                                  />
-                                ))}
-                              </span>
-                            )}
+                        {/* 7. Execution Grade & Tags (19% - wraps naturally, never cut off) */}
+                        <td
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                            minWidth: 0,
+                          }}
+                        >
+                          {/* Line 1: Stars */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              marginBottom: '6px',
+                            }}
+                          >
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                size={13}
+                                style={{
+                                  color:
+                                    s <= stars
+                                      ? 'var(--green)'
+                                      : 'rgba(148, 163, 184, 0.25)',
+                                  fill:
+                                    s <= stars ? 'var(--green)' : 'transparent',
+                                }}
+                              />
+                            ))}
+                          </div>
 
-                            {/* Automatic 15-Minute Revenge Guard Badge */}
+                          {/* Line 2: Emotion pills + Revenge badge wrapping cleanly */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
                             {trade.isRevengeTrade && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/35">
-                                <AlertTriangle size={11} />
-                                <span>🚨 Revenge (&lt;15m gap)</span>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '2px 8px',
+                                  borderRadius: 'var(--radius-pill)',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                  color: 'var(--red)',
+                                  border: '1px solid rgba(239, 68, 68, 0.38)',
+                                }}
+                              >
+                                🚨 Revenge (&lt;15m gap)
                               </span>
                             )}
 
-                            {/* Feeling Emoji Pills */}
                             {(trade.feelings || []).map((fId) => {
                               const fMeta = FEELING_OPTIONS.find(
                                 (item) => item.id === fId
@@ -448,18 +944,27 @@ export default function DashboardView({
                               return (
                                 <span
                                   key={fId}
-                                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                    isRevengeFeeling
-                                      ? 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30'
-                                      : 'bg-[#121721] text-[#F8FAFC] border-slate-800'
-                                  }`}
+                                  style={{
+                                    padding: '2px 8px',
+                                    borderRadius: 'var(--radius-pill)',
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                    backgroundColor: isRevengeFeeling
+                                      ? 'rgba(239, 68, 68, 0.15)'
+                                      : 'var(--surface)',
+                                    color: isRevengeFeeling
+                                      ? 'var(--red)'
+                                      : 'var(--text)',
+                                    border: isRevengeFeeling
+                                      ? '1px solid rgba(239, 68, 68, 0.38)'
+                                      : '1px solid var(--border)',
+                                  }}
                                 >
                                   {label}
                                 </span>
                               );
                             })}
 
-                            {/* Market Condition Pills */}
                             {(trade.marketConditions || []).map((mcId) => {
                               const mcMeta = MARKET_CONDITION_OPTIONS.find(
                                 (item) => item.id === mcId
@@ -467,40 +972,72 @@ export default function DashboardView({
                               return (
                                 <span
                                   key={mcId}
-                                  className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#121721] text-[#94A3B8] border border-slate-800"
+                                  style={{
+                                    padding: '2px 8px',
+                                    borderRadius: 'var(--radius-pill)',
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                    backgroundColor: 'var(--surface)',
+                                    color: 'var(--text-muted)',
+                                    border: '1px solid var(--border)',
+                                  }}
                                 >
                                   {mcMeta ? mcMeta.label : mcId}
                                 </span>
                               );
                             })}
 
-                            {/* Custom Tags */}
                             {(trade.customTags || []).map((tag) => (
                               <span
                                 key={tag}
-                                className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25"
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 'var(--radius-pill)',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                  color: 'var(--green)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                }}
                               >
                                 #{tag}
                               </span>
                             ))}
                           </div>
-                          {trade.notes && (
-                            <p className="text-xs text-[#94A3B8] mt-1.5 line-clamp-1 max-w-md">
-                              {trade.notes}
-                            </p>
-                          )}
                         </td>
 
-                        {/* Actions: Edit / Delete / View Chart */}
-                        <td className="py-4 px-4 whitespace-nowrap text-right">
-                          <div className="inline-flex items-center justify-end gap-1.5">
+                        {/* 8. Actions (8% - 32px icon buttons aligned right) */}
+                        <td
+                          style={{
+                            padding: '16px',
+                            verticalAlign: 'middle',
+                            textAlign: 'right',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              gap: '4px',
+                            }}
+                          >
                             {trade.chartUrl && (
                               <a
                                 href={trade.chartUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-2 rounded-xl text-[#94A3B8] hover:text-[#10B981] hover:bg-slate-800/70 transition-colors"
-                                title="Open Chart URL"
+                                title="View Chart"
+                                className="hover:bg-slate-800/70 transition-colors"
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '8px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--text-muted)',
+                                }}
                               >
                                 <ExternalLink size={15} />
                               </a>
@@ -508,16 +1045,38 @@ export default function DashboardView({
                             <button
                               type="button"
                               onClick={() => onEditTrade(trade)}
-                              className="p-2 rounded-xl text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800/70 transition-colors cursor-pointer"
                               title="Edit trade"
+                              className="cursor-pointer hover:bg-slate-800/70 transition-colors"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--text-muted)',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                              }}
                             >
                               <Edit2 size={15} />
                             </button>
                             <button
                               type="button"
                               onClick={() => deleteTrade(trade.id)}
-                              className="p-2 rounded-xl text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
                               title="Delete trade"
+                              className="cursor-pointer hover:bg-red-500/15 transition-colors"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--text-muted)',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                              }}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -528,6 +1087,228 @@ export default function DashboardView({
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* MOBILE STACKED TRADE CARDS (<768px, §8) */}
+            <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {searchedTrades.map((trade) => {
+                const isPositive = Number(trade.netPnl) > 0;
+                const isNegative = Number(trade.netPnl) < 0;
+                const stars = Number(trade.executionGrade) || 0;
+
+                return (
+                  <div
+                    key={trade.id}
+                    style={{
+                      backgroundColor: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    {/* Top: Date + Net P&L */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                      }}
+                    >
+                      <div className="tabular-nums">
+                        <div
+                          style={{
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: 'var(--text)',
+                          }}
+                        >
+                          {trade.formattedDateEST} EST
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--text-muted)',
+                            marginTop: '2px',
+                          }}
+                        >
+                          Exit: {trade.exitTimeEST} • {trade.timeCT}
+                        </div>
+                      </div>
+
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '16px',
+                          fontWeight: 700,
+                          color: isPositive
+                            ? 'var(--green)'
+                            : isNegative
+                            ? 'var(--red)'
+                            : 'var(--text-muted)',
+                        }}
+                      >
+                        {formatUSD(trade.netPnl)}
+                      </div>
+                    </div>
+
+                    {/* Middle: Contract, Direction, Lots, Window, Prices */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <span
+                        className="tabular-nums"
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          backgroundColor: 'var(--surface)',
+                          color: 'var(--text)',
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        {trade.contract || 'MGCZ6'}
+                      </span>
+                      <span
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          backgroundColor:
+                            trade.direction === 'Long'
+                              ? 'rgba(16, 185, 129, 0.15)'
+                              : 'rgba(239, 68, 68, 0.15)',
+                          color:
+                            trade.direction === 'Long'
+                              ? 'var(--green)'
+                              : 'var(--red)',
+                          border:
+                            trade.direction === 'Long'
+                              ? '1px solid rgba(16, 185, 129, 0.38)'
+                              : '1px solid rgba(239, 68, 68, 0.38)',
+                        }}
+                      >
+                        {trade.direction} {trade.quantity || 1}x
+                      </span>
+                      <LiquidityWindowBadge
+                        sessionWindow={trade.sessionWindow}
+                        time={trade.time}
+                      />
+                      <span
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '13px',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        {Number(trade.entryPrice || 0).toFixed(2)} →{' '}
+                        {Number(trade.exitPrice || 0).toFixed(2)}
+                      </span>
+                    </div>
+
+                    {/* Bottom: Stars + Tags + Actions */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid var(--border)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', gap: '2px' }}>
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              size={12}
+                              style={{
+                                color:
+                                  s <= stars
+                                    ? 'var(--green)'
+                                    : 'rgba(148, 163, 184, 0.25)',
+                                fill:
+                                  s <= stars ? 'var(--green)' : 'transparent',
+                              }}
+                            />
+                          ))}
+                        </div>
+                        {trade.isRevengeTrade && (
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: 'var(--radius-pill)',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                              color: 'var(--red)',
+                              border: '1px solid rgba(239, 68, 68, 0.38)',
+                            }}
+                          >
+                            🚨 Revenge (&lt;15m gap)
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'inline-flex', gap: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => onEditTrade(trade)}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--text-muted)',
+                            backgroundColor: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                          }}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteTrade(trade.id)}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--red)',
+                            backgroundColor: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

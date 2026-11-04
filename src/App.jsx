@@ -9,7 +9,6 @@ import {
   Award,
   Plus,
   User,
-  Sparkles,
   BookOpen,
   Clock,
 } from 'lucide-react';
@@ -43,16 +42,13 @@ export default function App() {
 
   // Filter trades by Time Range + Liquidity Window
   const filteredTrades = useMemo(() => {
-    // Reference anchor date from latest trade or Nov 4, 2026
     const refMs = Date.UTC(2026, 10, 4, 23, 59, 59);
 
     return trades.filter((t) => {
-      // Session Window filter
       if (windowFilter !== 'All' && t.sessionWindow !== windowFilter) {
         return false;
       }
 
-      // Time range filter
       if (timeRange !== 'all' && t.date) {
         const parts = String(t.date).split('-').map(Number);
         if (parts.length === 3 && !Number.isNaN(parts[0])) {
@@ -112,187 +108,415 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#0A0D12] text-[#F8FAFC] flex flex-col">
-      {/* A. TOP MINIMAL HEADER (No Calculator link) */}
-      <header className="w-full border-b border-slate-800/70 bg-[#0A0D12]/90 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-[1150px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Left: Brand icon + Viper Trading Journal title */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#10B981]/15 border border-[#10B981]/30 flex items-center justify-center text-[#10B981] shadow-xs">
-              <BookOpen size={18} />
+    <div
+      style={{
+        minHeight: '100vh',
+        width: '100%',
+        backgroundColor: 'var(--bg)',
+        color: 'var(--text)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* §4. HEADER (sticky, 64px, backdrop blur, full width with page padding) */}
+      <header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          height: '64px',
+          width: '100%',
+          backgroundColor: 'rgba(10, 13, 18, 0.85)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <div
+          className="viper-shell-padding"
+          style={{ height: '100%' }}
+        >
+          <div
+            className="viper-container"
+            style={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+            }}
+          >
+            {/* Left: Logo icon + Viper Trading Journal */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--green)',
+                  flexShrink: 0,
+                }}
+              >
+                <BookOpen size={18} />
+              </div>
+              <span
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Viper Trading Journal
+              </span>
             </div>
-            <span className="text-base font-bold tracking-tight text-[#F8FAFC]">
-              Viper Trading Journal
-            </span>
-          </div>
 
-          {/* Right: User profile badge */}
-          <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#121721] border border-slate-800/80 text-sm font-medium text-[#F8FAFC]">
-            <div className="w-6 h-6 rounded-full bg-[#10B981]/20 border border-[#10B981]/40 flex items-center justify-center text-[#10B981]">
-              <User size={13} />
+            {/* Right: User badge */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '36px',
+                padding: '0 14px',
+                borderRadius: '999px',
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: 'var(--text)',
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '999px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.18)',
+                  color: 'var(--green)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <User size={13} />
+              </div>
+              <span>Trader</span>
             </div>
-            <span>Trader</span>
           </div>
         </div>
       </header>
 
-      {/* MAIN CENTERED WORKSPACE CONTAINER (Max-Width 1150px) */}
-      <main className="w-full max-w-[1150px] mx-auto px-4 sm:px-6 py-7 space-y-5 flex-1">
-        {/* B. HERO BANNER CARD ("TRADING WORKSPACE") */}
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-950/40 via-[#121721] to-[#121721] border border-slate-800/70 p-6 sm:p-8 shadow-lg">
-          {/* Subtle radial emerald ambient glow on the right */}
-          <div className="pointer-events-none absolute -right-20 -top-20 w-80 h-80 rounded-full bg-[#10B981]/10 blur-3xl" />
-
-          <div className="relative flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="max-w-xl">
-              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#10B981]">
-                <Sparkles size={13} />
-                <span>TRADING WORKSPACE</span>
+      {/* §3. MAIN WORKSPACE SHELL (full width with clamp(16px, 2.5vw, 40px) side padding, vertical stack gap 24px) */}
+      <main
+        className="viper-shell-padding"
+        style={{
+          flex: 1,
+          paddingTop: '24px',
+          paddingBottom: '48px',
+        }}
+      >
+        <div
+          className="viper-container"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+          }}
+        >
+          {/* §4. HERO CARD */}
+          <section className="viper-hero-card">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div style={{ minWidth: 0, maxWidth: '680px' }}>
+                <div className="eyebrow-green">✨ TRADING WORKSPACE</div>
+                <h1
+                  className="hero-title"
+                  style={{ marginTop: '12px', marginBottom: 0 }}
+                >
+                  <span>Trade with clarity. </span>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    Review with intention.
+                  </span>
+                </h1>
+                <p
+                  style={{
+                    marginTop: '12px',
+                    marginBottom: 0,
+                    maxWidth: '560px',
+                    fontSize: '15px',
+                    lineHeight: 1.5,
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  A calmer place to record your decisions, understand your
+                  patterns and build consistency one trade at a time.
+                </p>
               </div>
 
-              <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-                <span className="block text-[#F8FAFC]">
-                  Trade with clarity.
-                </span>
-                <span className="block text-[#94A3B8] mt-0.5">
-                  Review with intention.
-                </span>
-              </h1>
-
-              <p className="mt-3.5 text-sm sm:text-[15px] text-[#94A3B8] leading-relaxed">
-                A calmer place to record your decisions, understand your
-                patterns and build consistency one trade at a time.
-              </p>
+              <div className="w-full md:w-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={handleOpenNewTrade}
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 cursor-pointer transition-opacity hover:opacity-90"
+                  style={{
+                    height: '44px',
+                    padding: '0 20px',
+                    borderRadius: 'var(--radius-control)',
+                    backgroundColor: 'var(--green)',
+                    color: '#0A0D12',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    border: 'none',
+                  }}
+                >
+                  <Plus size={18} strokeWidth={2.5} />
+                  <span>Log a trade</span>
+                </button>
+              </div>
             </div>
+          </section>
 
-            {/* Right-aligned Primary CTA Button */}
-            <div className="shrink-0">
-              <button
-                type="button"
-                onClick={handleOpenNewTrade}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-[#0A0D12] bg-[#10B981] hover:bg-emerald-400 shadow-md transition-all cursor-pointer"
+          {/* §4. NAV CARD — TWO CLEAN ROWS, NO OVERFLOW */}
+          <section
+            className="viper-card"
+            style={{ padding: '20px 28px' }}
+          >
+            {/* Row 1: Left = 7 Navigation Tabs | Right = Range Filter Pills */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+                minWidth: 0,
+              }}
+            >
+              {/* Left: Tabs (never shrink or clip) */}
+              <div
+                className="no-scrollbar"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  overflowX: 'auto',
+                  maxWidth: '100%',
+                  minWidth: 0,
+                }}
               >
-                <Plus size={17} strokeWidth={2.5} />
-                <span>Log a trade</span>
-              </button>
-            </div>
-          </div>
-        </section>
+                {navTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      style={{
+                        height: '40px',
+                        padding: '0 16px',
+                        borderRadius: 'var(--radius-pill)',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        backgroundColor: isActive ? '#1E293B' : 'transparent',
+                        color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                        border: isActive
+                          ? '1px solid rgba(148, 163, 184, 0.22)'
+                          : '1px solid transparent',
+                      }}
+                    >
+                      <Icon
+                        size={15}
+                        style={{
+                          color: isActive
+                            ? 'var(--green)'
+                            : 'var(--text-muted)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span>{tab.label}</span>
+                      {tab.badge !== undefined && (
+                        <span
+                          className="tabular-nums"
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            backgroundColor: isActive
+                              ? 'rgba(16, 185, 129, 0.2)'
+                              : 'rgba(148, 163, 184, 0.12)',
+                            color: isActive
+                              ? 'var(--green)'
+                              : 'var(--text-muted)',
+                          }}
+                        >
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-        {/* C. HORIZONTAL NAVIGATION & FILTER BAR */}
-        <section className="bg-[#121721] rounded-2xl border border-slate-800/70 p-3.5 sm:px-5 sm:py-3.5 shadow-md space-y-3">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            {/* Left: Pill-style navigation tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
-              {navTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-[#0A0D12] text-[#F8FAFC] border border-slate-700/80 shadow-xs'
-                        : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800/50 border border-transparent'
-                    }`}
-                  >
-                    <Icon
-                      size={15}
-                      className={
-                        isActive ? 'text-[#10B981]' : 'text-[#94A3B8]'
-                      }
-                    />
-                    <span>{tab.label}</span>
-                    {tab.badge !== undefined && (
-                      <span
-                        className={`px-1.5 py-0.2 rounded-full text-[11px] font-mono font-bold ${
-                          isActive
-                            ? 'bg-[#10B981]/20 text-[#10B981]'
-                            : 'bg-slate-800 text-[#94A3B8]'
-                        }`}
-                      >
-                        {tab.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {/* Right: "Range" label + Time Range Pills */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  flexShrink: 0,
+                }}
+              >
+                <span
+                  className="eyebrow-label"
+                  style={{ marginRight: '4px' }}
+                >
+                  Range
+                </span>
+                {timeRangeOptions.map((tr) => {
+                  const isActive = timeRange === tr.id;
+                  return (
+                    <button
+                      key={tr.id}
+                      type="button"
+                      onClick={() => setTimeRange(tr.id)}
+                      style={{
+                        height: '36px',
+                        padding: '0 14px',
+                        borderRadius: 'var(--radius-pill)',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        backgroundColor: isActive
+                          ? 'rgba(16, 185, 129, 0.15)'
+                          : 'var(--surface-2)',
+                        color: isActive ? 'var(--green)' : 'var(--text-muted)',
+                        border: isActive
+                          ? '1px solid rgba(16, 185, 129, 0.4)'
+                          : '1px solid var(--border)',
+                      }}
+                    >
+                      {tr.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Right: Time Range Pills */}
-            <div className="flex items-center gap-1.5 self-end lg:self-auto shrink-0">
-              <span className="text-xs font-medium text-[#94A3B8] mr-1">
-                View
-              </span>
-              {timeRangeOptions.map((tr) => {
-                const active = timeRange === tr.id;
-                return (
-                  <button
-                    key={tr.id}
-                    type="button"
-                    onClick={() => setTimeRange(tr.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                      active
-                        ? 'bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40'
-                        : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-                    }`}
-                  >
-                    {tr.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+            {/* Row 2: Separated by 1px border-top, padding-top 16px */}
+            <div
+              style={{
+                borderTop: '1px solid var(--border)',
+                paddingTop: '16px',
+                marginTop: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <Clock size={14} style={{ color: 'var(--green)' }} />
+                <span>Session liquidity window (EST)</span>
+              </div>
 
-          {/* Session Window Filter Pills (Retained from core strategy) */}
-          <div className="pt-2.5 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-[#94A3B8]">
-              <Clock size={13} className="text-[#10B981]" />
-              <span>Session Liquidity Window (EST):</span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                {windowFilterOptions.map((w) => {
+                  const isActive = windowFilter === w.id;
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => setWindowFilter(w.id)}
+                      style={{
+                        height: '36px',
+                        padding: '0 14px',
+                        borderRadius: 'var(--radius-pill)',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        backgroundColor: isActive
+                          ? 'rgba(16, 185, 129, 0.15)'
+                          : 'var(--surface-2)',
+                        color: isActive ? 'var(--green)' : 'var(--text-muted)',
+                        border: isActive
+                          ? '1px solid rgba(16, 185, 129, 0.4)'
+                          : '1px solid var(--border)',
+                      }}
+                    >
+                      {w.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {windowFilterOptions.map((w) => {
-                const active = windowFilter === w.id;
-                return (
-                  <button
-                    key={w.id}
-                    type="button"
-                    onClick={() => setWindowFilter(w.id)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                      active
-                        ? 'bg-[#10B981] text-[#0A0D12] shadow-xs'
-                        : 'bg-[#0A0D12] text-[#94A3B8] hover:text-[#F8FAFC] border border-slate-800/80'
-                    }`}
-                  >
-                    {w.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+          </section>
 
-        {/* D & E. ACTIVE WORKSPACE VIEW */}
-        {activeTab === 'tradelog' ? (
-          <DashboardView
-            trades={filteredTrades}
-            onOpenLogModal={handleOpenNewTrade}
-            onOpenImportModal={() => setIsImportModalOpen(true)}
-            onEditTrade={handleEditTrade}
-          />
-        ) : (
-          <WorkspaceTabView
-            activeTab={activeTab}
-            trades={filteredTrades}
-            onOpenLogModal={handleOpenNewTrade}
-            onSwitchToTradeLog={() => setActiveTab('tradelog')}
-          />
-        )}
+          {/* §5 & §6. ACTIVE WORKSPACE CONTENT */}
+          {activeTab === 'tradelog' ? (
+            <DashboardView
+              trades={filteredTrades}
+              onOpenLogModal={handleOpenNewTrade}
+              onOpenImportModal={() => setIsImportModalOpen(true)}
+              onEditTrade={handleEditTrade}
+            />
+          ) : (
+            <WorkspaceTabView
+              activeTab={activeTab}
+              trades={filteredTrades}
+              onOpenLogModal={handleOpenNewTrade}
+              onSwitchToTradeLog={() => setActiveTab('tradelog')}
+            />
+          )}
+        </div>
       </main>
 
-      {/* LOG A TRADE MODAL (2-Part Expandable Design) */}
+      {/* §7. "LOG A TRADE" MODAL (880px wide, sticky header/footer, scrollable body) */}
       <TradeLogModal
         isOpen={isLogModalOpen}
         onClose={() => setIsLogModalOpen(false)}
