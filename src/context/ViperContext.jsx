@@ -1,8 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { DEFAULT_14_RULES } from '../constants/viperConstants';
+import {
+  DEFAULT_14_RULES,
+  DEFAULT_STRATEGIES,
+  CONTRACTS,
+} from '../constants/viperConstants';
 import { computeRuleCompliance, computeViperAnalytics } from '../utils/viperAnalytics';
 import {
   formatTime12hEST,
+  formatDateUS12hEST,
   shiftTimeStringHours,
   normalizeLiquidityWindow,
   parseNinjaTraderOrdersCsv,
@@ -13,8 +18,9 @@ import {
 const ViperContext = createContext(null);
 
 const STORAGE_KEYS = {
-  TRADES: 'viper_futures_trades_v6',
-  RULES: 'viper_14_rules_v6',
+  TRADES: 'viper_clean_workspace_trades_v1',
+  RULES: 'viper_clean_workspace_rules_v1',
+  STRATEGIES: 'viper_clean_workspace_strategies_v1',
 };
 
 function timeToMinutes(tStr) {
@@ -29,11 +35,10 @@ function timeToMinutes(tStr) {
 }
 
 /**
- * Re-evaluates consecutive trades on the same date for the 15-Minute Revenge Trading Rule,
- * ensures all timestamps are formatted in 12-hour EST (with CT reference), and normalizes
- * the Liquidity Window badge ("1–4 AM CT / 2–5 AM ET", "8–11 AM CT / 9–12 PM ET", "Outside Window").
+ * Enriches all trades with 12-hour EST formatting, Liquidity Window classification,
+ * and automatic 15-minute Revenge Guard detection.
  */
-function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
+function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 8) {
   const chronological = [...tradesList].sort((a, b) => {
     if (a.entryEpochMs && b.entryEpochMs) {
       return a.entryEpochMs - b.entryEpochMs;
@@ -50,15 +55,14 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
     const rawEntry24 = trade.time || '09:30';
     const rawExit24 = trade.exitTime24 || rawEntry24;
 
-    const timeEST = trade.timeEST || formatTime12hEST(rawEntry24, false, 'EST');
+    const timeEST = formatTime12hEST(rawEntry24, false, 'EST');
     const exitTimeEST =
       trade.exitTimeEST || formatTime12hEST(rawExit24, false, 'EST');
 
     const entryCT24 = shiftTimeStringHours(rawEntry24, -1);
     const exitCT24 = shiftTimeStringHours(rawExit24, -1);
-    const timeCT = trade.timeCT || formatTime12hEST(entryCT24, false, 'CT');
-    const exitTimeCT =
-      trade.exitTimeCT || formatTime12hEST(exitCT24, false, 'CT');
+    const timeCT = formatTime12hEST(entryCT24, false, 'CT');
+    const exitTimeCT = formatTime12hEST(exitCT24, false, 'CT');
 
     const sessionWindow = normalizeLiquidityWindow(
       trade.sessionWindow,
@@ -87,19 +91,59 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
       gapMins = null;
     }
 
-    const isRevengeTrade = gapMins !== null && gapMins >= 0 && gapMins < 15;
-    let leakTags = Array.isArray(trade.leakTags) ? [...trade.leakTags] : [];
+    const isRevengeByGap = gapMins !== null && gapMins >= 0 && gapMins < 15;
+    const feelings = Array.isArray(trade.feelings) ? [...trade.feelings] : [];
+    const isRevengeTrade =
+      isRevengeByGap ||
+      Boolean(trade.isRevengeTrade) ||
+      feelings.includes('Revenge');
 
+    if (isRevengeByGap && !feelings.includes('Revenge')) {
+      feelings.unshift('Revenge');
+    }
+
+    let leakTags = Array.isArray(trade.leakTags) ? [...trade.leakTags] : [];
     if (isRevengeTrade && !leakTags.includes(REVENGE_GAP_LABEL)) {
       leakTags = [REVENGE_GAP_LABEL, ...leakTags];
     }
+
+    const customTags = Array.isArray(trade.customTags)
+      ? [...trade.customTags]
+      : [];
+    const marketConditions = Array.isArray(trade.marketConditions)
+      ? [...trade.marketConditions]
+      : [];
+
+    const preTradeChecklist = trade.preTradeChecklist || {
+      inPlan: !isRevengeTrade,
+      waitedConfirmation: !isRevengeTrade,
+      withinRiskLimit: true,
+      rewardWorthRisk: true,
+    };
+
+    const selfGrading = trade.selfGrading || {
+      followPlan: isRevengeTrade ? 2 : 4,
+      entryTiming: isRevengeTrade ? 2 : 4,
+      exitManagement: Number(trade.netPnl) >= 0 ? 4 : 3,
+      positionSize: 4,
+      stayedCalm: isRevengeTrade ? 1 : 4,
+    };
+
+    const executionGrade =
+      trade.executionGrade !== undefined && trade.executionGrade !== null
+        ? Number(trade.executionGrade)
+        : isRevengeTrade
+        ? 2
+        : Number(trade.netPnl) > 0
+        ? 5
+        : 3;
 
     let rulesChecked = Array.isArray(trade.rulesChecked)
       ? [...trade.rulesChecked]
       : DEFAULT_14_RULES.map((r) => r.id);
 
-    if (isRevengeTrade && rulesChecked.includes('r14')) {
-      rulesChecked = rulesChecked.filter((id) => id !== 'r14');
+    if (isRevengeTrade && rulesChecked.includes('r3')) {
+      rulesChecked = rulesChecked.filter((id) => id !== 'r3');
     }
 
     const { score, grade } = computeRuleCompliance(
@@ -116,10 +160,17 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
       exitTimeEST,
       timeCT,
       exitTimeCT,
+      formattedDateEST: formatDateUS12hEST(trade.date, rawEntry24, false),
       sessionWindow,
       timeGapFromPrevMins: gapMins,
       isRevengeTrade,
       leakTags,
+      customTags,
+      feelings,
+      marketConditions,
+      preTradeChecklist,
+      selfGrading,
+      executionGrade,
       rulesChecked,
       complianceScore: score,
       complianceGrade: grade,
@@ -133,7 +184,7 @@ function enrichTradesWithESTAndCooldown(tradesList, totalRulesCount = 14) {
 
 function getDefaultParsedSeedTrades() {
   const parsed = parseNinjaTraderOrdersCsv(SAMPLE_NINJATRADER_ORDERS_CSV, {
-    utcToCtOffsetHours: -11.5, // IST (UTC+5:30) -> CT (UTC-6, -11.5h) and +1h to ET (UTC-5, -10.5h), so 19:45 -> 08:15 AM CT -> 09:15 AM EST
+    utcToCtOffsetHours: -11.5,
     includeCommissions: false,
   });
   return enrichTradesWithESTAndCooldown(parsed.trades, DEFAULT_14_RULES.length);
@@ -167,7 +218,14 @@ export function ViperProvider({ children }) {
     }
   });
 
-  const [lastSubmittedTrade, setLastSubmittedTrade] = useState(null);
+  const [strategies, setStrategies] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.STRATEGIES);
+      return saved ? JSON.parse(saved) : DEFAULT_STRATEGIES;
+    } catch {
+      return DEFAULT_STRATEGIES;
+    }
+  });
 
   useEffect(() => {
     try {
@@ -185,18 +243,43 @@ export function ViperProvider({ children }) {
     }
   }, [rules]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.STRATEGIES, JSON.stringify(strategies));
+    } catch (e) {
+      console.error('Failed to persist strategies:', e);
+    }
+  }, [strategies]);
+
   const analytics = useMemo(() => {
     return computeViperAnalytics(trades, rules);
   }, [trades, rules]);
 
   const addOrUpdateTrade = (tradePayload) => {
-    const gross = Number(tradePayload.grossPnl) || 0;
-    const comm = Number(tradePayload.commissions) || 0;
+    const qty = Math.max(1, Number(tradePayload.quantity) || 1);
+    const entryPrice = Number(tradePayload.entryPrice) || 0;
+    const exitPrice = Number(tradePayload.exitPrice) || 0;
+    const contractObj =
+      CONTRACTS.find((c) => c.id === tradePayload.contract) || CONTRACTS[0];
+    const multiplier = contractObj.multiplier || 10;
+
+    let computedGross = 0;
+    if (entryPrice > 0 && exitPrice > 0) {
+      const diff =
+        tradePayload.direction === 'Short'
+          ? entryPrice - exitPrice
+          : exitPrice - entryPrice;
+      computedGross = Math.round(diff * qty * multiplier * 100) / 100;
+    }
+
     const net =
-      tradePayload.netPnl !== '' && tradePayload.netPnl !== undefined
+      tradePayload.netPnl !== '' &&
+      tradePayload.netPnl !== undefined &&
+      tradePayload.netPnl !== null
         ? Number(tradePayload.netPnl)
-        : Math.round((gross - comm) * 100) / 100;
-    const risk = Number(tradePayload.initialRisk) || 0;
+        : computedGross;
+
+    const risk = Number(tradePayload.initialRisk) || qty * 50;
     const rMult =
       risk > 0
         ? Math.round((net / risk) * 100) / 100
@@ -211,22 +294,57 @@ export function ViperProvider({ children }) {
     const candidate = {
       ...tradePayload,
       id: tradePayload.id || `viper-${Date.now()}`,
-      quantity: Math.max(1, Number(tradePayload.quantity) || 1),
+      contract: tradePayload.contract || 'MGCZ6',
+      direction: tradePayload.direction || 'Long',
+      quantity: qty,
+      entryPrice,
+      exitPrice,
+      date: tradePayload.date || '2026-11-04',
       time: rawEntry24.slice(0, 5),
       exitTime24: rawExit24.slice(0, 5),
       timeEST: formatTime12hEST(rawEntry24, false, 'EST'),
       exitTimeEST: formatTime12hEST(rawExit24, false, 'EST'),
       timeCT: formatTime12hEST(entryCT24, false, 'CT'),
       exitTimeCT: formatTime12hEST(exitCT24, false, 'CT'),
+      formattedDateEST: formatDateUS12hEST(
+        tradePayload.date || '2026-11-04',
+        rawEntry24,
+        false
+      ),
       sessionWindow: normalizeLiquidityWindow(
         tradePayload.sessionWindow,
         rawEntry24
       ),
-      grossPnl: gross,
-      commissions: comm,
+      grossPnl: net,
+      commissions: 0,
       netPnl: net,
       initialRisk: risk,
       rMultiple: rMult,
+      customTags: Array.isArray(tradePayload.customTags)
+        ? tradePayload.customTags
+        : [],
+      feelings: Array.isArray(tradePayload.feelings)
+        ? tradePayload.feelings
+        : [],
+      marketConditions: Array.isArray(tradePayload.marketConditions)
+        ? tradePayload.marketConditions
+        : [],
+      preTradeChecklist: tradePayload.preTradeChecklist || {
+        inPlan: false,
+        waitedConfirmation: false,
+        withinRiskLimit: false,
+        rewardWorthRisk: false,
+      },
+      selfGrading: tradePayload.selfGrading || {
+        followPlan: 0,
+        entryTiming: 0,
+        exitManagement: 0,
+        positionSize: 0,
+        stayedCalm: 0,
+      },
+      executionGrade: Number(tradePayload.executionGrade) || 0,
+      notes: tradePayload.notes || '',
+      chartUrl: tradePayload.chartUrl || '',
       updatedAt: new Date().toISOString(),
     };
 
@@ -235,64 +353,74 @@ export function ViperProvider({ children }) {
       const nextList = exists
         ? prev.map((item) => (item.id === candidate.id ? candidate : item))
         : [candidate, ...prev];
-      const enrichedList = enrichTradesWithESTAndCooldown(
-        nextList,
-        rules.length
-      );
-      const savedTarget =
-        enrichedList.find((item) => item.id === candidate.id) || candidate;
-      setLastSubmittedTrade(savedTarget);
-      return enrichedList;
+      return enrichTradesWithESTAndCooldown(nextList, rules.length);
     });
 
     return candidate;
   };
 
-  const importNinjaTraderTrades = (importedTrades = [], options = {}) => {
-    if (!Array.isArray(importedTrades) || importedTrades.length === 0) return;
+  const importNinjaTraderCsv = (csvText, options = {}, replaceExisting = true) => {
+    const parsedResult = parseNinjaTraderOrdersCsv(csvText, options);
+    if (parsedResult.error || parsedResult.trades.length === 0) {
+      return parsedResult;
+    }
 
     setTrades((prev) => {
-      const baseList = options.replaceExisting ? [] : [...prev];
-      const existingIds = new Set(baseList.map((t) => t.id));
-      const newUnique = importedTrades.filter((t) => !existingIds.has(t.id));
-      const combined = [...newUnique, ...baseList];
-      const enriched = enrichTradesWithESTAndCooldown(combined, rules.length);
-      const flaggedOrLatest =
-        enriched.find((t) => t.isRevengeTrade) || enriched[0] || null;
-      if (flaggedOrLatest) {
-        setLastSubmittedTrade(flaggedOrLatest);
-      }
-      return enriched;
+      const combined = replaceExisting
+        ? parsedResult.trades
+        : [...parsedResult.trades, ...prev];
+      return enrichTradesWithESTAndCooldown(combined, rules.length);
+    });
+
+    return parsedResult;
+  };
+
+  const loadSampleNinjaTraderCsv = (options = {}) => {
+    return importNinjaTraderCsv(SAMPLE_NINJATRADER_ORDERS_CSV, options, true);
+  };
+
+  const deleteTrade = (id) => {
+    setTrades((prev) => {
+      const remaining = prev.filter((item) => item.id !== id);
+      return enrichTradesWithESTAndCooldown(remaining, rules.length);
     });
   };
 
   const clearAllTrades = () => {
     setTrades([]);
-    setLastSubmittedTrade(null);
   };
 
-  const deleteTrade = (id) => {
-    setTrades((prev) =>
-      enrichTradesWithESTAndCooldown(
-        prev.filter((t) => t.id !== id),
-        rules.length
-      )
-    );
-    if (lastSubmittedTrade?.id === id) {
-      setLastSubmittedTrade(null);
-    }
+  const addStrategy = (strategy) => {
+    setStrategies((prev) => [
+      ...prev,
+      { ...strategy, id: `strat-${Date.now()}` },
+    ]);
   };
 
-  const updateRuleLabel = (ruleId, newLabel) => {
+  const deleteStrategy = (id) => {
+    setStrategies((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const addRule = (label, category = 'Execution') => {
+    if (!label || !label.trim()) return;
+    setRules((prev) => [
+      ...prev,
+      {
+        id: `r-custom-${Date.now()}`,
+        number: prev.length + 1,
+        label: label.trim(),
+        category,
+        isCore: false,
+      },
+    ]);
+  };
+
+  const deleteRule = (id) => {
     setRules((prev) =>
-      prev.map((r) => (r.id === ruleId ? { ...r, label: newLabel } : r))
+      prev
+        .filter((r) => r.id !== id)
+        .map((r, index) => ({ ...r, number: index + 1 }))
     );
-  };
-
-  const resetDemoData = () => {
-    setTrades(getDefaultParsedSeedTrades());
-    setRules(DEFAULT_14_RULES);
-    setLastSubmittedTrade(null);
   };
 
   return (
@@ -301,15 +429,17 @@ export function ViperProvider({ children }) {
         trades,
         filteredTrades: trades,
         rules,
+        strategies,
         analytics,
-        lastSubmittedTrade,
-        setLastSubmittedTrade,
         addOrUpdateTrade,
-        importNinjaTraderTrades,
-        clearAllTrades,
+        importNinjaTraderCsv,
+        loadSampleNinjaTraderCsv,
         deleteTrade,
-        updateRuleLabel,
-        resetDemoData,
+        clearAllTrades,
+        addStrategy,
+        deleteStrategy,
+        addRule,
+        deleteRule,
       }}
     >
       {children}
@@ -319,6 +449,8 @@ export function ViperProvider({ children }) {
 
 export function useViper() {
   const ctx = useContext(ViperContext);
-  if (!ctx) throw new Error('useViper must be used inside ViperProvider');
+  if (!ctx) {
+    throw new Error('useViper must be used inside a ViperProvider');
+  }
   return ctx;
 }

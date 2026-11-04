@@ -1,108 +1,114 @@
 import React, { useState } from 'react';
 import {
-  Activity,
-  Edit2,
+  Calendar as CalendarIcon,
+  Upload,
+  Plus,
   Trash2,
+  Edit2,
   ExternalLink,
   Search,
-  ArrowUpRight,
+  Star,
   Clock,
+  AlertTriangle,
   Download,
+  Sparkles,
 } from 'lucide-react';
 import { useViper } from '../context/ViperContext';
 import { formatUSD } from '../utils/viperAnalytics';
-import { LIQUIDITY_WINDOWS } from '../constants/viperConstants';
 import {
-  formatTime12hEST,
-  normalizeLiquidityWindow,
-  REVENGE_GAP_LABEL,
+  LIQUIDITY_WINDOWS,
+  FEELING_OPTIONS,
+  MARKET_CONDITION_OPTIONS,
+} from '../constants/viperConstants';
+import {
+  formatLiquidityWindowESTLabel,
   exportTradingJournalCsv,
 } from '../utils/ninjaTraderCsvParser';
 
-export function LiquidityWindowBadge({ sessionWindow }) {
+export function LiquidityWindowPill({ sessionWindow, time }) {
+  const label = formatLiquidityWindowESTLabel(sessionWindow, time);
+
   if (sessionWindow === LIQUIDITY_WINDOWS.ASIAN_LONDON) {
     return (
-      <div className="inline-flex flex-col items-start">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
-          <Clock size={12} className="text-sky-400 shrink-0" />
-          <span>1–4 AM CT / 2–5 AM ET</span>
-        </span>
-        <span className="text-[11px] font-medium text-[#8A99AD] mt-0.5 pl-0.5">
-          Asian / Early London
-        </span>
-      </div>
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sky-500/15 text-sky-300 border border-sky-500/30 whitespace-nowrap">
+        <Clock size={12} className="text-sky-400 shrink-0" />
+        <span>{label}</span>
+      </span>
     );
   }
 
   if (sessionWindow === LIQUIDITY_WINDOWS.NY_OPEN) {
     return (
-      <div className="inline-flex flex-col items-start">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-          <Clock size={12} className="text-emerald-400 shrink-0" />
-          <span>8–11 AM CT / 9–12 PM ET</span>
-        </span>
-        <span className="text-[11px] font-medium text-[#8A99AD] mt-0.5 pl-0.5">
-          New York Opening Window
-        </span>
-      </div>
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 whitespace-nowrap">
+        <Clock size={12} className="text-[#10B981] shrink-0" />
+        <span>{label}</span>
+      </span>
     );
   }
 
   return (
-    <div className="inline-flex flex-col items-start">
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-slate-800/70 text-[#8A99AD] border border-slate-700/60">
-        <Clock size={12} className="text-[#8A99AD] shrink-0" />
-        <span>Outside Window</span>
-      </span>
-      <span className="text-[11px] font-medium text-[#8A99AD]/70 mt-0.5 pl-0.5">
-        Off-Session Hours
-      </span>
-    </div>
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800/80 text-[#94A3B8] border border-slate-700/70 whitespace-nowrap">
+      <Clock size={12} className="text-[#94A3B8] shrink-0" />
+      <span>Outside Window</span>
+    </span>
   );
 }
 
 export default function DashboardView({
+  trades,
   onOpenLogModal,
   onOpenImportModal,
   onEditTrade,
-  onOpenSessionReview,
-  onNavigateAnalytics,
 }) {
-  const {
-    filteredTrades,
-    analytics,
-    deleteTrade,
-    clearAllTrades,
-    setLastSubmittedTrade,
-  } = useViper();
-
+  const { deleteTrade, clearAllTrades, loadSampleNinjaTraderCsv } = useViper();
   const [searchQuery, setSearchQuery] = useState('');
-  const [directionFilter, setDirectionFilter] = useState('All');
-  const [windowFilter, setWindowFilter] = useState('All');
 
-  const visibleTrades = filteredTrades.filter((t) => {
-    const resolvedWin = normalizeLiquidityWindow(t.sessionWindow, t.time);
-    const matchesDirection =
-      directionFilter === 'All' || t.direction === directionFilter;
-    const matchesWindow =
-      windowFilter === 'All' || resolvedWin === windowFilter;
-    const matchesSearch =
-      !searchQuery ||
-      t.contract?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      resolvedWin.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.leakTags || []).join(' ').toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesDirection && matchesWindow && matchesSearch;
+  const searchedTrades = trades.filter((t) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const winLabel = formatLiquidityWindowESTLabel(
+      t.sessionWindow,
+      t.time
+    ).toLowerCase();
+    return (
+      t.contract?.toLowerCase().includes(q) ||
+      t.direction?.toLowerCase().includes(q) ||
+      winLabel.includes(q) ||
+      t.notes?.toLowerCase().includes(q) ||
+      (t.customTags || []).join(' ').toLowerCase().includes(q) ||
+      (t.feelings || []).join(' ').toLowerCase().includes(q) ||
+      (t.marketConditions || []).join(' ').toLowerCase().includes(q) ||
+      (t.leakTags || []).join(' ').toLowerCase().includes(q)
+    );
   });
 
-  const pfBarPct = Math.min(100, Math.round((analytics.profitFactor / 3) * 100));
-  const rBarPct = Math.min(
-    100,
-    Math.max(8, Math.round((Math.max(0, analytics.avgRMultiple) / 2.5) * 100))
+  // Compute summary metrics for the 4 inline columns in Decision Archive
+  const totalTrades = searchedTrades.length;
+  const netResult = searchedTrades.reduce(
+    (sum, t) => sum + (Number(t.netPnl) || 0),
+    0
   );
+  const winsCount = searchedTrades.filter(
+    (t) => (Number(t.netPnl) || 0) > 0
+  ).length;
+  const winRate =
+    totalTrades > 0 ? ((winsCount / totalTrades) * 100).toFixed(1) : '0.0';
 
-  const handleExportTradingJournalCsv = () => {
-    const csvContent = exportTradingJournalCsv(filteredTrades);
+  const bestTradePnl =
+    totalTrades > 0
+      ? Math.max(...searchedTrades.map((t) => Number(t.netPnl) || 0))
+      : null;
+
+  const tradesWithNotesCount = searchedTrades.filter(
+    (t) => t.notes && t.notes.trim().length > 0
+  ).length;
+  const revengeFlaggedCount = searchedTrades.filter(
+    (t) => t.isRevengeTrade
+  ).length;
+  const cleanTradesCount = Math.max(0, totalTrades - revengeFlaggedCount);
+
+  const handleExportCsv = () => {
+    const csvContent = exportTradingJournalCsv(searchedTrades);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -115,595 +121,417 @@ export default function DashboardView({
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-6 w-full">
-      {/* LUCID-STYLE SPACIOUS 4-CARD METRIC ROW (#111620, rounded-xl, p-6) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 w-full">
-        {/* 1. Win Rate & Total Contracts Card */}
-        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
+    <div className="space-y-5">
+      {/* D. "DECISION ARCHIVE" SUMMARY CARD & ACTION BAR */}
+      <section className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
-                Win Rate
-              </span>
-              <span className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                {analytics.wins}W / {analytics.losses}L
-              </span>
-            </div>
-
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
-                {analytics.winRate}%
-              </span>
-              <span className="text-xs font-medium text-[#8A99AD]">
-                {analytics.totalTrades} Trades ({analytics.totalContractsTraded}x Lots)
-              </span>
-            </div>
-
-            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  analytics.winRate >= 50 ? 'bg-emerald-500' : 'bg-rose-500'
-                }`}
-                style={{
-                  width: `${Math.max(6, analytics.winRate)}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8A99AD]">
-              Benchmark: <strong className="text-[#FFFFFF]">55.0%</strong>
+            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[#10B981]">
+              DECISION ARCHIVE
             </span>
-            <button
-              type="button"
-              onClick={onNavigateAnalytics}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
-            >
-              <span>Stats</span>
-              <ArrowUpRight size={12} />
-            </button>
-          </div>
-        </div>
-
-        {/* 2. Total Net P&L & Rule Compliance Card */}
-        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
-                Total Net P&amp;L
-              </span>
-              <span
-                className={`px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF] ${
-                  analytics.totalNetPnl >= 0 ? 'bg-emerald-600' : 'bg-rose-600'
-                }`}
-              >
-                {analytics.totalNetPnl >= 0 ? 'NET PROFIT' : 'NET LOSS'}
-              </span>
-            </div>
-
-            <div className="mt-3 flex items-baseline justify-between">
-              <span
-                className={`text-2xl font-bold font-mono tracking-tight ${
-                  analytics.totalNetPnl >= 0
-                    ? 'text-emerald-400'
-                    : 'text-rose-400'
-                }`}
-              >
-                {formatUSD(analytics.totalNetPnl)}
-              </span>
-              <span className="text-xs font-mono text-[#8A99AD]">
-                Realized P&amp;L
-              </span>
-            </div>
-
-            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  analytics.avgComplianceScore >= 75
-                    ? 'bg-emerald-500'
-                    : 'bg-rose-500'
-                }`}
-                style={{
-                  width: `${Math.max(6, analytics.avgComplianceScore)}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8A99AD]">
-              14-Rule Avg:{' '}
-              <strong className="font-mono text-[#FFFFFF]">
-                {analytics.avgComplianceScore}%
-              </strong>
-            </span>
-            <button
-              type="button"
-              onClick={onOpenSessionReview}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
-            >
-              <span>Audit</span>
-              <ArrowUpRight size={12} />
-            </button>
-          </div>
-        </div>
-
-        {/* 3. Profit Factor & 15m Revenge Guard Card */}
-        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
-                Profit Factor
-              </span>
-              <Activity size={15} className="text-emerald-400" />
-            </div>
-
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
-                {analytics.profitFactor}
-              </span>
-              <span
-                className={`text-xs font-mono font-semibold ${
-                  analytics.revengeTradesCount === 0
-                    ? 'text-emerald-400'
-                    : 'text-rose-400'
-                }`}
-              >
-                {analytics.revengeTradesCount === 0
-                  ? '0 Revenge Leaks'
-                  : `🚨 ${analytics.revengeTradesCount} <15m Gap`}
-              </span>
-            </div>
-
-            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  analytics.profitFactor >= 1.5
-                    ? 'bg-emerald-500'
-                    : 'bg-rose-500'
-                }`}
-                style={{
-                  width: `${Math.max(8, pfBarPct)}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8A99AD]">
-              15m Rule:{' '}
-              <strong className="font-mono text-[#FFFFFF]">
-                {analytics.revengeTradesCount === 0 ? 'PASS' : 'FLAGGED'}
-              </strong>
-            </span>
-            <button
-              type="button"
-              onClick={onOpenSessionReview}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
-            >
-              <span>Guard</span>
-              <ArrowUpRight size={12} />
-            </button>
-          </div>
-        </div>
-
-        {/* 4. Avg R-Multiple Card */}
-        <div className="bg-[#111620] rounded-xl p-6 border border-slate-800/60 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-[#8A99AD]">
-                Avg R-Multiple
-              </span>
-              <span
-                className={`px-2 py-0.5 rounded-md text-xs font-mono font-semibold text-[#FFFFFF] ${
-                  analytics.avgRMultiple >= 1.5
-                    ? 'bg-emerald-600'
-                    : 'bg-rose-600'
-                }`}
-              >
-                {analytics.avgRMultiple >= 1.5 ? 'ON TARGET' : 'BELOW 1.5R'}
-              </span>
-            </div>
-
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl font-bold font-mono text-[#FFFFFF] tracking-tight">
-                {analytics.avgRMultiple > 0
-                  ? `+${analytics.avgRMultiple}R`
-                  : `${analytics.avgRMultiple}R`}
-              </span>
-              <span className="text-xs font-mono text-[#8A99AD]">
-                Target +1.50R
-              </span>
-            </div>
-
-            <div className="w-full h-1.5 bg-[#090C10] rounded-full overflow-hidden mt-3.5">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  analytics.avgRMultiple >= 1.5
-                    ? 'bg-emerald-500'
-                    : 'bg-rose-500'
-                }`}
-                style={{
-                  width: `${rBarPct}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="pt-3.5 mt-4 border-t border-slate-800/60 flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8A99AD]">
-              Product: <strong className="text-[#FFFFFF]">MGCZ6 / GC</strong>
-            </span>
-            <button
-              type="button"
-              onClick={onNavigateAnalytics}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
-            >
-              <span>R-Dist</span>
-              <ArrowUpRight size={12} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* LUCID-STYLE EXECUTIONS TABLE CONTAINER (#111620, rounded-xl, border-slate-800/60) */}
-      <div className="flex-1 flex flex-col bg-[#111620] rounded-xl border border-slate-800/60 overflow-hidden w-full">
-        {/* Table Control & Filter Header */}
-        <div className="px-6 py-5 border-b border-slate-800/60 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold tracking-tight text-[#FFFFFF]">
-                Executed Futures Trades
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-[#090C10] text-[#8A99AD] border border-slate-800/60">
-                {visibleTrades.length} Executions
-              </span>
-              {filteredTrades.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleExportTradingJournalCsv}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors cursor-pointer"
-                    title="Download trading-journal-2026-11-04.csv"
-                  >
-                    <Download size={13} />
-                    <span>Export trading-journal-2026-11-04.csv</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearAllTrades}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
-                    title="Clear all Orders.csv trades"
-                  >
-                    <Trash2 size={13} />
-                    <span>Clear Orders CSV</span>
-                  </button>
-                </>
-              )}
-            </div>
-            <p className="text-xs sm:text-sm font-medium text-[#8A99AD] mt-1">
-              Converted to <strong className="text-[#FFFFFF]">Chicago Central Time (CT)</strong> &amp; <strong className="text-emerald-400">Eastern Time (ET +1h)</strong> in 12-hour AM/PM format • Click any row to inspect in AI Audit
+            <h2 className="text-2xl font-bold text-[#F8FAFC] mt-1 tracking-tight">
+              Every trade, in context
+            </h2>
+            <p className="text-sm text-[#94A3B8] mt-1">
+              Search the details behind the result, not just the result itself.
             </p>
           </div>
 
-          {/* Liquidity Window Filter + Direction Filter + Search Bar */}
+          {/* Action Buttons (Top Right of Card) */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Liquidity Window Filter Pills */}
-            <div className="flex flex-wrap items-center bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
-              {[
-                { id: 'All', label: 'All Windows' },
-                {
-                  id: LIQUIDITY_WINDOWS.ASIAN_LONDON,
-                  label: '1–4 AM CT / 2–5 AM ET',
-                },
-                {
-                  id: LIQUIDITY_WINDOWS.NY_OPEN,
-                  label: '8–11 AM CT / 9–12 PM ET',
-                },
-                { id: LIQUIDITY_WINDOWS.OUTSIDE, label: 'Outside Window' },
-              ].map((w) => (
-                <button
-                  key={w.id}
-                  type="button"
-                  onClick={() => setWindowFilter(w.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    windowFilter === w.id
-                      ? 'bg-[#111620] text-[#FFFFFF] border border-slate-700/70 shadow-xs'
-                      : 'text-[#8A99AD] hover:text-[#FFFFFF]'
-                  }`}
-                >
-                  {w.label}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={onOpenImportModal}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#F8FAFC] bg-[#0A0D12] hover:bg-slate-800/80 border border-slate-800/90 transition-colors cursor-pointer"
+            >
+              <Upload size={15} className="text-[#94A3B8]" />
+              <span>Import CSV</span>
+            </button>
 
-            {/* Direction Filter Pills */}
-            <div className="flex items-center bg-[#090C10] p-1 rounded-xl border border-slate-800/60">
-              {[
-                { id: 'All', label: 'All' },
-                { id: 'Long', label: 'LONG' },
-                { id: 'Short', label: 'SHORT' },
-              ].map((d) => (
+            {trades.length > 0 && (
+              <>
                 <button
-                  key={d.id}
                   type="button"
-                  onClick={() => setDirectionFilter(d.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    directionFilter === d.id
-                      ? 'bg-[#111620] text-[#FFFFFF] border border-slate-700/70 shadow-xs'
-                      : 'text-[#8A99AD] hover:text-[#FFFFFF]'
-                  }`}
+                  onClick={handleExportCsv}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 border border-[#10B981]/30 transition-colors cursor-pointer"
+                  title="Download trading-journal-2026-11-04.csv"
                 >
-                  {d.label}
+                  <Download size={15} />
+                  <span>Export CSV</span>
                 </button>
-              ))}
-            </div>
 
-            {/* Search Input */}
-            <div className="relative">
-              <Search
-                size={15}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A99AD]"
-              />
-              <input
-                type="text"
-                placeholder="Search contract, window, leak..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 rounded-xl bg-[#090C10] border border-slate-800/60 text-sm text-[#FFFFFF] placeholder-[#8A99AD] focus:outline-none focus:border-emerald-500"
-              />
-            </div>
+                <button
+                  type="button"
+                  onClick={clearAllTrades}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 transition-colors cursor-pointer"
+                  title="Clear loaded CSV trades"
+                >
+                  <Trash2 size={15} />
+                  <span>Clear CSV</span>
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={onOpenLogModal}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[#0A0D12] bg-[#10B981] hover:bg-emerald-400 shadow-sm transition-all cursor-pointer"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Log trade</span>
+            </button>
           </div>
         </div>
 
-        {/* High-Contrast Spacious Table (py-3.5 px-4 cells, hover:bg-slate-800/80) */}
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800/60 bg-[#090C10]/60 text-xs font-semibold uppercase tracking-wider text-[#8A99AD]">
-                <th className="py-3.5 px-4">Date &amp; Time (EST / CT)</th>
-                <th className="py-3.5 px-4">Liquidity Window</th>
-                <th className="py-3.5 px-4">Contract</th>
-                <th className="py-3.5 px-4">Direction &amp; Lots</th>
-                <th className="py-3.5 px-4">Entry → Exit Price</th>
-                <th className="py-3.5 px-4 text-right">Net P&amp;L</th>
-                <th className="py-3.5 px-4 text-right">R-Multiple</th>
-                <th className="py-3.5 px-4 text-center">Compliance</th>
-                <th className="py-3.5 px-4">Behavioral Guard (15m Rule)</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-sm">
-              {visibleTrades.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={10}
-                    className="py-16 text-center text-[#8A99AD] text-sm font-medium"
-                  >
-                    <div className="flex flex-col items-center gap-3">
-                      <span>
-                        No executions loaded. Click &quot;Import NinjaTrader CSV&quot; or &quot;Fast Log Trade&quot; to begin.
-                      </span>
-                      <div className="flex items-center gap-2.5">
-                        <button
-                          type="button"
-                          onClick={onOpenImportModal}
-                          className="px-4 py-2 rounded-xl text-xs font-semibold text-[#FFFFFF] bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer"
-                        >
-                          Import NinjaTrader CSV
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onOpenLogModal}
-                          className="px-4 py-2 rounded-xl text-xs font-semibold text-[#FFFFFF] bg-[#090C10] hover:bg-slate-800/80 border border-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          Fast Log Trade
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                visibleTrades.map((t) => {
-                  const isWin = Number(t.netPnl) >= 0;
-                  const entryEST =
-                    t.timeEST || formatTime12hEST(t.time || '09:30', false, 'EST');
-                  const exitEST =
-                    t.exitTimeEST ||
-                    (t.exitTime24
-                      ? formatTime12hEST(t.exitTime24, false, 'EST')
-                      : null);
-                  const entryCT = t.timeCT || '';
-                  const exitCT = t.exitTimeCT || '';
-                  const resolvedWindow = normalizeLiquidityWindow(
-                    t.sessionWindow,
-                    t.time
-                  );
-                  const qty = Math.max(1, Number(t.quantity) || 1);
-                  const lotLabel = t.lotType || 'Micro';
+        {/* 4 Clean Inline Metric Columns separated by subtle dividers */}
+        <div className="mt-7 pt-6 border-t border-slate-800/70 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:divide-x sm:divide-slate-800/70">
+          {/* 1. NET RESULT */}
+          <div className="sm:pr-4">
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+              NET RESULT
+            </span>
+            <div
+              className={`text-2xl font-bold font-mono mt-1.5 tracking-tight ${
+                netResult > 0
+                  ? 'text-[#10B981]'
+                  : netResult < 0
+                  ? 'text-[#EF4444]'
+                  : 'text-[#10B981]'
+              }`}
+            >
+              {formatUSD(netResult)}
+            </div>
+          </div>
 
-                  return (
-                    <tr
-                      key={t.id}
-                      onClick={() => {
-                        setLastSubmittedTrade(t);
-                        onOpenSessionReview?.();
-                      }}
-                      className="hover:bg-slate-800/80 transition-colors cursor-pointer"
-                    >
-                      {/* Date & Time in 12-Hour EST (AM/PM) + CT Reference */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-mono font-semibold text-[#FFFFFF] text-sm">
-                          {t.date}
-                        </div>
-                        <div className="font-mono text-xs text-emerald-400 mt-0.5">
-                          {entryEST}
-                          {exitEST && exitEST !== entryEST
-                            ? ` → ${exitEST.replace(' EST', '')} EST`
-                            : ''}
-                        </div>
-                        {entryCT && (
-                          <div className="font-mono text-[11px] text-[#8A99AD] mt-0.5">
-                            {entryCT}
-                            {exitCT && exitCT !== entryCT
-                              ? ` → ${exitCT.replace(' CT', '')} CT`
-                              : ''}
+          {/* 2. WIN RATE */}
+          <div className="sm:px-6">
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+              WIN RATE
+            </span>
+            <div className="text-2xl font-bold font-mono text-[#F8FAFC] mt-1.5 tracking-tight">
+              {winRate}%
+            </div>
+          </div>
+
+          {/* 3. BEST RESULT */}
+          <div className="sm:px-6">
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+              BEST RESULT
+            </span>
+            <div
+              className={`text-2xl font-bold font-mono mt-1.5 tracking-tight ${
+                bestTradePnl !== null && bestTradePnl > 0
+                  ? 'text-[#10B981]'
+                  : 'text-[#94A3B8]'
+              }`}
+            >
+              {bestTradePnl !== null ? formatUSD(bestTradePnl) : '—'}
+            </div>
+          </div>
+
+          {/* 4. WITH NOTES / REVENGE GUARD */}
+          <div className="sm:pl-6">
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+              WITH NOTES / REVENGE GUARD
+            </span>
+            <div className="mt-1.5 flex items-center flex-wrap gap-2">
+              <span className="text-2xl font-bold font-mono text-[#F8FAFC] tracking-tight">
+                {tradesWithNotesCount}{' '}
+                <span className="text-base font-sans font-semibold text-[#94A3B8]">
+                  {tradesWithNotesCount === 1 ? 'trade' : 'trades'}
+                </span>
+              </span>
+              {totalTrades > 0 && (
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                    revengeFlaggedCount > 0
+                      ? 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30'
+                      : 'bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30'
+                  }`}
+                >
+                  {revengeFlaggedCount > 0
+                    ? `${cleanTradesCount} Clean • 🚨 ${revengeFlaggedCount} <15m Revenge`
+                    : `${cleanTradesCount} Clean`}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* E. TRADE LOG TABLE / EMPTY STATE */}
+      <section className="bg-[#121721] rounded-2xl border border-slate-800/70 p-6 sm:p-8 shadow-lg">
+        {trades.length === 0 ? (
+          /* EMPTY STATE (Matches Screenshot 4) */
+          <div className="py-14 flex flex-col items-center justify-center text-center max-w-md mx-auto">
+            <div className="w-14 h-14 rounded-2xl bg-[#10B981]/15 border border-[#10B981]/30 flex items-center justify-center text-[#10B981] mb-5">
+              <CalendarIcon size={26} />
+            </div>
+            <h3 className="text-xl font-bold text-[#F8FAFC] tracking-tight">
+              Your trade log is ready
+            </h3>
+            <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
+              Once you log a trade, this is where you&apos;ll review the
+              decision, context and result.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onOpenLogModal}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[#0A0D12] bg-[#10B981] hover:bg-emerald-400 transition-all cursor-pointer"
+              >
+                <Plus size={16} strokeWidth={2.5} />
+                <span>Log a trade</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => loadSampleNinjaTraderCsv()}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#F8FAFC] bg-[#0A0D12] hover:bg-slate-800/80 border border-slate-800 transition-colors cursor-pointer"
+              >
+                <Sparkles size={15} className="text-[#10B981]" />
+                <span>Load Orders.csv Sample</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* POPULATED TRADE LOG TABLE */
+          <div className="space-y-5">
+            {/* Search & Count Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by contract, liquidity window, emotion, tag or notes..."
+                  className="w-full bg-[#0A0D12] border border-slate-800/90 focus:border-[#10B981] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#F8FAFC] placeholder-[#94A3B8]/60 outline-none transition-colors"
+                />
+              </div>
+              <div className="text-xs font-medium text-[#94A3B8]">
+                Showing{' '}
+                <strong className="text-[#F8FAFC] font-mono">
+                  {searchedTrades.length}
+                </strong>{' '}
+                {searchedTrades.length === 1 ? 'execution' : 'executions'} in
+                12-Hour EST
+              </div>
+            </div>
+
+            {/* Spacious Dark Table */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800/80 bg-[#0A0D12]/60">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800/80 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    <th className="py-3.5 px-4">Date &amp; Time (EST)</th>
+                    <th className="py-3.5 px-4">Liquidity Window</th>
+                    <th className="py-3.5 px-4">Contract</th>
+                    <th className="py-3.5 px-4">Direction &amp; Lots</th>
+                    <th className="py-3.5 px-4">Entry → Exit</th>
+                    <th className="py-3.5 px-4 text-right">Net P&amp;L</th>
+                    <th className="py-3.5 px-4">Execution Grade &amp; Tags</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-[14px]">
+                  {searchedTrades.map((trade) => {
+                    const isPositive = Number(trade.netPnl) > 0;
+                    const isNegative = Number(trade.netPnl) < 0;
+                    const stars = Number(trade.executionGrade) || 0;
+
+                    return (
+                      <tr
+                        key={trade.id}
+                        className="hover:bg-slate-800/40 transition-colors group"
+                      >
+                        {/* Date & Time (12-Hour EST with AM/PM) */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <div className="font-mono font-semibold text-[#F8FAFC] text-sm">
+                            {trade.formattedDateEST} EST
                           </div>
-                        )}
-                      </td>
+                          <div className="text-xs font-mono text-[#94A3B8] mt-0.5">
+                            Exit: {trade.exitTimeEST} • {trade.timeCT}
+                          </div>
+                        </td>
 
-                      {/* Dedicated Liquidity Window Column */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <LiquidityWindowBadge sessionWindow={resolvedWindow} />
-                      </td>
+                        {/* Liquidity Window Badge */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <LiquidityWindowPill
+                            sessionWindow={trade.sessionWindow}
+                            time={trade.time}
+                          />
+                        </td>
 
-                      {/* Clean Contract Badge Column ONLY */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#090C10] border border-slate-800/80 font-mono font-bold text-[#FFFFFF] text-xs uppercase tracking-wider">
-                          {t.contract}
-                        </span>
-                      </td>
+                        {/* Contract */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#121721] text-[#F8FAFC] border border-slate-700/80">
+                            {trade.contract || 'MGCZ6'}
+                          </span>
+                        </td>
 
-                      {/* Clean LONG / SHORT Badges + Contract Lot Count */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
+                        {/* Direction & Lots */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <div className="inline-flex items-center gap-2">
+                            <span
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide ${
+                                trade.direction === 'Long'
+                                  ? 'bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30'
+                                  : 'bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30'
+                              }`}
+                            >
+                              {trade.direction}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-[#121721] text-[#F8FAFC] border border-slate-800">
+                              {trade.quantity || 1}x
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Entry -> Exit Price */}
+                        <td className="py-4 px-4 whitespace-nowrap font-mono text-sm text-[#F8FAFC]">
+                          <span>
+                            {Number(trade.entryPrice || 0).toFixed(2)}
+                          </span>
+                          <span className="text-[#94A3B8] mx-1.5">→</span>
+                          <span>{Number(trade.exitPrice || 0).toFixed(2)}</span>
+                        </td>
+
+                        {/* Net P&L ($) */}
+                        <td className="py-4 px-4 whitespace-nowrap text-right">
                           <span
-                            className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${
-                              t.direction === 'Long'
-                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                                : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            className={`font-mono text-base font-bold ${
+                              isPositive
+                                ? 'text-[#10B981]'
+                                : isNegative
+                                ? 'text-[#EF4444]'
+                                : 'text-[#94A3B8]'
                             }`}
                           >
-                            {t.direction === 'Long' ? 'LONG' : 'SHORT'}
+                            {formatUSD(trade.netPnl)}
                           </span>
-                          <span className="px-2.5 py-1 rounded-md bg-[#090C10] border border-slate-800/80 font-mono text-xs font-semibold text-[#FFFFFF]">
-                            {qty}x {lotLabel}
-                          </span>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Entry -> Exit Prices */}
-                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs text-[#FFFFFF]">
-                        {t.entryPrice !== '' && t.entryPrice !== undefined
-                          ? Number(t.entryPrice).toFixed(2)
-                          : '—'}{' '}
-                        <span className="text-[#8A99AD]">→</span>{' '}
-                        {t.exitPrice !== '' && t.exitPrice !== undefined
-                          ? Number(t.exitPrice).toFixed(2)
-                          : '—'}
-                      </td>
+                        {/* Execution Grade & Tags */}
+                        <td className="py-4 px-4">
+                          <div className="flex flex-wrap items-center gap-1.5 max-w-xs">
+                            {/* Star Rating (1-5★) */}
+                            {stars > 0 && (
+                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-[#121721] border border-slate-800 text-xs font-mono font-semibold text-[#10B981]">
+                                {Array.from({ length: stars }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    size={11}
+                                    className="text-[#10B981] fill-[#10B981]"
+                                  />
+                                ))}
+                              </span>
+                            )}
 
-                      {/* Net P&L */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold text-base">
-                        <span
-                          className={isWin ? 'text-emerald-400' : 'text-rose-400'}
-                        >
-                          {formatUSD(t.netPnl)}
-                        </span>
-                      </td>
+                            {/* Automatic 15-Minute Revenge Guard Badge */}
+                            {trade.isRevengeTrade && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/35">
+                                <AlertTriangle size={11} />
+                                <span>🚨 Revenge (&lt;15m gap)</span>
+                              </span>
+                            )}
 
-                      {/* R-Multiple */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold text-sm text-[#FFFFFF]">
-                        {Number(t.rMultiple) > 0
-                          ? `+${t.rMultiple}R`
-                          : `${t.rMultiple}R`}
-                      </td>
-
-                      {/* Compliance Grade */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-xs font-bold text-[#FFFFFF] ${
-                            t.complianceGrade === 'A'
-                              ? 'bg-emerald-600'
-                              : t.complianceGrade === 'B'
-                              ? 'bg-amber-600'
-                              : 'bg-rose-600'
-                          }`}
-                        >
-                          {t.complianceGrade} · {t.complianceScore}%
-                        </span>
-                      </td>
-
-                      {/* Behavioral Guard (15-Minute Revenge Trading Rule) */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {(t.leakTags || []).length === 0 ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                              ✓ Clean
-                              {t.timeGapFromPrevMins !== null &&
-                                t.timeGapFromPrevMins !== undefined && (
-                                  <span className="font-mono text-[11px] opacity-85">
-                                    ({t.timeGapFromPrevMins}m gap)
-                                  </span>
-                                )}
-                            </span>
-                          ) : (
-                            t.leakTags.map((tag) => {
-                              const isRevengeChip = tag === REVENGE_GAP_LABEL;
+                            {/* Feeling Emoji Pills */}
+                            {(trade.feelings || []).map((fId) => {
+                              const fMeta = FEELING_OPTIONS.find(
+                                (item) => item.id === fId
+                              );
+                              const label = fMeta ? fMeta.label : fId;
+                              const isRevengeFeeling = fId === 'Revenge';
                               return (
                                 <span
-                                  key={tag}
-                                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                                  key={fId}
+                                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                    isRevengeFeeling
+                                      ? 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30'
+                                      : 'bg-[#121721] text-[#F8FAFC] border-slate-800'
+                                  }`}
                                 >
-                                  {isRevengeChip ? `🚨 ${tag}` : tag}
-                                  {isRevengeChip &&
-                                    t.timeGapFromPrevMins !== null &&
-                                    t.timeGapFromPrevMins !== undefined && (
-                                      <span className="font-mono ml-1 text-[#FFFFFF]">
-                                        ({t.timeGapFromPrevMins}m)
-                                      </span>
-                                    )}
+                                  {label}
                                 </span>
                               );
-                            })
-                          )}
-                        </div>
-                      </td>
+                            })}
 
-                      {/* Actions */}
-                      <td
-                        className="py-3.5 px-4 text-right whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="inline-flex items-center gap-1">
-                          {t.tradingViewUrl && (
-                            <a
-                              href={t.tradingViewUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 rounded-lg text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors"
-                              title="Open TradingView Chart"
-                            >
-                              <ExternalLink size={15} />
-                            </a>
+                            {/* Market Condition Pills */}
+                            {(trade.marketConditions || []).map((mcId) => {
+                              const mcMeta = MARKET_CONDITION_OPTIONS.find(
+                                (item) => item.id === mcId
+                              );
+                              return (
+                                <span
+                                  key={mcId}
+                                  className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#121721] text-[#94A3B8] border border-slate-800"
+                                >
+                                  {mcMeta ? mcMeta.label : mcId}
+                                </span>
+                              );
+                            })}
+
+                            {/* Custom Tags */}
+                            {(trade.customTags || []).map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                          {trade.notes && (
+                            <p className="text-xs text-[#94A3B8] mt-1.5 line-clamp-1 max-w-md">
+                              {trade.notes}
+                            </p>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => onEditTrade(t)}
-                            className="p-1.5 rounded-lg text-[#8A99AD] hover:text-[#FFFFFF] hover:bg-slate-800/80 transition-colors cursor-pointer"
-                            title="Edit trade"
-                          >
-                            <Edit2 size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteTrade(t.id)}
-                            className="p-1.5 rounded-lg text-[#8A99AD] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                            title="Delete trade"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                        </td>
+
+                        {/* Actions: Edit / Delete / View Chart */}
+                        <td className="py-4 px-4 whitespace-nowrap text-right">
+                          <div className="inline-flex items-center justify-end gap-1.5">
+                            {trade.chartUrl && (
+                              <a
+                                href={trade.chartUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-2 rounded-xl text-[#94A3B8] hover:text-[#10B981] hover:bg-slate-800/70 transition-colors"
+                                title="Open Chart URL"
+                              >
+                                <ExternalLink size={15} />
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => onEditTrade(trade)}
+                              className="p-2 rounded-xl text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800/70 transition-colors cursor-pointer"
+                              title="Edit trade"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteTrade(trade.id)}
+                              className="p-2 rounded-xl text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
+                              title="Delete trade"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

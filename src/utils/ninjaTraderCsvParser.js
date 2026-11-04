@@ -291,6 +291,47 @@ export function formatTime12hEST(rawTimeStr, includeSeconds = false, tzLabel = '
 }
 
 /**
+ * Formats an ISO date ("YYYY-MM-DD") and 24h or 12h time into "MM/DD/YYYY hh:mm AM/PM"
+ */
+export function formatDateUS12hEST(dateIso = '2026-11-04', timeStr = '09:30', includeTz = false) {
+  let mm = '11';
+  let dd = '04';
+  let yyyy = '2026';
+
+  if (dateIso && /^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
+    const [y, m, d] = dateIso.split('-');
+    yyyy = y;
+    mm = m;
+    dd = d;
+  } else if (dateIso && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(dateIso)) {
+    const [m, d, y] = dateIso.split('/');
+    mm = String(m).padStart(2, '0');
+    dd = String(d).padStart(2, '0');
+    yyyy = y.length === 2 ? `20${y}` : y;
+  }
+
+  const time12 = formatTime12hEST(timeStr, false, 'EST').replace(/\s+EST$/i, '');
+  return includeTz ? `${mm}/${dd}/${yyyy} ${time12} EST` : `${mm}/${dd}/${yyyy} ${time12}`;
+}
+
+/**
+ * Returns the clean Liquidity Window display label for badges:
+ * - "2:00–5:00 AM EST"
+ * - "9:00 AM–12:00 PM EST"
+ * - "Outside Window"
+ */
+export function formatLiquidityWindowESTLabel(sessionWindow, time24ET) {
+  const norm = normalizeLiquidityWindow(sessionWindow, time24ET);
+  if (norm === LIQUIDITY_WINDOWS.ASIAN_LONDON) {
+    return '2:00–5:00 AM EST';
+  }
+  if (norm === LIQUIDITY_WINDOWS.NY_OPEN) {
+    return '9:00 AM–12:00 PM EST';
+  }
+  return 'Outside Window';
+}
+
+/**
  * Shifts a 24h HH:mm(:ss) string by deltaHours (e.g., -1h to derive CT from ET)
  */
 export function shiftTimeStringHours(timeStr = '09:30', deltaHours = 0) {
@@ -898,9 +939,50 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
           : `Cooldown respected (${timeGapFromPrevMins}m gap).`
         : 'First execution of session.';
 
+    const feelings = isRevengeTrade
+      ? ['Revenge']
+      : trade.netPnl > 0
+      ? ['Focused', 'Calm']
+      : ['Calm'];
+
+    const marketConditions =
+      trade.sessionWindow === LIQUIDITY_WINDOWS.OUTSIDE
+        ? ['Choppy']
+        : ['Trending'];
+
+    const preTradeChecklist = {
+      inPlan: !isRevengeTrade && trade.sessionWindow !== LIQUIDITY_WINDOWS.OUTSIDE,
+      waitedConfirmation: !isRevengeTrade,
+      withinRiskLimit: trade.exitReason !== 'AutoLiq',
+      rewardWorthRisk: true,
+    };
+
+    const selfGrading = {
+      followPlan: isRevengeTrade ? 2 : 5,
+      entryTiming: isRevengeTrade ? 2 : 4,
+      exitManagement: trade.netPnl > 0 ? 5 : 3,
+      positionSize: trade.quantity <= 10 ? 5 : 3,
+      stayedCalm: isRevengeTrade ? 1 : 5,
+    };
+
+    const executionGrade = isRevengeTrade
+      ? 2
+      : trade.netPnl > 0
+      ? 5
+      : trade.sessionWindow !== LIQUIDITY_WINDOWS.OUTSIDE
+      ? 4
+      : 3;
+
     return {
       ...trade,
+      formattedDateEST: formatDateUS12hEST(trade.date, trade.time, false),
       leakTags,
+      customTags: isRevengeTrade ? ['<15m Revenge'] : [],
+      feelings,
+      marketConditions,
+      preTradeChecklist,
+      selfGrading,
+      executionGrade,
       rulesChecked,
       complianceScore: score,
       complianceGrade: grade,
@@ -908,7 +990,7 @@ export function parseNinjaTraderOrdersCsv(csvText, options = {}) {
       timeGapFromPrevMins,
       accountBalanceAfter: runningBalance,
       dailyCapUtilizationPct,
-      notes: `Account ${trade.accountId} • ${trade.quantity}x ${trade.contract} • ${trade.sessionWindow} (${trade.timeCT} / ${trade.timeEST} → ${trade.exitTimeEST}). ${gapNote}`,
+      notes: `${trade.quantity}x ${trade.contract} • ${formatLiquidityWindowESTLabel(trade.sessionWindow, trade.time)} (${trade.timeEST} → ${trade.exitTimeEST}). ${gapNote}`,
     };
   });
 
@@ -1017,6 +1099,24 @@ export function parseTradingJournalCsvRows(lines, rawHeaders, selectedProfile = 
       complianceScore: score,
       complianceGrade: grade,
       leakTags,
+      customTags: isRevengeTrade ? ['<15m Revenge'] : [],
+      feelings: isRevengeTrade ? ['Revenge'] : pnlVal > 0 ? ['Focused'] : ['Calm'],
+      marketConditions: ['Trending'],
+      preTradeChecklist: {
+        inPlan: !isRevengeTrade,
+        waitedConfirmation: !isRevengeTrade,
+        withinRiskLimit: true,
+        rewardWorthRisk: true,
+      },
+      selfGrading: {
+        followPlan: isRevengeTrade ? 2 : 5,
+        entryTiming: isRevengeTrade ? 2 : 4,
+        exitManagement: pnlVal > 0 ? 5 : 3,
+        positionSize: 4,
+        stayedCalm: isRevengeTrade ? 1 : 5,
+      },
+      executionGrade: isRevengeTrade ? 2 : pnlVal > 0 ? 5 : 3,
+      formattedDateEST: formatDateUS12hEST(date, time24, false),
       isRevengeTrade,
       notes,
       chartUrl,
