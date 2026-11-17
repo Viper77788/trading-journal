@@ -1,9 +1,12 @@
+export type InactivityTimeoutOption = 0 | 15 | 30 | 60;
+
 export interface AccountSettings {
   accountSize: number; // default $25,000
   maxRiskPercent: number; // default 1.0%
   maxTradesPerDay: number; // default 3
   theme: 'dark' | 'light';
   showPrintButton?: boolean; // default false (OFF)
+  inactivityTimeoutMinutes?: InactivityTimeoutOption; // default 30 (minutes; 0 = Off)
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: AccountSettings = {
@@ -12,6 +15,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: AccountSettings = {
   maxTradesPerDay: 3,
   theme: 'dark',
   showPrintButton: false,
+  inactivityTimeoutMinutes: 30,
 };
 
 export type ProjectionPeriod = '1m' | '3m' | '6m' | '1y' | 'custom';

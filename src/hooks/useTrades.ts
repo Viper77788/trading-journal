@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
-import { useLocalStorage } from './useLocalStorage';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { DayRecord, SessionChecklistState, DailyAuditState } from '../types/day';
 import {
   AccountSettings,
@@ -10,10 +9,15 @@ import {
   computeDashboardAnalytics,
   getMaxRiskDollar,
 } from '../utils/calculations';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+
+export type SyncStatus = 'saved' | 'saving' | 'offline';
 
 const DAYS_STORAGE_KEY = 'apexflow_days_v1';
 const SETTINGS_STORAGE_KEY = 'apexflow_account_settings_v1';
+const CALC_STORAGE_KEY = 'apexflow_calculator_settings_v1';
 const DEMO_CLEANUP_FLAG_KEY = 'apexflow_demo_cleaned_v2';
+const MIGRATION_PROMPTED_KEY = 'apexflow_cloud_migration_prompted_v1';
 
 // Known seeded demo notes and lessons from the previous demo seed generator
 const KNOWN_DEMO_NOTES = new Set([
@@ -44,7 +48,6 @@ const KNOWN_DEMO_LESSONS = new Set([
 ]);
 
 function isSeededDemoTrade(trade: TradeEntry): boolean {
-  // Old seeded trades had IDs like "2026-11-17-t1" or "2026-11-17-t2" (whereas user trades have "-t-{timestamp}")
   const isSeededId = /^\d{4}-\d{2}-\d{2}-t[12]$/.test(trade.id);
   const isSeededNote = KNOWN_DEMO_NOTES.has((trade.notes || '').trim());
   return isSeededId || isSeededNote;
@@ -64,7 +67,6 @@ function cleanSeededDemoDays(
       (day.audit?.keyLesson || '').trim()
     );
 
-    // If this day only contained seeded demo data and no user-created trades, skip it
     if ((hadSeededTrades || hasSeededLesson) && userTrades.length === 0) {
       continue;
     }
@@ -80,6 +82,29 @@ function cleanSeededDemoDays(
   }
 
   return cleaned;
+}
+
+function hasMeaningfulDayContent(day: DayRecord): boolean {
+  if (!day) return false;
+  if ((day.trades || []).length > 0) return true;
+  if (
+    day.checklist?.checkedEconomicCalendar ||
+    day.checklist?.confirmedAllowedWindows ||
+    day.checklist?.mentalStateCalm
+  ) {
+    return true;
+  }
+  if (
+    day.audit?.stuckToMaxTrades !== null ||
+    day.audit?.respectedRiskCap !== null ||
+    day.audit?.executedInAllowedWindows !== null ||
+    (day.audit?.emotions || []).length > 0 ||
+    Boolean(day.audit?.customEmotion?.trim()) ||
+    Boolean(day.audit?.keyLesson?.trim())
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function createEmptyDay(dateIso: string): DayRecord {
@@ -103,29 +128,380 @@ export function createEmptyDay(dateIso: string): DayRecord {
   };
 }
 
-export function useTrades() {
-  const [daysMap, setDaysMap] = useLocalStorage<Record<string, DayRecord>>(
-    DAYS_STORAGE_KEY,
-    {}
-  );
+export function clearLegacyBrowserData(): void {
+  try {
+    window.localStorage.removeItem(DAYS_STORAGE_KEY);
+    window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    window.localStorage.removeItem(CALC_STORAGE_KEY);
+    window.localStorage.removeItem(DEMO_CLEANUP_FLAG_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
 
-  const [settings, setSettings] = useLocalStorage<AccountSettings>(
-    SETTINGS_STORAGE_KEY,
+export function useTrades(
+  userId: string | null,
+  onNotify?: (
+    title: string,
+    type?: 'success' | 'warning' | 'error' | 'info'
+  ) => void
+) {
+  const [daysMap, setDaysMap] = useState<Record<string, DayRecord>>({});
+  const [settings, setSettings] = useState<AccountSettings>(
     DEFAULT_ACCOUNT_SETTINGS
   );
+  const [isLoadingCloud, setIsLoadingCloud] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('saved');
 
-  // One-time cleanup that removes any old seeded demo data saved in localStorage
-  useEffect(() => {
-    try {
-      const alreadyCleaned = window.localStorage.getItem(DEMO_CLEANUP_FLAG_KEY);
-      if (!alreadyCleaned) {
-        setDaysMap((prev) => cleanSeededDemoDays(prev));
-        window.localStorage.setItem(DEMO_CLEANUP_FLAG_KEY, 'true');
-      }
-    } catch (e) {
-      console.error('Demo cleanup error:', e);
+  // One-time browser -> Supabase migration state
+  const [migrationPromptOpen, setMigrationPromptOpen] = useState<boolean>(false);
+  const [isMigrating, setIsMigrating] = useState<boolean>(false);
+  const migrationCandidateRef = useRef<{
+    days: Record<string, DayRecord>;
+    settings: AccountSettings | null;
+  } | null>(null);
+
+  // Refs for debounced saving & retry queue
+  const daysMapRef = useRef<Record<string, DayRecord>>(daysMap);
+  daysMapRef.current = daysMap;
+
+  const settingsRef = useRef<AccountSettings>(settings);
+  settingsRef.current = settings;
+
+  const dirtyDaysRef = useRef<Set<string>>(new Set());
+  const dirtySettingsRef = useRef<boolean>(false);
+  const debounceTimerRef = useRef<number | null>(null);
+  const retryTimerRef = useRef<number | null>(null);
+  const lastErrorToastAtRef = useRef<number>(0);
+  const onNotifyRef = useRef(onNotify);
+  onNotifyRef.current = onNotify;
+
+  // Flush dirty records to Supabase
+  const flushToSupabase = useCallback(async () => {
+    if (!userId || !isSupabaseConfigured) return;
+
+    const datesToSave = Array.from(dirtyDaysRef.current);
+    const shouldSaveSettings = dirtySettingsRef.current;
+
+    if (datesToSave.length === 0 && !shouldSaveSettings) {
+      setSyncStatus('saved');
+      return;
     }
-  }, [setDaysMap]);
+
+    setSyncStatus('saving');
+
+    // Optimistically clear dirty markers before awaiting; re-add on failure
+    dirtyDaysRef.current.clear();
+    dirtySettingsRef.current = false;
+
+    let hadError = false;
+
+    if (shouldSaveSettings) {
+      const currentSettings = settingsRef.current;
+      const { error } = await supabase.from('settings').upsert(
+        {
+          user_id: userId,
+          data: currentSettings,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
+      if (error) {
+        dirtySettingsRef.current = true;
+        hadError = true;
+      }
+    }
+
+    if (datesToSave.length > 0) {
+      const currentDays = daysMapRef.current;
+      const rows = datesToSave
+        .map((dateIso) => {
+          const record = currentDays[dateIso];
+          if (!record) return null;
+          return {
+            user_id: userId,
+            date: dateIso,
+            data: record,
+            updated_at: new Date().toISOString(),
+          };
+        })
+        .filter(
+          (
+            r
+          ): r is {
+            user_id: string;
+            date: string;
+            data: DayRecord;
+            updated_at: string;
+          } => r !== null
+        );
+
+      if (rows.length > 0) {
+        const { error } = await supabase
+          .from('days')
+          .upsert(rows, { onConflict: 'user_id,date' });
+
+        if (error) {
+          datesToSave.forEach((d) => dirtyDaysRef.current.add(d));
+          hadError = true;
+        }
+      }
+    }
+
+    if (hadError) {
+      setSyncStatus('offline');
+      const now = Date.now();
+      if (now - lastErrorToastAtRef.current > 10000) {
+        lastErrorToastAtRef.current = now;
+        onNotifyRef.current?.(
+          'Could not save to cloud. Retrying automatically...',
+          'warning'
+        );
+      }
+      if (retryTimerRef.current) {
+        window.clearTimeout(retryTimerRef.current);
+      }
+      retryTimerRef.current = window.setTimeout(() => {
+        void flushToSupabase();
+      }, 5000);
+    } else if (
+      dirtyDaysRef.current.size === 0 &&
+      !dirtySettingsRef.current
+    ) {
+      setSyncStatus('saved');
+    } else {
+      // New edits arrived while saving
+      void flushToSupabase();
+    }
+  }, [userId]);
+
+  const scheduleSave = useCallback(() => {
+    if (!userId || !isSupabaseConfigured) return;
+    setSyncStatus('saving');
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = window.setTimeout(() => {
+      void flushToSupabase();
+    }, 600);
+  }, [userId, flushToSupabase]);
+
+  // Listen for browser coming back online to immediately retry pending saves
+  useEffect(() => {
+    const handleOnline = () => {
+      if (
+        userId &&
+        (dirtyDaysRef.current.size > 0 || dirtySettingsRef.current)
+      ) {
+        void flushToSupabase();
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [userId, flushToSupabase]);
+
+  // Initial load when user signs in; reset when user signs out
+  useEffect(() => {
+    if (!userId || !isSupabaseConfigured) {
+      setDaysMap({});
+      setSettings(DEFAULT_ACCOUNT_SETTINGS);
+      setIsLoadingCloud(false);
+      setSyncStatus('saved');
+      setMigrationPromptOpen(false);
+      migrationCandidateRef.current = null;
+      dirtyDaysRef.current.clear();
+      dirtySettingsRef.current = false;
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current);
+      if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingCloud(true);
+
+    const loadFromSupabase = async () => {
+      try {
+        const [settingsRes, daysRes] = await Promise.all([
+          supabase
+            .from('settings')
+            .select('data')
+            .eq('user_id', userId)
+            .maybeSingle(),
+          supabase.from('days').select('date, data').eq('user_id', userId),
+        ]);
+
+        if (isCancelled) return;
+
+        if (settingsRes.error || daysRes.error) {
+          setSyncStatus('offline');
+          onNotifyRef.current?.(
+            'Error loading cloud data. Retrying...',
+            'warning'
+          );
+          setIsLoadingCloud(false);
+          return;
+        }
+
+        const loadedSettings: AccountSettings = {
+          ...DEFAULT_ACCOUNT_SETTINGS,
+          ...(settingsRes.data?.data as Partial<AccountSettings> | undefined),
+        };
+
+        const loadedDays: Record<string, DayRecord> = {};
+        for (const row of daysRes.data || []) {
+          if (row.date && row.data) {
+            loadedDays[row.date] = row.data as DayRecord;
+          }
+        }
+
+        setSettings(loadedSettings);
+        setDaysMap(loadedDays);
+        setSyncStatus('saved');
+
+        // Check for one-time migration from localStorage if cloud tables are empty
+        const cloudIsEmpty =
+          Object.keys(loadedDays).length === 0 && !settingsRes.data;
+        const alreadyPrompted =
+          window.localStorage.getItem(MIGRATION_PROMPTED_KEY) === 'true';
+
+        if (cloudIsEmpty && !alreadyPrompted) {
+          try {
+            const rawLocalDays = window.localStorage.getItem(DAYS_STORAGE_KEY);
+            const rawLocalSettings =
+              window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+
+            let parsedDays: Record<string, DayRecord> = {};
+            if (rawLocalDays) {
+              const cleaned = cleanSeededDemoDays(
+                JSON.parse(rawLocalDays) as Record<string, DayRecord>
+              );
+              for (const [dateIso, dayRecord] of Object.entries(cleaned)) {
+                if (hasMeaningfulDayContent(dayRecord)) {
+                  parsedDays[dateIso] = dayRecord;
+                }
+              }
+            }
+
+            let parsedSettings: AccountSettings | null = null;
+            if (rawLocalSettings) {
+              parsedSettings = {
+                ...DEFAULT_ACCOUNT_SETTINGS,
+                ...(JSON.parse(rawLocalSettings) as Partial<AccountSettings>),
+              };
+            }
+
+            if (Object.keys(parsedDays).length > 0) {
+              migrationCandidateRef.current = {
+                days: parsedDays,
+                settings: parsedSettings,
+              };
+              setMigrationPromptOpen(true);
+            } else {
+              // No real trades in localStorage; clean up any stale localStorage keys silently
+              clearLegacyBrowserData();
+            }
+          } catch {
+            // Ignore malformed localStorage
+          }
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingCloud(false);
+        }
+      }
+    };
+
+    void loadFromSupabase();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [userId]);
+
+  const confirmMigrationToCloud = useCallback(async () => {
+    if (!userId || !migrationCandidateRef.current) {
+      setMigrationPromptOpen(false);
+      return;
+    }
+
+    setIsMigrating(true);
+    setSyncStatus('saving');
+    try {
+      const { days: localDays, settings: localSettings } =
+        migrationCandidateRef.current;
+
+      const mergedSettings = localSettings || settingsRef.current;
+      const dayRows = Object.entries(localDays).map(([dateIso, record]) => ({
+        user_id: userId,
+        date: dateIso,
+        data: record,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const [settingsUpsert, daysUpsert] = await Promise.all([
+        supabase.from('settings').upsert(
+          {
+            user_id: userId,
+            data: mergedSettings,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        ),
+        dayRows.length > 0
+          ? supabase
+              .from('days')
+              .upsert(dayRows, { onConflict: 'user_id,date' })
+          : Promise.resolve({ error: null }),
+      ]);
+
+      if (settingsUpsert.error || daysUpsert.error) {
+        setSyncStatus('offline');
+        onNotifyRef.current?.(
+          'Could not move trades right now. Please try again.',
+          'error'
+        );
+        return;
+      }
+
+      setSettings(mergedSettings);
+      setDaysMap(localDays);
+      window.localStorage.setItem(MIGRATION_PROMPTED_KEY, 'true');
+      clearLegacyBrowserData();
+      migrationCandidateRef.current = null;
+      setMigrationPromptOpen(false);
+      setSyncStatus('saved');
+      onNotifyRef.current?.(
+        'Browser trades moved to your private account!',
+        'success'
+      );
+    } finally {
+      setIsMigrating(false);
+    }
+  }, [userId]);
+
+  const skipMigrationToCloud = useCallback(() => {
+    try {
+      window.localStorage.setItem(MIGRATION_PROMPTED_KEY, 'true');
+      clearLegacyBrowserData();
+    } catch {
+      // Ignore storage errors
+    }
+    migrationCandidateRef.current = null;
+    setMigrationPromptOpen(false);
+  }, []);
+
+  const clearStateOnLogout = useCallback(() => {
+    if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current);
+    if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
+    dirtyDaysRef.current.clear();
+    dirtySettingsRef.current = false;
+    migrationCandidateRef.current = null;
+    setMigrationPromptOpen(false);
+    setDaysMap({});
+    setSettings(DEFAULT_ACCOUNT_SETTINGS);
+    setSyncStatus('saved');
+    clearLegacyBrowserData();
+  }, []);
 
   const getDayRecord = useCallback(
     (dateIso: string): DayRecord => {
@@ -138,17 +514,19 @@ export function useTrades() {
     (dateIso: string, patch: Partial<SessionChecklistState>) => {
       setDaysMap((prev) => {
         const current = prev[dateIso] || createEmptyDay(dateIso);
-        return {
-          ...prev,
-          [dateIso]: {
-            ...current,
-            checklist: { ...current.checklist, ...patch },
-            updatedAt: new Date().toISOString(),
-          },
+        const nextRecord: DayRecord = {
+          ...current,
+          checklist: { ...current.checklist, ...patch },
+          updatedAt: new Date().toISOString(),
         };
+        const nextMap = { ...prev, [dateIso]: nextRecord };
+        daysMapRef.current = nextMap;
+        return nextMap;
       });
+      dirtyDaysRef.current.add(dateIso);
+      scheduleSave();
     },
-    [setDaysMap]
+    [scheduleSave]
   );
 
   const addTrade = useCallback(
@@ -194,7 +572,7 @@ export function useTrades() {
         if (existing.trades.length >= settings.maxTradesPerDay) {
           return prev;
         }
-        return {
+        const nextMap = {
           ...prev,
           [dateIso]: {
             ...existing,
@@ -202,11 +580,16 @@ export function useTrades() {
             updatedAt: new Date().toISOString(),
           },
         };
+        daysMapRef.current = nextMap;
+        return nextMap;
       });
+
+      dirtyDaysRef.current.add(dateIso);
+      scheduleSave();
 
       return { ok: true };
     },
-    [daysMap, settings, setDaysMap]
+    [daysMap, settings, scheduleSave]
   );
 
   const updateTrade = useCallback(
@@ -241,7 +624,7 @@ export function useTrades() {
           return updated;
         });
 
-        return {
+        const nextMap = {
           ...prev,
           [dateIso]: {
             ...current,
@@ -249,9 +632,14 @@ export function useTrades() {
             updatedAt: new Date().toISOString(),
           },
         };
+        daysMapRef.current = nextMap;
+        return nextMap;
       });
+
+      dirtyDaysRef.current.add(dateIso);
+      scheduleSave();
     },
-    [setDaysMap, settings.accountSize]
+    [settings.accountSize, scheduleSave]
   );
 
   const deleteTrade = useCallback(
@@ -261,7 +649,7 @@ export function useTrades() {
         const filtered = current.trades
           .filter((t) => t.id !== tradeId)
           .map((t, idx) => ({ ...t, tradeNumber: idx + 1 }));
-        return {
+        const nextMap = {
           ...prev,
           [dateIso]: {
             ...current,
@@ -269,16 +657,21 @@ export function useTrades() {
             updatedAt: new Date().toISOString(),
           },
         };
+        daysMapRef.current = nextMap;
+        return nextMap;
       });
+
+      dirtyDaysRef.current.add(dateIso);
+      scheduleSave();
     },
-    [setDaysMap]
+    [scheduleSave]
   );
 
   const updateAudit = useCallback(
     (dateIso: string, patch: Partial<DailyAuditState>) => {
       setDaysMap((prev) => {
         const current = prev[dateIso] || createEmptyDay(dateIso);
-        return {
+        const nextMap = {
           ...prev,
           [dateIso]: {
             ...current,
@@ -286,16 +679,27 @@ export function useTrades() {
             updatedAt: new Date().toISOString(),
           },
         };
+        daysMapRef.current = nextMap;
+        return nextMap;
       });
+
+      dirtyDaysRef.current.add(dateIso);
+      scheduleSave();
     },
-    [setDaysMap]
+    [scheduleSave]
   );
 
   const updateAccountSettings = useCallback(
     (patch: Partial<AccountSettings>) => {
-      setSettings((prev) => ({ ...prev, ...patch }));
+      setSettings((prev) => {
+        const next = { ...prev, ...patch };
+        settingsRef.current = next;
+        return next;
+      });
+      dirtySettingsRef.current = true;
+      scheduleSave();
     },
-    [setSettings]
+    [scheduleSave]
   );
 
   const exportBackupJson = useCallback((): string => {
@@ -320,6 +724,13 @@ export function useTrades() {
     daysMap,
     settings,
     dashboardAnalytics,
+    isLoadingCloud,
+    syncStatus,
+    migrationPromptOpen,
+    isMigrating,
+    confirmMigrationToCloud,
+    skipMigrationToCloud,
+    clearStateOnLogout,
     getDayRecord,
     updateChecklist,
     addTrade,

@@ -1,22 +1,38 @@
 import React from 'react';
-import { Download } from 'lucide-react';
-import { AccountSettings } from '../types/settings';
+import { Download, ShieldCheck, Clock } from 'lucide-react';
+import { AccountSettings, InactivityTimeoutOption } from '../types/settings';
 import { getMaxRiskDollar } from '../utils/calculations';
 import { formatCurrency } from '../utils/formatters';
 
 interface SettingsPageProps {
   settings: AccountSettings;
+  userEmail?: string | null;
   onUpdateSettings: (patch: Partial<AccountSettings>) => void;
   onExportJson: () => void;
 }
 
+const TIMEOUT_OPTIONS: Array<{
+  value: InactivityTimeoutOption;
+  label: string;
+}> = [
+  { value: 0, label: 'Off' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '60 min' },
+];
+
 export const SettingsPage: React.FC<SettingsPageProps> = ({
   settings,
+  userEmail,
   onUpdateSettings,
   onExportJson,
 }) => {
   const maxRiskDollar = getMaxRiskDollar(settings);
   const isPrintEnabled = Boolean(settings.showPrintButton);
+  const currentTimeout: InactivityTimeoutOption =
+    settings.inactivityTimeoutMinutes !== undefined
+      ? settings.inactivityTimeoutMinutes
+      : 30;
 
   return (
     <div className="paper-sheet p-4 sm:p-6 space-y-4">
@@ -24,9 +40,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         <h2 className="font-heading text-[20px] font-bold uppercase text-[#8B5E3C] m-0">
           MY ACCOUNT RULES &amp; BACKUP
         </h2>
-        <span className="text-[16px] font-semibold text-[#5C3D2E]">
-          Saved automatically in your browser
-        </span>
+        <div className="flex flex-wrap items-center gap-3 text-[16px] font-semibold text-[#5C3D2E]">
+          {userEmail && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#FFFDF7] border border-[#8B5E3C] font-bold">
+              <ShieldCheck className="w-4 h-4 text-[#2F6B3A]" />
+              <span>{userEmail}</span>
+            </span>
+          )}
+          <span>Saved automatically to your private cloud account</span>
+        </div>
       </div>
 
       {/* Two columns of compact fields + Export Backup beside them */}
@@ -145,41 +167,79 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
       </div>
 
-      {/* §1. Show Print Button Setting with Big Pastel ON / OFF Switch (Default OFF) */}
-      <div className="p-4 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="text-[18px] font-extrabold text-[#5C3D2E]">
-            Show Print button
+      {/* Bottom Row: Show Print Button + Auto-Lock Inactivity Timer */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Show Print Button Setting with Big Pastel ON / OFF Switch (Default OFF) */}
+        <div className="p-4 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-[18px] font-extrabold text-[#5C3D2E]">
+              Show Print button
+            </div>
+            <p className="text-[16px] text-[#5C3D2E] m-0">
+              Shows a Print button on the Today page so you can print your daily
+              sheet.
+            </p>
           </div>
-          <p className="text-[16px] text-[#5C3D2E] m-0">
-            Shows a Print button on the Today page so you can print your daily
-            sheet.
-          </p>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => onUpdateSettings({ showPrintButton: true })}
+              className={`h-[44px] min-w-[78px] px-5 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
+                isPrintEnabled
+                  ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                  : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
+              }`}
+            >
+              ON
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateSettings({ showPrintButton: false })}
+              className={`h-[44px] min-w-[78px] px-5 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
+                !isPrintEnabled
+                  ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                  : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
+              }`}
+            >
+              OFF
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => onUpdateSettings({ showPrintButton: true })}
-            className={`h-[44px] min-w-[78px] px-5 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
-              isPrintEnabled
-                ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
-            }`}
-          >
-            ON
-          </button>
-          <button
-            type="button"
-            onClick={() => onUpdateSettings({ showPrintButton: false })}
-            className={`h-[44px] min-w-[78px] px-5 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
-              !isPrintEnabled
-                ? 'bg-[#F5B8B0] text-[#9B2C20]'
-                : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
-            }`}
-          >
-            OFF
-          </button>
+        {/* Auto-lock Inactivity Timer (Off / 15 / 30 / 60 minutes) */}
+        <div className="p-4 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-[18px] font-extrabold text-[#5C3D2E]">
+              <Clock className="w-5 h-5 text-[#8B5E3C]" />
+              <span>Auto-lock after inactivity</span>
+            </div>
+            <p className="text-[16px] text-[#5C3D2E] m-0">
+              Automatically sign out when idle to protect your journal.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            {TIMEOUT_OPTIONS.map((opt) => {
+              const isSelected = currentTimeout === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() =>
+                    onUpdateSettings({ inactivityTimeoutMinutes: opt.value })
+                  }
+                  className={`h-[42px] px-3.5 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                      : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

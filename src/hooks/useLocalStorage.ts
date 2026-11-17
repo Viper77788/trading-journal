@@ -8,8 +8,7 @@ export function useLocalStorage<T>(
     try {
       const item = window.localStorage.getItem(key);
       return item ? (JSON.parse(item) as T) : initialValue;
-    } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
+    } catch {
       return initialValue;
     }
   });
@@ -17,8 +16,8 @@ export function useLocalStorage<T>(
   useEffect(() => {
     try {
       window.localStorage.setItem(key, JSON.stringify(storedValue));
-    } catch (error) {
-      console.error(`Error saving localStorage key "${key}":`, error);
+    } catch {
+      // Ignore storage write errors
     }
   }, [key, storedValue]);
 
