@@ -47,40 +47,45 @@ export const DisciplineGauge: React.FC<DisciplineGaugeProps> = ({
       : 'text-[#5C3D2E]';
 
   return (
-    <section aria-label="Today at a glance" className="space-y-2.5">
-      {/* Card 1: Discipline Score (~76px tall, progress bar on the same line) */}
-      <div className="px-4 py-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[16px] font-bold text-[#8B5E3C] leading-tight">
+    <section aria-label="Today at a glance" className="space-y-2">
+      {/* Card 1: Discipline Score (Progress bar full width of its card and 12px tall — §3) */}
+      <div className="px-3.5 py-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[16px] font-bold text-[#8B5E3C]">
             Discipline Score
-          </div>
-          <div className="mt-1.5 w-32 sm:w-40 h-3 rounded-full bg-[#FFFBF2] border border-[#8B5E3C] overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${clampedScore}%` }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              style={{ backgroundColor: barBgColor }}
-              className="h-full rounded-full"
+          </span>
+          <span
+            className={`text-[24px] font-extrabold leading-none ${scoreTextColor}`}
+          >
+            <AnimatedNumber
+              value={clampedScore}
+              formatter={(v) => `${Math.round(v)} / 100`}
             />
-          </div>
+          </span>
         </div>
 
-        <div className={`text-[26px] font-extrabold leading-none shrink-0 ${scoreTextColor}`}>
-          <AnimatedNumber
-            value={clampedScore}
-            formatter={(v) => `${Math.round(v)} / 100`}
+        {/* Full-width 12px progress bar */}
+        <div className="w-full h-3 rounded-full bg-[#FFFBF2] border border-[#8B5E3C] overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${clampedScore}%` }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            style={{ backgroundColor: barBgColor }}
+            className="h-full rounded-full"
           />
         </div>
       </div>
 
-      {/* Card 2: Today's Profit / Loss (~72px tall, single compact row) */}
+      {/* Card 2: Today's Profit / Loss */}
       <div
-        className={`px-4 py-3 rounded-xl border-2 border-[#8B5E3C] flex items-center justify-between gap-3 ${pnlCardBg}`}
+        className={`px-3.5 py-2.5 rounded-xl border-2 border-[#8B5E3C] flex items-center justify-between gap-3 ${pnlCardBg}`}
       >
         <div className="text-[16px] font-bold text-[#8B5E3C]">
           Today&apos;s Profit / Loss
         </div>
-        <div className={`text-[26px] font-extrabold leading-none ${pnlTextColor}`}>
+        <div
+          className={`text-[24px] font-extrabold leading-none ${pnlTextColor}`}
+        >
           <AnimatedNumber
             value={dailyPnl}
             formatter={(v) => formatCurrency(v, true)}
@@ -88,12 +93,12 @@ export const DisciplineGauge: React.FC<DisciplineGaugeProps> = ({
         </div>
       </div>
 
-      {/* Card 3: Trades Today (~72px tall, single compact row) */}
-      <div className="px-4 py-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
+      {/* Card 3: Trades Today */}
+      <div className="px-3.5 py-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
         <div className="text-[16px] font-bold text-[#8B5E3C]">
           Trades Today
         </div>
-        <div className="text-[26px] font-extrabold text-[#5C3D2E] leading-none">
+        <div className="text-[24px] font-extrabold text-[#5C3D2E] leading-none">
           {tradesCount} of {maxTrades}
         </div>
       </div>

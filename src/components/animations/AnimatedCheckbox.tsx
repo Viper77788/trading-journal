@@ -18,23 +18,19 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
 
   return (
     <div className="flex items-center gap-2.5 w-full">
-      {/* Left: Compact Pastel Rounded Label Bar (~46px tall) */}
+      {/* Left: Compact Pastel Rounded Label Bar — No strikethrough when checked, slightly greener tint (§4) */}
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        style={{ backgroundColor: pastelBg }}
-        className="flex-1 min-h-[46px] px-3.5 py-2 rounded-xl border-2 border-[#8B5E3C] text-left flex items-center justify-between transition-transform active:scale-[0.99] cursor-pointer"
+        style={{ backgroundColor: checked ? '#CDE8CE' : pastelBg }}
+        className="flex-1 min-h-[46px] px-3.5 py-2 rounded-xl border-2 border-[#8B5E3C] text-left flex items-center justify-between transition-colors active:scale-[0.99] cursor-pointer"
       >
-        <span
-          className={`text-[16px] font-bold text-[#5C3D2E] leading-snug ${
-            checked ? 'line-through decoration-[#8B5E3C]/70 opacity-85' : ''
-          }`}
-        >
+        <span className="text-[16px] font-bold text-[#5C3D2E] leading-snug">
           {label}
         </span>
       </button>
 
-      {/* Right: Outlined Circle (40px) to Tick */}
+      {/* Right: Outlined Circle (40px) to Tick — Fills brown with white checkmark */}
       <motion.button
         type="button"
         aria-label={label}

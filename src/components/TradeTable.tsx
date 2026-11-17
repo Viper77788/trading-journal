@@ -18,6 +18,7 @@ import { AccountSettings } from '../types/settings';
 import {
   getMaxRiskDollar,
   isTradeRiskViolated,
+  isMinorMistake,
 } from '../utils/calculations';
 import { formatCurrency, formatRMultiple } from '../utils/formatters';
 import { AnimatedNumber } from './animations/AnimatedNumber';
@@ -53,6 +54,7 @@ export const TradeTable: React.FC<TradeTableProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTradeId, setEditingTradeId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
 
   // 5 Simple Fields for the Pop-up Form
@@ -170,7 +172,7 @@ export const TradeTable: React.FC<TradeTableProps> = ({
       aria-label="My Trades Today"
       className="flex flex-col h-full min-h-0 gap-2.5"
     >
-      {/* Slim Pastel Heading Bar + "+ ADD TRADE" Button on One Line */}
+      {/* Slim Pastel Heading Bar + Single Plus "ADD TRADE" Button (§2) */}
       <div className="px-4 py-2 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2 shrink-0">
         <div className="min-w-0">
           <h2 className="font-heading text-[19px] font-bold uppercase text-[#8B5E3C] m-0 leading-tight">
@@ -193,7 +195,7 @@ export const TradeTable: React.FC<TradeTableProps> = ({
           }`}
         >
           <Plus className="w-4 h-4 stroke-[2.8]" />
-          <span>+ ADD TRADE</span>
+          <span>ADD TRADE</span>
         </button>
       </div>
 
@@ -207,13 +209,18 @@ export const TradeTable: React.FC<TradeTableProps> = ({
       {/* Scrollable Trade Cards List */}
       <div className="flex-1 panel-scroll space-y-2.5 pr-0.5">
         {trades.length === 0 ? (
-          <div className="p-6 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center h-full min-h-[180px]">
+          <div className="p-6 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center h-full min-h-[180px] gap-3">
             <div className="text-[18px] font-bold text-[#8B5E3C]">
-              No trades yet today. Tap + ADD TRADE to start.
+              No trades yet today. Tap ADD TRADE to start.
             </div>
-            <p className="text-[16px] text-[#5C3D2E] mt-1 mb-0">
-              Up to {settings.maxTradesPerDay} trades per day.
-            </p>
+            <button
+              type="button"
+              onClick={openNewTradeModal}
+              className="no-print h-[42px] px-4 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase text-[#2F6B3A] inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[2.8]" />
+              <span>ADD TRADE</span>
+            </button>
           </div>
         ) : (
           trades.map((trade) => {
@@ -228,6 +235,13 @@ export const TradeTable: React.FC<TradeTableProps> = ({
             const nonNoneMistakes = (trade.mistakes || []).filter(
               (m) => m !== 'None'
             );
+            const tradeR =
+              trade.riskAmount > 0
+                ? Math.round((trade.outcome / trade.riskAmount) * 10) / 10
+                : 0;
+            const rString =
+              tradeR > 0 ? `+${tradeR}R` : `${tradeR}R`;
+            const isConfirmingDelete = confirmDeleteId === trade.id;
 
             return (
               <ShakeOnError
@@ -237,7 +251,7 @@ export const TradeTable: React.FC<TradeTableProps> = ({
               >
                 {/* Compact Row Card (~90px tall) */}
                 <div className="rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] px-3.5 py-2.5 space-y-1.5">
-                  {/* Line 1: Trade #, pair, session chip, money risked (% of account) | Result badge + Edit/Delete icon buttons */}
+                  {/* Line 1: Trade #, pair, session chip, money risked (% of account) | Result badge (+$336.00 / +1.5R) + Edit/Delete icon buttons */}
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="px-2.5 py-0.5 rounded-lg bg-[#DCEEF2] border border-[#8B5E3C] font-heading text-[16px] font-bold text-[#8B5E3C]">
@@ -256,14 +270,20 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Profit + R result next to it (§7) */}
                       <span
-                        className={`px-3 py-1 rounded-xl border-2 border-[#8B5E3C] text-[18px] font-extrabold leading-none ${
+                        className={`px-3 py-1 rounded-xl border-2 border-[#8B5E3C] leading-none inline-flex items-baseline gap-1.5 ${
                           isWin
                             ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                             : 'bg-[#F5B8B0] text-[#9B2C20]'
                         }`}
                       >
-                        {formatCurrency(trade.outcome, true)}
+                        <strong className="text-[18px] font-extrabold">
+                          {formatCurrency(trade.outcome, true)}
+                        </strong>
+                        <span className="text-[15px] font-bold opacity-90">
+                          / {rString}
+                        </span>
                       </span>
 
                       <button
@@ -277,7 +297,11 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => onDeleteTrade(trade.id)}
+                        onClick={() =>
+                          setConfirmDeleteId((prev) =>
+                            prev === trade.id ? null : trade.id
+                          )
+                        }
                         aria-label="Delete trade"
                         title="Delete trade"
                         className="no-print w-9 h-9 rounded-lg bg-[#FFFBF2] hover:bg-[#F5B8B0] border border-[#8B5E3C] text-[#9B2C20] flex items-center justify-center cursor-pointer"
@@ -286,6 +310,35 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* Inline Delete Confirmation (§7: "Delete this trade? Yes / Cancel") */}
+                  {isConfirmingDelete && (
+                    <div className="no-print px-3 py-1.5 rounded-lg bg-[#F5B8B0]/60 border border-[#8B5E3C] flex items-center justify-between gap-2">
+                      <span className="text-[16px] font-bold text-[#9B2C20]">
+                        Delete this trade?
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDeleteTrade(trade.id);
+                            setConfirmDeleteId(null);
+                            onNotify('Trade deleted.', 'info');
+                          }}
+                          className="px-3 py-1 rounded-lg bg-[#F5B8B0] hover:bg-[#efa197] border border-[#8B5E3C] text-[16px] font-extrabold text-[#9B2C20] cursor-pointer"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-3 py-1 rounded-lg bg-[#FFFDF7] hover:bg-[#F0DED4] border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Line 2: Risk limit warning, note, and mistake tags */}
                   {(violated || trade.notes || nonNoneMistakes.length > 0) && (
@@ -305,14 +358,21 @@ export const TradeTable: React.FC<TradeTableProps> = ({
 
                       {nonNoneMistakes.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
-                          {nonNoneMistakes.map((m) => (
-                            <span
-                              key={m}
-                              className="px-2.5 py-0.5 rounded-full bg-[#F8D0CC] border border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20]"
-                            >
-                              {m}
-                            </span>
-                          ))}
+                          {nonNoneMistakes.map((m) => {
+                            const minor = isMinorMistake(m);
+                            return (
+                              <span
+                                key={m}
+                                className={`px-2.5 py-0.5 rounded-full border border-[#8B5E3C] text-[16px] font-bold ${
+                                  minor
+                                    ? 'bg-[#F7E2A0] text-[#5C3D2E]'
+                                    : 'bg-[#F8D0CC] text-[#9B2C20]'
+                                }`}
+                              >
+                                {m}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -577,11 +637,12 @@ export const TradeTable: React.FC<TradeTableProps> = ({
 
                       <div>
                         <span className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
-                          Mistake tags
+                          Mistake tags (Yellow = Small mistake • Red = Rule break)
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {MISTAKE_TAGS.map((tag) => {
                             const selected = mistakes.includes(tag);
+                            const minor = isMinorMistake(tag);
                             return (
                               <button
                                 key={tag}
@@ -591,6 +652,8 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                                   selected
                                     ? tag === 'None'
                                       ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                                      : minor
+                                      ? 'bg-[#F7E2A0] text-[#5C3D2E]'
                                       : 'bg-[#F5B8B0] text-[#9B2C20]'
                                     : 'bg-[#FFFDF7] text-[#5C3D2E]'
                                 }`}

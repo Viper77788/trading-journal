@@ -14,10 +14,9 @@ import {
 import { AccountSettings } from '../types/settings';
 import { TradeEntry } from '../types/trade';
 import {
-  calculateDailyDisciplineScore,
   calculateDayTotals,
-  getEffectiveAuditAnswers,
-  isTradeRiskViolated,
+  evaluateDayDiscipline,
+  DayDisciplineStatus,
 } from '../utils/calculations';
 import {
   formatReadableDate,
@@ -27,7 +26,10 @@ import {
 import { DisciplineGauge } from '../components/DisciplineGauge';
 import { ChecklistCard } from '../components/ChecklistCard';
 import { TradeTable } from '../components/TradeTable';
-import { AuditForm } from '../components/AuditForm';
+import {
+  AuditForm,
+  FeelingsAndLessonSection,
+} from '../components/AuditForm';
 
 interface DailyTrackerProps {
   selectedDate: string;
@@ -98,35 +100,14 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
   }, []);
 
   const todayIso = getTodayDateISO();
-  const disciplineScore = calculateDailyDisciplineScore(day, settings);
+  const dayEval = evaluateDayDiscipline(day, settings);
   const { totalPnl, totalR } = calculateDayTotals(day);
 
   const weekDays = getWeekDatesMondayToSunday(selectedDate);
 
-  const getDayCircleStatus = (
-    dateIso: string
-  ): 'green' | 'red' | 'empty' => {
-    const record = daysMap[dateIso];
-    if (!record || !record.trades || record.trades.length === 0) {
-      return 'empty';
-    }
-    const effective = getEffectiveAuditAnswers(record, settings);
-    const hasRiskBreak = record.trades.some((t) =>
-      isTradeRiskViolated(t, settings)
-    );
-    const hasRuleBreak =
-      hasRiskBreak ||
-      record.trades.length > settings.maxTradesPerDay ||
-      !effective.stuckToMaxTrades ||
-      !effective.respectedRiskCap ||
-      !effective.executedInAllowedWindows;
-
-    return hasRuleBreak ? 'red' : 'green';
-  };
-
-  // Compact Date + Prev/Next + Print Row + Slim Weekly Habit Row + 3 Stacked Stat Cards
-  const statsAndDateBlock = (
-    <div className="space-y-2.5">
+  // Shared Date Row + Weekly Habit Row + 3 Stat Cards
+  const topLeftStatsBlock = (
+    <div className="space-y-2 shrink-0">
       {/* Date + Prev/Next + Print in ONE compact row */}
       <div className="px-3.5 py-2 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
         <span className="text-[17px] font-extrabold text-[#5C3D2E] whitespace-nowrap">
@@ -184,21 +165,36 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
         </div>
       </div>
 
-      {/* Slim This Week's Habit Row (M T W T F S S) */}
-      <div className="px-3.5 py-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1.5">
-        <div className="flex items-center justify-between">
+      {/* Slim This Week's Habit Row (M T W T F S S) with Green / Yellow (Almost) / Red (§5) */}
+      <div className="px-3.5 py-2 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <span className="font-heading text-[16px] font-bold uppercase text-[#8B5E3C]">
             THIS WEEK&apos;S HABIT ROW
           </span>
-          <span className="text-[16px] font-semibold text-[#5C3D2E]">
-            Green = clean • Red = broke rule
-          </span>
+          <div className="flex items-center gap-2.5 text-[14px] font-bold text-[#5C3D2E]">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full bg-[#BFE3C0] border border-[#8B5E3C]" />
+              Clean
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full bg-[#F7E2A0] border border-[#8B5E3C]" />
+              Almost
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full bg-[#F5B8B0] border border-[#8B5E3C]" />
+              Broken
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1.5">
           {weekDays.map((wd) => {
-            const status = getDayCircleStatus(wd.dateIso);
+            const evalRes = evaluateDayDiscipline(daysMap[wd.dateIso], settings);
+            const status: DayDisciplineStatus = evalRes.hasTrades
+              ? evalRes.status
+              : 'empty';
             const isSelected = wd.dateIso === selectedDate;
+
             return (
               <button
                 key={wd.dateIso}
@@ -218,6 +214,8 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
                   className={`mt-1 w-8 h-8 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center ${
                     status === 'green'
                       ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                      : status === 'yellow'
+                      ? 'bg-[#F7E2A0] text-[#5C3D2E]'
                       : status === 'red'
                       ? 'bg-[#F5B8B0] text-[#9B2C20]'
                       : 'bg-[#FFFBF2] text-[#8B5E3C]'
@@ -225,6 +223,11 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
                 >
                   {status === 'green' && (
                     <Check className="w-4 h-4 stroke-[3]" />
+                  )}
+                  {status === 'yellow' && (
+                    <span className="text-[16px] font-extrabold leading-none">
+                      ~
+                    </span>
                   )}
                   {status === 'red' && <X className="w-4 h-4 stroke-[3]" />}
                   {status === 'empty' && (
@@ -237,9 +240,9 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
         </div>
       </div>
 
-      {/* 3 Stat Cards Stacked Tightly (~75px each) */}
+      {/* 3 Stat Cards Stacked Tightly */}
       <DisciplineGauge
-        score={disciplineScore}
+        score={dayEval.score}
         dailyPnl={totalPnl}
         tradesCount={day.trades.length}
         maxTrades={settings.maxTradesPerDay}
@@ -247,13 +250,21 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
     </div>
   );
 
-  // WIDE 3-COLUMN LAYOUT (>= 1300px): LEFT (30%) | MIDDLE (40%) | RIGHT (30%)
+  // WIDE 3-COLUMN LAYOUT (>= 1300px, §3):
+  // LEFT: Date + Weekly row + 3 stat cards + Feelings + Lesson for Tomorrow (flex-grow) + Pinned SAVE TODAY
+  // MIDDLE: My Trades Today + Pinned Total today
+  // RIGHT: Before You Trade checklist + End-of-Day Review (only the 3 Yes/No questions)
   if (isWide3Col) {
     return (
       <div className="today-grid h-full">
-        {/* LEFT COLUMN (30%): Date bar + Weekly habit row + 3 stat cards */}
-        <div className="paper-sheet p-3.5 panel-scroll space-y-2.5">
-          {statsAndDateBlock}
+        {/* LEFT COLUMN (30%): fills its height with Lesson flex-growing and SAVE TODAY pinned at bottom */}
+        <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full gap-2.5 panel-scroll">
+          {topLeftStatsBlock}
+          <FeelingsAndLessonSection
+            day={day}
+            onUpdateAudit={onUpdateAudit}
+            onNotify={onNotify}
+          />
         </div>
 
         {/* MIDDLE COLUMN (40%): My Trades Today */}
@@ -271,8 +282,8 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
           />
         </div>
 
-        {/* RIGHT COLUMN (30%): Before You Trade checklist + End-of-Day Review */}
-        <div className="paper-sheet p-3.5 panel-scroll space-y-3">
+        {/* RIGHT COLUMN (30%): Before You Trade checklist + End-of-Day Review (only the 3 Yes/No questions) */}
+        <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full">
           <ChecklistCard
             checklist={day.checklist}
             onUpdate={onUpdateChecklist}
@@ -281,19 +292,17 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
             day={day}
             settings={settings}
             onUpdateAudit={onUpdateAudit}
-            onNotify={onNotify}
           />
         </div>
       </div>
     );
   }
 
-  // TABLET 2-COLUMN (800px-1299px) & PHONE 1-COLUMN (<800px):
-  // Left = stats + checklist + review | Right = trades
+  // TABLET 2-COLUMN (800px-1299px) & PHONE 1-COLUMN (<800px)
   return (
     <div className="today-grid h-full">
-      <div className="paper-sheet p-3.5 panel-scroll space-y-3">
-        {statsAndDateBlock}
+      <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3">
+        {topLeftStatsBlock}
         <ChecklistCard
           checklist={day.checklist}
           onUpdate={onUpdateChecklist}
@@ -301,6 +310,10 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
         <AuditForm
           day={day}
           settings={settings}
+          onUpdateAudit={onUpdateAudit}
+        />
+        <FeelingsAndLessonSection
+          day={day}
           onUpdateAudit={onUpdateAudit}
           onNotify={onNotify}
         />

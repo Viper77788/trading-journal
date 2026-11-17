@@ -1,9 +1,33 @@
 import { DayRecord } from '../types/day';
 import { AccountSettings } from '../types/settings';
-import { TradeEntry } from '../types/trade';
+import { TradeEntry, MistakeTag } from '../types/trade';
+
+export const MAJOR_MISTAKE_TAGS: MistakeTag[] = [
+  'Broke Rules',
+  'Revenge Trade',
+  'FOMO',
+  'Moved Stop Loss',
+  'Overleveraged',
+];
+
+export const MINOR_MISTAKE_TAGS: MistakeTag[] = [
+  'Early Exit',
+  'Late Entry',
+];
+
+export function isMajorMistake(tag: MistakeTag): boolean {
+  return MAJOR_MISTAKE_TAGS.includes(tag);
+}
+
+export function isMinorMistake(tag: MistakeTag): boolean {
+  return MINOR_MISTAKE_TAGS.includes(tag);
+}
 
 export function getMaxRiskDollar(settings: AccountSettings): number {
-  return Math.round(((settings.accountSize * settings.maxRiskPercent) / 100) * 100) / 100;
+  return (
+    Math.round(((settings.accountSize * settings.maxRiskPercent) / 100) * 100) /
+    100
+  );
 }
 
 export function isTradeRiskViolated(
@@ -64,9 +88,6 @@ export function getEffectiveAuditAnswers(
   };
 }
 
-/**
- * Checks whether the user has interacted with a day record yet.
- */
 export function hasDayActivity(day: DayRecord): boolean {
   const checklistCount = [
     day.checklist.checkedEconomicCalendar,
@@ -81,20 +102,47 @@ export function hasDayActivity(day: DayRecord): boolean {
     (day.audit.emotions && day.audit.emotions.length > 0) ||
     Boolean(day.audit.keyLesson && day.audit.keyLesson.trim().length > 0);
 
-  return (day.trades && day.trades.length > 0) || checklistCount > 0 || hasManualAudit;
+  return (
+    Boolean(day.trades && day.trades.length > 0) ||
+    checklistCount > 0 ||
+    hasManualAudit
+  );
+}
+
+export type DayDisciplineStatus = 'green' | 'yellow' | 'red' | 'empty';
+
+export interface DayDisciplineEvaluation {
+  status: DayDisciplineStatus;
+  score: number;
+  ruleBreaksCount: number;
+  smallMistakesCount: number;
+  hasTrades: boolean;
 }
 
 /**
- * Calculates a 0-100 Daily Discipline Score.
- * Returns 0 if the day has no activity yet.
+ * SINGLE SHARED SOURCE OF TRUTH FOR DISCIPLINE RULES (§5):
+ * - Major mistakes (Broke Rules, Revenge Trade, FOMO, Moved Stop Loss, Overleveraged),
+ *   a "No" answer in the review, a broken risk cap, or more than max trades make the day
+ *   "Rule broken" (red). Counts in Rule Breaks, resets streak, and lowers score by at least 25 pts.
+ * - Minor mistakes (Early Exit, Late Entry) make the day "Almost" (yellow), take 5 points off
+ *   the score per tagged trade, do NOT reset the streak, and are counted separately as "Small mistakes".
  */
-export function calculateDailyDisciplineScore(
-  day: DayRecord,
+export function evaluateDayDiscipline(
+  day: DayRecord | undefined,
   settings: AccountSettings
-): number {
-  if (!hasDayActivity(day)) {
-    return 0;
+): DayDisciplineEvaluation {
+  if (!day || !hasDayActivity(day)) {
+    return {
+      status: 'empty',
+      score: 0,
+      ruleBreaksCount: 0,
+      smallMistakesCount: 0,
+      hasTrades: false,
+    };
   }
+
+  const trades = day.trades || [];
+  const hasTrades = trades.length > 0;
 
   const checklistCount = [
     day.checklist.checkedEconomicCalendar,
@@ -102,54 +150,112 @@ export function calculateDailyDisciplineScore(
     day.checklist.mentalStateCalm,
   ].filter(Boolean).length;
 
-  const checklistScore = (checklistCount / 3) * 25;
-
   const effectiveAudit = getEffectiveAuditAnswers(day, settings);
-  const auditYesCount = [
-    effectiveAudit.stuckToMaxTrades,
-    effectiveAudit.respectedRiskCap,
-    effectiveAudit.executedInAllowedWindows,
-  ].filter(Boolean).length;
 
-  const trades = day.trades || [];
-  if (trades.length === 0) {
-    // Only checklist or manual audit ticked so far
-    const hasManualAudit =
-      day.audit.stuckToMaxTrades !== null ||
-      day.audit.respectedRiskCap !== null ||
-      day.audit.executedInAllowedWindows !== null;
-    if (!hasManualAudit) {
-      return Math.round((checklistCount / 3) * 100);
-    }
-    const auditScore = (auditYesCount / 3) * 30;
-    return Math.round(((checklistScore + auditScore) / 55) * 100);
+  // Count major rule breaks and minor (small) mistakes
+  let ruleBreaksCount = 0;
+  let smallMistakesCount = 0;
+
+  if (trades.length > settings.maxTradesPerDay) {
+    ruleBreaksCount += trades.length - settings.maxTradesPerDay;
   }
 
-  const auditScore = (auditYesCount / 3) * 30;
-  const compliantRiskCount = trades.filter(
-    (t) => !isTradeRiskViolated(t, settings)
-  ).length;
-  const riskScore = (compliantRiskCount / trades.length) * 25;
+  // Review "No" answers count as rule breaks when the user has trades or explicitly set "No"
+  const hasExplicitOrTradeAudit =
+    hasTrades ||
+    day.audit.stuckToMaxTrades !== null ||
+    day.audit.respectedRiskCap !== null ||
+    day.audit.executedInAllowedWindows !== null;
 
+  if (hasExplicitOrTradeAudit) {
+    if (!effectiveAudit.stuckToMaxTrades && trades.length <= settings.maxTradesPerDay) {
+      ruleBreaksCount += 1;
+    }
+    if (!effectiveAudit.respectedRiskCap) {
+      // Check if already counted via trade risk violation below
+      const anyRiskViolated = trades.some((t) => isTradeRiskViolated(t, settings));
+      if (!anyRiskViolated) ruleBreaksCount += 1;
+    }
+    if (!effectiveAudit.executedInAllowedWindows) {
+      ruleBreaksCount += 1;
+    }
+  }
+
+  for (const t of trades) {
+    if (isTradeRiskViolated(t, settings)) {
+      ruleBreaksCount += 1;
+    }
+    for (const m of t.mistakes || []) {
+      if (isMajorMistake(m)) {
+        ruleBreaksCount += 1;
+      } else if (isMinorMistake(m)) {
+        smallMistakesCount += 1;
+      }
+    }
+  }
+
+  // Base score calculation
+  if (!hasTrades) {
+    // No trades yet, only checklist / manual audit
+    let rawNoTradeScore = Math.round((checklistCount / 3) * 100);
+    if (ruleBreaksCount > 0) {
+      rawNoTradeScore = Math.max(0, Math.min(75, rawNoTradeScore - ruleBreaksCount * 25));
+    }
+    return {
+      status: 'empty',
+      score: rawNoTradeScore,
+      ruleBreaksCount,
+      smallMistakesCount,
+      hasTrades: false,
+    };
+  }
+
+  // Start from 100 and deduct for unchecked pre-trade items, star ratings, small mistakes, and major rule breaks
+  const uncheckedChecklistPenalty = (3 - checklistCount) * 5; // up to 15 pts
   const avgDisciplineStars =
-    trades.reduce((sum, t) => sum + (t.disciplineScore || 3), 0) /
+    trades.reduce((sum, t) => sum + (t.disciplineScore || 5), 0) /
     trades.length;
-  const starScore = (avgDisciplineStars / 5) * 20;
+  const starDeduction = Math.round(((5 - avgDisciplineStars) / 4) * 15); // 0 to 15 pts
 
-  const overtradePenalty =
-    trades.length > settings.maxTradesPerDay
-      ? (trades.length - settings.maxTradesPerDay) * 12
-      : 0;
+  let score = 100 - uncheckedChecklistPenalty - starDeduction;
 
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(
-        checklistScore + auditScore + riskScore + starScore - overtradePenalty
-      )
-    )
-  );
+  // Minor mistakes: take 5 points off per tagged minor mistake, and cap score at <= 94 so it clearly reflects "Almost"
+  if (smallMistakesCount > 0) {
+    score -= smallMistakesCount * 5;
+    score = Math.min(score, 95 - smallMistakesCount * 5);
+  }
+
+  // Major rule breaks: lower the Discipline Score by at least 25 points (cap <= 75)
+  if (ruleBreaksCount > 0) {
+    score -= Math.max(25, ruleBreaksCount * 25);
+    score = Math.min(score, 75);
+  }
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  let status: DayDisciplineStatus = 'green';
+  if (ruleBreaksCount > 0) {
+    status = 'red';
+  } else if (smallMistakesCount > 0) {
+    status = 'yellow';
+  } else {
+    status = 'green';
+  }
+
+  return {
+    status,
+    score,
+    ruleBreaksCount,
+    smallMistakesCount,
+    hasTrades: true,
+  };
+}
+
+export function calculateDailyDisciplineScore(
+  day: DayRecord,
+  settings: AccountSettings
+): number {
+  return evaluateDayDiscipline(day, settings).score;
 }
 
 export function calculateDayTotals(day: DayRecord) {
@@ -182,8 +288,13 @@ export interface DashboardAnalytics {
   avgDisciplineScore: number;
   avgRealRewardToRisk: number;
   totalRuleViolations: number;
+  totalSmallMistakes: number;
   currentDisciplineStreak: number;
   bestDisciplineStreak: number;
+  cleanDaysCount: number;
+  almostDaysCount: number;
+  ruleBrokenDaysCount: number;
+  activeTradingDaysCount: number;
   equityCurve: Array<{
     date: string;
     dailyPnl: number;
@@ -191,15 +302,16 @@ export interface DashboardAnalytics {
     balance: number;
     disciplineScore: number;
   }>;
-  mistakeChartData: Array<{ name: string; count: number }>;
-  emotionChartData: Array<{ name: string; value: number }>;
+  mistakeChartData: Array<{ name: string; count: number; isMinor: boolean }>;
+  emotionChartData: Array<{ name: string; value: number; percent: number }>;
   daySummaries: Array<{
     date: string;
     pnl: number;
     tradesCount: number;
     disciplineScore: number;
-    hasViolation: boolean;
-    status: 'disciplined-profit' | 'disciplined-loss' | 'violation' | 'empty';
+    ruleBreaksCount: number;
+    smallMistakesCount: number;
+    status: DayDisciplineStatus;
   }>;
 }
 
@@ -217,6 +329,10 @@ export function computeDashboardAnalytics(
   let disciplineScoreSum = 0;
   let activeDaysCount = 0;
   let totalRuleViolations = 0;
+  let totalSmallMistakes = 0;
+  let cleanDaysCount = 0;
+  let almostDaysCount = 0;
+  let ruleBrokenDaysCount = 0;
   let winRSum = 0;
   let winRCount = 0;
 
@@ -235,25 +351,12 @@ export function computeDashboardAnalytics(
     if (!day) continue;
 
     const trades = day.trades || [];
-    const dayScore = calculateDailyDisciplineScore(day, settings);
+    const evalResult = evaluateDayDiscipline(day, settings);
     const { totalPnl } = calculateDayTotals(day);
-    const effectiveAudit = getEffectiveAuditAnswers(day, settings);
-
-    let dayViolations = 0;
-    if (trades.length > 0) {
-      if (trades.length > settings.maxTradesPerDay) dayViolations += 1;
-      if (!effectiveAudit.stuckToMaxTrades) dayViolations += 1;
-      if (!effectiveAudit.respectedRiskCap) dayViolations += 1;
-      if (!effectiveAudit.executedInAllowedWindows) dayViolations += 1;
-    }
 
     for (const t of trades) {
       totalTrades += 1;
       setupQualitySum += t.setupQuality || 0;
-
-      if (isTradeRiskViolated(t, settings)) {
-        dayViolations += 1;
-      }
 
       if (t.outcome > 0) {
         wins += 1;
@@ -268,9 +371,6 @@ export function computeDashboardAnalytics(
       for (const m of t.mistakes || []) {
         if (m && m !== 'None') {
           mistakeCounts[m] = (mistakeCounts[m] || 0) + 1;
-          if (m === 'Broke Rules' || m === 'Revenge Trade' || m === 'Overleveraged') {
-            dayViolations += 1;
-          }
         }
       }
     }
@@ -281,17 +381,24 @@ export function computeDashboardAnalytics(
 
     if (trades.length > 0) {
       activeDaysCount += 1;
-      disciplineScoreSum += dayScore;
+      disciplineScoreSum += evalResult.score;
       netPnl += totalPnl;
       runningPnl += totalPnl;
-      totalRuleViolations += dayViolations;
+      totalRuleViolations += evalResult.ruleBreaksCount;
+      totalSmallMistakes += evalResult.smallMistakesCount;
 
-      const isRuleClean = dayViolations === 0 && dayScore >= 75;
-      if (isRuleClean) {
+      if (evalResult.status === 'red') {
+        ruleBrokenDaysCount += 1;
+        currentStreak = 0; // Major rule break resets the streak
+      } else if (evalResult.status === 'yellow') {
+        almostDaysCount += 1;
+        // Minor mistake ("Almost") does NOT reset the streak (§5)
         currentStreak += 1;
         if (currentStreak > bestStreak) bestStreak = currentStreak;
       } else {
-        currentStreak = 0;
+        cleanDaysCount += 1;
+        currentStreak += 1;
+        if (currentStreak > bestStreak) bestStreak = currentStreak;
       }
 
       equityCurve.push({
@@ -299,29 +406,26 @@ export function computeDashboardAnalytics(
         dailyPnl: Math.round(totalPnl * 100) / 100,
         cumulativePnl: Math.round(runningPnl * 100) / 100,
         balance: Math.round((settings.accountSize + runningPnl) * 100) / 100,
-        disciplineScore: dayScore,
+        disciplineScore: evalResult.score,
       });
 
       daySummaries.push({
         date,
         pnl: Math.round(totalPnl * 100) / 100,
         tradesCount: trades.length,
-        disciplineScore: dayScore,
-        hasViolation: dayViolations > 0,
-        status:
-          dayViolations > 0
-            ? 'violation'
-            : totalPnl >= 0
-            ? 'disciplined-profit'
-            : 'disciplined-loss',
+        disciplineScore: evalResult.score,
+        ruleBreaksCount: evalResult.ruleBreaksCount,
+        smallMistakesCount: evalResult.smallMistakesCount,
+        status: evalResult.status,
       });
     } else if (hasDayActivity(day)) {
       daySummaries.push({
         date,
         pnl: 0,
         tradesCount: 0,
-        disciplineScore: dayScore,
-        hasViolation: false,
+        disciplineScore: evalResult.score,
+        ruleBreaksCount: evalResult.ruleBreaksCount,
+        smallMistakesCount: evalResult.smallMistakesCount,
         status: 'empty',
       });
     }
@@ -338,12 +442,28 @@ export function computeDashboardAnalytics(
   const avgRealRewardToRisk =
     winRCount > 0 ? Math.round((winRSum / winRCount) * 100) / 100 : 2.0;
 
+  // Sort mistakes from most to least common (§6)
   const mistakeChartData = Object.entries(mistakeCounts)
-    .map(([name, count]) => ({ name, count }))
+    .map(([name, count]) => ({
+      name,
+      count,
+      isMinor: isMinorMistake(name as MistakeTag),
+    }))
     .sort((a, b) => b.count - a.count);
 
+  const totalEmotionCount = Object.values(emotionCounts).reduce(
+    (s, v) => s + v,
+    0
+  );
   const emotionChartData = Object.entries(emotionCounts)
-    .map(([name, value]) => ({ name, value }))
+    .map(([name, value]) => ({
+      name,
+      value,
+      percent:
+        totalEmotionCount > 0
+          ? Math.round((value / totalEmotionCount) * 100)
+          : 0,
+    }))
     .sort((a, b) => b.value - a.value);
 
   return {
@@ -356,8 +476,13 @@ export function computeDashboardAnalytics(
     avgDisciplineScore,
     avgRealRewardToRisk,
     totalRuleViolations,
+    totalSmallMistakes,
     currentDisciplineStreak: currentStreak,
     bestDisciplineStreak: bestStreak,
+    cleanDaysCount,
+    almostDaysCount,
+    ruleBrokenDaysCount,
+    activeTradingDaysCount: activeDaysCount,
     equityCurve,
     mistakeChartData,
     emotionChartData,
