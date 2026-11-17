@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Trash2,
-  Star,
-  AlertOctagon,
-  Sliders,
-  Ban,
-  TrendingUp,
+  Edit3,
+  ChevronDown,
+  ChevronUp,
+  X,
 } from 'lucide-react';
 import {
   TradeEntry,
@@ -28,60 +27,23 @@ interface TradeTableProps {
   trades: TradeEntry[];
   settings: AccountSettings;
   onUpdateSettings: (patch: Partial<AccountSettings>) => void;
-  onAddTrade: () => { ok: boolean; reason?: string };
+  onAddTrade: (customPayload?: Partial<TradeEntry>) => {
+    ok: boolean;
+    reason?: string;
+  };
   onUpdateTrade: (tradeId: string, patch: Partial<TradeEntry>) => void;
   onDeleteTrade: (tradeId: string) => void;
-  onNotify: (title: string, type: 'success' | 'warning' | 'error' | 'info') => void;
+  onNotify: (
+    title: string,
+    type: 'success' | 'warning' | 'error' | 'info'
+  ) => void;
   dailyPnl: number;
   dailyR: number;
 }
 
-interface StarRatingCellProps {
-  value: number;
-  onChange: (next: number) => void;
-  activeColorClass?: string;
-}
-
-const StarRatingCell: React.FC<StarRatingCellProps> = ({
-  value,
-  onChange,
-  activeColorClass = 'text-amber-400 fill-amber-400',
-}) => {
-  const [hovered, setHovered] = useState<number>(0);
-
-  return (
-    <div className="inline-flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => {
-        const isFilled = (hovered || value) >= star;
-        return (
-          <motion.button
-            key={star}
-            type="button"
-            whileHover={{ scale: 1.22, y: -1 }}
-            whileTap={{ scale: 0.9 }}
-            onMouseEnter={() => setHovered(star)}
-            onMouseLeave={() => setHovered(0)}
-            onClick={() => onChange(star)}
-            className="p-0.5 rounded focus:outline-none cursor-pointer"
-          >
-            <Star
-              className={`w-4 h-4 transition-all duration-150 ${
-                isFilled
-                  ? `${activeColorClass} drop-shadow-[0_0_6px_rgba(251,191,36,0.45)]`
-                  : 'text-slate-600'
-              }`}
-            />
-          </motion.button>
-        );
-      })}
-    </div>
-  );
-};
-
 export const TradeTable: React.FC<TradeTableProps> = ({
   trades,
   settings,
-  onUpdateSettings,
   onAddTrade,
   onUpdateTrade,
   onDeleteTrade,
@@ -89,598 +51,598 @@ export const TradeTable: React.FC<TradeTableProps> = ({
   dailyPnl,
   dailyR,
 }) => {
-  const shouldReduceMotion = useReducedMotion();
-  const [limitShakeCount, setLimitShakeCount] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTradeId, setEditingTradeId] = useState<string | null>(null);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+
+  // 5 Simple Fields for the Pop-up Form
+  const [asset, setAsset] = useState('XAUUSD');
+  const [session, setSession] = useState<TradingSession>('NY');
+  const [riskDollar, setRiskDollar] = useState<string>('250');
+  const [resultType, setResultType] = useState<'WIN' | 'LOSS'>('WIN');
+  const [resultDollar, setResultDollar] = useState<string>('500');
+  const [notes, setNotes] = useState('');
+
+  // Optional More Details
+  const [setupQuality, setSetupQuality] = useState<number>(4);
+  const [disciplineScore, setDisciplineScore] = useState<number>(5);
+  const [mistakes, setMistakes] = useState<MistakeTag[]>(['None']);
 
   const maxRiskDollar = getMaxRiskDollar(settings);
   const isAtLimit = trades.length >= settings.maxTradesPerDay;
 
-  const handleAddClick = () => {
+  const openNewTradeModal = () => {
     if (isAtLimit) {
-      setLimitShakeCount((c) => c + 1);
       onNotify(
-        `${settings.maxTradesPerDay}-trade limit reached, stop trading!`,
+        `${settings.maxTradesPerDay} trades done. Stop trading for today!`,
         'warning'
       );
       return;
     }
-    const res = onAddTrade();
-    if (!res.ok && res.reason) {
-      setLimitShakeCount((c) => c + 1);
-      onNotify(res.reason, 'warning');
-    } else {
-      onNotify(`Trade #${trades.length + 1} added to today's log`, 'success');
-    }
+    setEditingTradeId(null);
+    setAsset('XAUUSD');
+    setSession('NY');
+    setRiskDollar(String(maxRiskDollar));
+    setResultType('WIN');
+    setResultDollar(String(maxRiskDollar * 2));
+    setNotes('');
+    setSetupQuality(4);
+    setDisciplineScore(5);
+    setMistakes(['None']);
+    setShowMoreDetails(false);
+    setIsModalOpen(true);
   };
 
-  const toggleMistakeTag = (trade: TradeEntry, tag: MistakeTag) => {
-    const current = trade.mistakes || [];
+  const openEditTradeModal = (t: TradeEntry) => {
+    setEditingTradeId(t.id);
+    setAsset(t.asset || 'XAUUSD');
+    setSession(t.session === 'London' ? 'London' : 'NY');
+    setRiskDollar(String(t.riskAmount || maxRiskDollar));
+    setResultType(t.outcome >= 0 ? 'WIN' : 'LOSS');
+    setResultDollar(String(Math.abs(t.outcome || 0)));
+    setNotes(t.notes || '');
+    setSetupQuality(t.setupQuality || 4);
+    setDisciplineScore(t.disciplineScore || 5);
+    setMistakes(t.mistakes && t.mistakes.length > 0 ? t.mistakes : ['None']);
+    setShowMoreDetails(false);
+    setIsModalOpen(true);
+  };
+
+  const toggleMistakeInModal = (tag: MistakeTag) => {
     if (tag === 'None') {
-      onUpdateTrade(trade.id, { mistakes: ['None'] });
+      setMistakes(['None']);
       return;
     }
-
-    const withoutNone = current.filter((m) => m !== 'None');
+    const withoutNone = mistakes.filter((m) => m !== 'None');
     const exists = withoutNone.includes(tag);
     const next = exists
       ? withoutNone.filter((m) => m !== tag)
       : [...withoutNone, tag];
-
-    onUpdateTrade(trade.id, {
-      mistakes: next.length === 0 ? ['None'] : next,
-    });
+    setMistakes(next.length === 0 ? ['None'] : next);
   };
 
+  const handleSaveModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numericRisk = Math.max(0, Number(riskDollar) || 0);
+    const numericResultAbs = Math.max(0, Number(resultDollar) || 0);
+    const signedOutcome =
+      resultType === 'WIN' ? numericResultAbs : -numericResultAbs;
+
+    if (editingTradeId) {
+      onUpdateTrade(editingTradeId, {
+        asset: asset.trim() || 'XAUUSD',
+        session,
+        riskAmount: numericRisk,
+        outcome: signedOutcome,
+        notes: notes.trim(),
+        setupQuality,
+        disciplineScore,
+        mistakes,
+      });
+      onNotify('Trade updated!', 'success');
+    } else {
+      const res = onAddTrade({
+        asset: asset.trim() || 'XAUUSD',
+        session,
+        riskAmount: numericRisk,
+        outcome: signedOutcome,
+        notes: notes.trim(),
+        setupQuality,
+        disciplineScore,
+        mistakes,
+      });
+      if (res.ok) {
+        onNotify('Trade saved!', 'success');
+      } else if (res.reason) {
+        onNotify(res.reason, 'warning');
+      }
+    }
+    setIsModalOpen(false);
+  };
+
+  const calculatedRiskPctInModal =
+    settings.accountSize > 0
+      ? (((Number(riskDollar) || 0) / settings.accountSize) * 100).toFixed(1)
+      : '0.0';
+
+  const pastelCardColors = ['#FFFDF7', '#FFFDF7', '#FFFDF7'];
+
   return (
-    <div className="space-y-6">
-      {/* B) ACCOUNT SETTINGS BAR (Editable, saved globally) */}
-      <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-sky-400" />
-            <h3 className="text-lg font-bold text-slate-100">
-              B) Account &amp; Risk Guardrails
-            </h3>
-          </div>
-          <span className="text-xs text-slate-400">
-            Saved globally • Auto-syncs Risk % &amp; Risk $
-          </span>
+    <section aria-label="My Trades Today" className="space-y-4">
+      {/* Pastel Section Heading Bar */}
+      <div className="px-5 py-3 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0">
+            MY TRADES TODAY
+          </h2>
+          <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
+            Max {settings.maxTradesPerDay} trades per day • Max risk{' '}
+            {formatCurrency(maxRiskDollar)} ({settings.maxRiskPercent}%) per
+            trade
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Account Size */}
-          <div className="p-4 rounded-xl bg-[#0B0F19]/90 border border-slate-800/80">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Account Size ($)
-            </label>
-            <input
-              type="number"
-              min={100}
-              step={500}
-              value={settings.accountSize}
-              onChange={(e) =>
-                onUpdateSettings({
-                  accountSize: Math.max(100, Number(e.target.value) || 0),
-                })
-              }
-              className="w-full bg-[#111827] border border-slate-700/80 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-base font-bold font-mono text-slate-100 outline-none transition-colors"
-            />
-          </div>
-
-          {/* Max Risk % per trade */}
-          <div className="p-4 rounded-xl bg-[#0B0F19]/90 border border-slate-800/80">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Max Risk % / Trade
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min={0.1}
-                max={20}
-                step={0.1}
-                value={settings.maxRiskPercent}
-                onChange={(e) =>
-                  onUpdateSettings({
-                    maxRiskPercent: Math.max(0.1, Number(e.target.value) || 0.1),
-                  })
-                }
-                className="w-full bg-[#111827] border border-slate-700/80 focus:border-emerald-500 rounded-xl px-3.5 py-2 pr-8 text-base font-bold font-mono text-slate-100 outline-none transition-colors"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400">
-                %
-              </span>
-            </div>
-          </div>
-
-          {/* Max Risk $ per trade (Auto-calculated) */}
-          <div className="p-4 rounded-xl bg-[#0B0F19]/90 border border-slate-800/80">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Max Risk $ / Trade (Auto)
-            </label>
-            <div className="h-[42px] px-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
-              <span className="text-base font-bold font-mono text-emerald-300">
-                {formatCurrency(maxRiskDollar)}
-              </span>
-              <span className="text-[11px] font-medium text-emerald-400/80">
-                {settings.maxRiskPercent}% Cap
-              </span>
-            </div>
-          </div>
-
-          {/* Max Trades per Day */}
-          <div className="p-4 rounded-xl bg-[#0B0F19]/90 border border-slate-800/80">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Max Trades / Day
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={15}
-              step={1}
-              value={settings.maxTradesPerDay}
-              onChange={(e) =>
-                onUpdateSettings({
-                  maxTradesPerDay: Math.max(
-                    1,
-                    Math.min(15, Math.round(Number(e.target.value) || 3))
-                  ),
-                })
-              }
-              className="w-full bg-[#111827] border border-slate-700/80 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-base font-bold font-mono text-slate-100 outline-none transition-colors"
-            />
-          </div>
-        </div>
+        {/* Big Pastel "+ ADD TRADE" Button */}
+        <button
+          type="button"
+          disabled={isAtLimit}
+          onClick={openNewTradeModal}
+          className={`no-print min-h-[50px] px-6 py-2.5 rounded-2xl border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-transform ${
+            isAtLimit
+              ? 'bg-[#F0DED4] text-[#8B5E3C]/60 cursor-not-allowed'
+              : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer shadow-sm'
+          }`}
+        >
+          <Plus className="w-5 h-5 stroke-[2.8]" />
+          <span>+ ADD TRADE</span>
+        </button>
       </div>
 
-      {/* C) TRADE LOG TABLE */}
-      <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
-              <h3 className="text-lg font-bold text-slate-100">
-                C) Daily Trade Execution Log
-              </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#0B0F19] text-slate-300 border border-slate-700">
-                {trades.length} / {settings.maxTradesPerDay} Trades
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Max {settings.maxTradesPerDay} trades/day • Risk cap{' '}
-              {settings.maxRiskPercent}% ({formatCurrency(maxRiskDollar)}) per
-              trade
-            </p>
-          </div>
-
-          {/* Add Trade Button with Shake on Limit Reached */}
-          <ShakeOnError triggerKey={limitShakeCount} isError={limitShakeCount > 0}>
-            <motion.button
-              type="button"
-              whileHover={isAtLimit ? undefined : { y: -1 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleAddClick}
-              title={
-                isAtLimit
-                  ? `${settings.maxTradesPerDay}-trade limit reached, stop trading!`
-                  : 'Log a new trade execution'
-              }
-              className={`px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                isAtLimit
-                  ? 'bg-rose-500/15 text-rose-300 border border-rose-500/40'
-                  : 'bg-emerald-500 hover:bg-emerald-400 text-[#0B0F19] shadow-lg shadow-emerald-500/20'
-              }`}
-            >
-              {isAtLimit ? (
-                <>
-                  <Ban className="w-4 h-4" />
-                  <span>Limit Reached ({trades.length}/{settings.maxTradesPerDay})</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                  <span>Add Trade #{trades.length + 1}</span>
-                </>
-              )}
-            </motion.button>
-          </ShakeOnError>
+      {/* If 3 trades are already added: show clear stop message */}
+      {isAtLimit && (
+        <div className="p-4 rounded-2xl bg-[#F7E2A0] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] text-center">
+          {settings.maxTradesPerDay} trades done. Stop trading for today!
         </div>
+      )}
 
-        {/* 3-Trade Limit Reached Warning Banner */}
-        <AnimatePresence>
-          {isAtLimit && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: 'auto' }}
-              exit={{ opacity: 0, y: -10, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-3 text-rose-200">
-                <div className="flex items-center gap-3">
-                  <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0" />
-                  <span className="text-sm font-bold">
-                    {settings.maxTradesPerDay}-trade limit reached, stop trading!
-                  </span>
-                </div>
-                <span className="text-xs font-medium text-rose-300 hidden sm:inline">
-                  Protect your mental capital and complete your Daily Audit below.
-                </span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Trade Cards List */}
+      {trades.length === 0 ? (
+        <div className="p-8 rounded-2xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center space-y-3">
+          <div className="text-[20px] font-bold text-[#8B5E3C]">
+            No trades added yet today
+          </div>
+          <p className="text-[17px] text-[#5C3D2E] m-0">
+            Tap the green <strong>+ ADD TRADE</strong> button above when you
+            finish a trade.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {trades.map((trade, index) => {
+            const violated = isTradeRiskViolated(trade, settings);
+            const isWin = trade.outcome >= 0;
+            const sessionName =
+              trade.session === 'London'
+                ? 'London'
+                : trade.session === 'NY'
+                ? 'New York'
+                : 'Outside Allowed Time';
 
-        {/* Trade Rows */}
-        {trades.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="py-12 px-4 rounded-2xl bg-[#0B0F19]/60 border border-dashed border-slate-800 flex flex-col items-center justify-center text-center"
-          >
-            <motion.div
-              animate={shouldReduceMotion ? undefined : { y: [0, -5, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3"
-            >
-              <TrendingUp className="w-6 h-6" />
-            </motion.div>
-            <h4 className="text-base font-bold text-slate-200">
-              No trades logged for this session yet
-            </h4>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md">
-              Wait for a clean London (1–4 AM EST) or NY (8–11 AM EST) setup,
-              then click &ldquo;Add Trade #1&rdquo; above.
-            </p>
-          </motion.div>
-        ) : (
-          <div className="space-y-4">
-            <AnimatePresence initial={false}>
-              {trades.map((trade) => {
-                const violated = isTradeRiskViolated(trade, settings);
-                const isProfit = trade.outcome > 0;
-                const isLoss = trade.outcome < 0;
-                const rVal =
-                  trade.riskAmount > 0
-                    ? trade.outcome / trade.riskAmount
-                    : 0;
+            return (
+              <ShakeOnError
+                key={trade.id}
+                triggerKey={`${trade.id}-${trade.riskAmount}-${violated}`}
+                isError={violated}
+              >
+                <div
+                  style={{
+                    backgroundColor:
+                      pastelCardColors[index % pastelCardColors.length],
+                  }}
+                  className="rounded-2xl border-2 border-[#8B5E3C] p-5 space-y-4"
+                >
+                  {/* Red Bar if Risk Limit Exceeded */}
+                  {violated && (
+                    <div className="px-4 py-2.5 rounded-xl bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#9B2C20]">
+                      Over your risk limit! (Risked{' '}
+                      {formatCurrency(trade.riskAmount)}, limit is{' '}
+                      {formatCurrency(maxRiskDollar)})
+                    </div>
+                  )}
 
-                return (
-                  <motion.div
-                    key={trade.id}
-                    layout
-                    initial={{ opacity: 0, y: -16, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.94, height: 0 }}
-                    transition={{ duration: 0.25 }}
-                    whileHover={
-                      shouldReduceMotion ? undefined : { y: -1 }
-                    }
-                    className={`rounded-2xl p-5 border transition-colors ${
-                      violated
-                        ? 'bg-rose-950/20 border-rose-500/50 shadow-[0_0_25px_-6px_rgba(239,68,68,0.3)]'
-                        : 'bg-[#0B0F19]/85 border-slate-800/90 hover:border-slate-700'
-                    }`}
-                  >
-                    {/* Top Grid of Columns */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-start">
-                      {/* 1. Trade # & Session Dropdown */}
-                      <div className="lg:col-span-2 flex items-center gap-2.5">
-                        <span className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 font-mono text-xs font-bold text-slate-200 flex items-center justify-center shrink-0">
-                          #{trade.tradeNumber}
+                  {/* Top Row: "Trade 1" + Pair + Session on Left, Big Result + Edit/Delete on Right */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="px-3.5 py-1 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] font-heading text-[18px] font-bold text-[#8B5E3C]">
+                          Trade {trade.tradeNumber}
                         </span>
-                        <div className="flex-1 min-w-0">
-                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                            Session
-                          </label>
-                          <select
-                            value={trade.session}
-                            onChange={(e) =>
-                              onUpdateTrade(trade.id, {
-                                session: e.target.value as TradingSession,
-                              })
-                            }
-                            className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold border outline-none cursor-pointer ${
-                              trade.session === 'Outside'
-                                ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                                : 'bg-[#111827] border-slate-700/80 text-slate-100'
-                            }`}
-                          >
-                            <option value="London">London (1–4 AM EST)</option>
-                            <option value="NY">NY (8–11 AM EST)</option>
-                            <option value="Outside">Outside Window</option>
-                          </select>
-                        </div>
+                        <span className="text-[22px] font-extrabold text-[#5C3D2E]">
+                          {trade.asset}
+                        </span>
+                        <span className="px-3 py-1 rounded-xl bg-[#F0DED4] border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E]">
+                          {sessionName}
+                        </span>
                       </div>
 
-                      {/* 2. Asset / Pair */}
-                      <div className="lg:col-span-2">
-                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                          Asset / Pair
-                        </label>
-                        <input
-                          type="text"
-                          value={trade.asset}
-                          placeholder="e.g. XAUUSD / MGC"
-                          onChange={(e) =>
-                            onUpdateTrade(trade.id, { asset: e.target.value })
-                          }
-                          className="w-full bg-[#111827] border border-slate-700/80 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-100 outline-none"
-                        />
-                      </div>
-
-                      {/* 3. Risk % & Risk ($) Auto-Synced with Violation Shake */}
-                      <div className="lg:col-span-3">
-                        <ShakeOnError
-                          triggerKey={`${trade.riskPercent}-${trade.riskAmount}-${violated}`}
-                          isError={violated}
-                        >
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                                Risk %
-                              </label>
-                              <input
-                                type="number"
-                                step={0.1}
-                                min={0}
-                                value={trade.riskPercent}
-                                onChange={(e) =>
-                                  onUpdateTrade(trade.id, {
-                                    riskPercent:
-                                      Math.max(0, Number(e.target.value) || 0),
-                                  })
-                                }
-                                className={`w-full rounded-xl px-2.5 py-2 text-xs font-mono font-bold border outline-none ${
-                                  violated
-                                    ? 'bg-rose-500/20 border-rose-500 text-rose-200'
-                                    : 'bg-[#111827] border-slate-700/80 text-slate-100 focus:border-emerald-500'
-                                }`}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                                Risk ($)
-                              </label>
-                              <input
-                                type="number"
-                                step={10}
-                                min={0}
-                                value={trade.riskAmount}
-                                onChange={(e) =>
-                                  onUpdateTrade(trade.id, {
-                                    riskAmount:
-                                      Math.max(0, Number(e.target.value) || 0),
-                                  })
-                                }
-                                className={`w-full rounded-xl px-2.5 py-2 text-xs font-mono font-bold border outline-none ${
-                                  violated
-                                    ? 'bg-rose-500/20 border-rose-500 text-rose-200'
-                                    : 'bg-[#111827] border-slate-700/80 text-slate-100 focus:border-emerald-500'
-                                }`}
-                              />
-                            </div>
-                          </div>
-                        </ShakeOnError>
-
-                        {/* Pulsing Red Risk Cap Violated Badge */}
-                        <AnimatePresence>
-                          {violated && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.85 }}
-                              animate={{
-                                opacity: 1,
-                                scale: 1,
-                                boxShadow: [
-                                  '0 0 0 0 rgba(239,68,68,0.4)',
-                                  '0 0 12px 2px rgba(239,68,68,0.35)',
-                                  '0 0 0 0 rgba(239,68,68,0.4)',
-                                ],
-                              }}
-                              exit={{ opacity: 0, scale: 0.85 }}
-                              transition={{
-                                boxShadow: { duration: 1.6, repeat: Infinity },
-                              }}
-                              className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/25 text-rose-200 border border-rose-500/60"
-                            >
-                              <AlertOctagon className="w-3 h-3 text-rose-400" />
-                              <span>Risk cap violated</span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* 4. Setup Quality & Discipline Score Stars */}
-                      <div className="lg:col-span-3 grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                            Setup Quality
-                          </label>
-                          <StarRatingCell
-                            value={trade.setupQuality}
-                            onChange={(val) =>
-                              onUpdateTrade(trade.id, { setupQuality: val })
-                            }
-                            activeColorClass="text-amber-400 fill-amber-400"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                            Discipline
-                          </label>
-                          <StarRatingCell
-                            value={trade.disciplineScore}
-                            onChange={(val) =>
-                              onUpdateTrade(trade.id, { disciplineScore: val })
-                            }
-                            activeColorClass="text-emerald-400 fill-emerald-400"
-                          />
-                        </div>
-                      </div>
-
-                      {/* 5. Outcome (+/- $) & Delete */}
-                      <div className="lg:col-span-2 flex items-end gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                              Outcome ($)
-                            </label>
-                            <span
-                              className={`text-[11px] font-mono font-bold ${
-                                rVal > 0
-                                  ? 'text-emerald-400'
-                                  : rVal < 0
-                                  ? 'text-rose-400'
-                                  : 'text-slate-400'
-                              }`}
-                            >
-                              {formatRMultiple(rVal)}
-                            </span>
-                          </div>
-                          <input
-                            type="number"
-                            step={25}
-                            value={trade.outcome}
-                            onChange={(e) =>
-                              onUpdateTrade(trade.id, {
-                                outcome: Number(e.target.value) || 0,
-                              })
-                            }
-                            className={`w-full rounded-xl px-3 py-2 text-xs font-mono font-bold border outline-none transition-colors ${
-                              isProfit
-                                ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
-                                : isLoss
-                                ? 'bg-rose-500/15 border-rose-500/50 text-rose-300'
-                                : 'bg-[#111827] border-slate-700/80 text-slate-100'
-                            }`}
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => onDeleteTrade(trade.id)}
-                          title="Delete trade"
-                          className="h-[34px] w-[34px] rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/70 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="text-[17px] font-semibold text-[#5C3D2E] pt-1">
+                        Money risked:{' '}
+                        <strong>{formatCurrency(trade.riskAmount)}</strong> (
+                        {trade.riskPercent}% of account)
                       </div>
                     </div>
 
-                    {/* Bottom Row: Mistake Tag Chips & Psychology Notes Textarea */}
-                    <div className="mt-4 pt-3.5 border-t border-slate-800/80 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                      <div className="lg:col-span-6">
-                        <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                          Mistake Check Tags
+                    {/* Right: Big Green/Red Result + Edit & Delete Buttons */}
+                    <div className="flex items-center justify-between sm:justify-end gap-4">
+                      <div
+                        className={`px-4 py-2 rounded-2xl border-2 border-[#8B5E3C] text-[24px] font-extrabold ${
+                          isWin
+                            ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                            : 'bg-[#F5B8B0] text-[#9B2C20]'
+                        }`}
+                      >
+                        {formatCurrency(trade.outcome, true)}
+                      </div>
+
+                      <div className="no-print flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditTradeModal(trade)}
+                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#FFFBF2] hover:bg-[#F2D29B] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteTrade(trade.id)}
+                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#FFFBF2] hover:bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20] flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Note or Mistake Chips if present */}
+                  {(trade.notes ||
+                    (trade.mistakes &&
+                      trade.mistakes.some((m) => m !== 'None'))) && (
+                    <div className="pt-3 border-t-2 border-dotted border-[#8B5E3C]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      {trade.notes && (
+                        <p className="text-[17px] text-[#5C3D2E] m-0">
+                          <strong>Note:</strong> {trade.notes}
+                        </p>
+                      )}
+                      {trade.mistakes &&
+                        trade.mistakes.some((m) => m !== 'None') && (
+                          <div className="flex flex-wrap gap-2">
+                            {trade.mistakes
+                              .filter((m) => m !== 'None')
+                              .map((m) => (
+                                <span
+                                  key={m}
+                                  className="px-3 py-1 rounded-full bg-[#F8D0CC] border border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20]"
+                                >
+                                  {m}
+                                </span>
+                              ))}
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </div>
+              </ShakeOnError>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Bottom Total Line */}
+      <div className="p-4 sm:px-6 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="text-[19px] font-extrabold text-[#5C3D2E]">
+          Total today:{' '}
+          <span
+            className={
+              dailyPnl > 0
+                ? 'text-[#2F6B3A]'
+                : dailyPnl < 0
+                ? 'text-[#9B2C20]'
+                : 'text-[#5C3D2E]'
+            }
+          >
+            <AnimatedNumber
+              value={dailyPnl}
+              formatter={(v) => formatCurrency(v, true)}
+            />
+          </span>
+        </div>
+        <div className="text-[18px] font-bold text-[#5C3D2E]">
+          R total:{' '}
+          <strong>
+            <AnimatedNumber
+              value={dailyR}
+              formatter={(v) => formatRMultiple(v)}
+            />
+          </strong>
+        </div>
+      </div>
+
+      {/* SIMPLE 5-FIELD "+ ADD TRADE" POP-UP MODAL */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div
+            onClick={() => setIsModalOpen(false)}
+            className="no-print fixed inset-0 z-50 bg-[#5C3D2E]/45 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg rounded-3xl bg-[#FFFDF7] border-2 border-[#8B5E3C] shadow-2xl p-6 sm:p-7 my-8 max-h-[92vh] overflow-y-auto space-y-5"
+            >
+              <div className="flex items-center justify-between border-b-2 border-dotted border-[#8B5E3C]/50 pb-3">
+                <h3 className="font-heading text-[26px] font-bold uppercase text-[#8B5E3C] m-0">
+                  {editingTradeId ? 'EDIT TRADE' : 'ADD A TRADE'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-11 h-11 rounded-full bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveModal} className="space-y-5">
+                {/* Field 1: Pair / Asset */}
+                <div className="space-y-1.5">
+                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
+                    1. Pair / Asset
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={asset}
+                    onChange={(e) => setAsset(e.target.value)}
+                    placeholder="Example: XAUUSD or NQ"
+                    className="w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] outline-none"
+                  />
+                </div>
+
+                {/* Field 2: Session (two big buttons: London / New York) */}
+                <div className="space-y-1.5">
+                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
+                    2. Session
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSession('London')}
+                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-bold cursor-pointer transition-colors ${
+                        session === 'London'
+                          ? 'bg-[#DCEEF2] text-[#5C3D2E] shadow-sm'
+                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                      }`}
+                    >
+                      London (1–4 AM)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSession('NY')}
+                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-bold cursor-pointer transition-colors ${
+                        session === 'NY'
+                          ? 'bg-[#F2D29B] text-[#5C3D2E] shadow-sm'
+                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                      }`}
+                    >
+                      New York (8–11 AM)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Field 3: How much did I risk? ($ with auto % shown next to it) */}
+                <div className="space-y-1.5">
+                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
+                    3. How much did I risk? ($)
+                  </label>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      required
+                      value={riskDollar}
+                      onChange={(e) => setRiskDollar(e.target.value)}
+                      className="flex-1 min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] outline-none"
+                    />
+                    <span className="text-[16px] font-bold text-[#8B5E3C] px-3 py-2 rounded-xl bg-[#F0DED4] border border-[#8B5E3C]">
+                      = {calculatedRiskPctInModal}% of your account
+                    </span>
+                  </div>
+                  {Number(riskDollar) > maxRiskDollar && (
+                    <div className="px-3.5 py-2 rounded-xl bg-[#F5B8B0] border border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20]">
+                      Warning: This is over your {formatCurrency(maxRiskDollar)}{' '}
+                      ({settings.maxRiskPercent}%) risk limit!
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 4: Result (two big buttons: WIN green / LOSS red, then amount in $) */}
+                <div className="space-y-2">
+                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
+                    4. Result
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setResultType('WIN')}
+                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-extrabold cursor-pointer transition-colors ${
+                        resultType === 'WIN'
+                          ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                      }`}
+                    >
+                      WIN ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultType('LOSS')}
+                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-extrabold cursor-pointer transition-colors ${
+                        resultType === 'LOSS'
+                          ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                      }`}
+                    >
+                      LOSS ✕
+                    </button>
+                  </div>
+                  <div className="pt-1">
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      required
+                      value={resultDollar}
+                      onChange={(e) => setResultDollar(e.target.value)}
+                      placeholder="Amount in $ (example: 500)"
+                      className="w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Field 5: Quick note (optional) */}
+                <div className="space-y-1.5">
+                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
+                    5. Quick note (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Short note about this trade..."
+                    className="w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] text-[#5C3D2E] outline-none"
+                  />
+                </div>
+
+                {/* Collapsible "More details (optional)" — closed by default */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreDetails((prev) => !prev)}
+                    className="w-full min-h-[48px] px-4 py-2 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] flex items-center justify-between cursor-pointer"
+                  >
+                    <span>More details (optional)</span>
+                    {showMoreDetails ? (
+                      <ChevronUp className="w-5 h-5" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  {showMoreDetails && (
+                    <div className="mt-3 p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-4">
+                      {/* Setup Quality (1-5 circles) */}
+                      <div>
+                        <span className="block text-[17px] font-bold text-[#5C3D2E] mb-2">
+                          Setup Quality (1 to 5)
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex items-center gap-2.5">
+                          {[1, 2, 3, 4, 5].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setSetupQuality(num)}
+                              className={`w-11 h-11 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold cursor-pointer ${
+                                setupQuality >= num
+                                  ? 'bg-[#F2D29B] text-[#5C3D2E]'
+                                  : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                              }`}
+                            >
+                              {num}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Discipline (1-5 circles) */}
+                      <div>
+                        <span className="block text-[17px] font-bold text-[#5C3D2E] mb-2">
+                          Discipline (1 to 5)
+                        </span>
+                        <div className="flex items-center gap-2.5">
+                          {[1, 2, 3, 4, 5].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setDisciplineScore(num)}
+                              className={`w-11 h-11 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold cursor-pointer ${
+                                disciplineScore >= num
+                                  ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                                  : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                              }`}
+                            >
+                              {num}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Mistake tags */}
+                      <div>
+                        <span className="block text-[17px] font-bold text-[#5C3D2E] mb-2">
+                          Mistake tags
+                        </span>
+                        <div className="flex flex-wrap gap-2">
                           {MISTAKE_TAGS.map((tag) => {
-                            const selected = (trade.mistakes || []).includes(
-                              tag
-                            );
-                            const isNone = tag === 'None';
+                            const selected = mistakes.includes(tag);
                             return (
-                              <motion.button
+                              <button
                                 key={tag}
                                 type="button"
-                                whileTap={{ scale: 0.94 }}
-                                onClick={() => toggleMistakeTag(trade, tag)}
-                                className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                                onClick={() => toggleMistakeInModal(tag)}
+                                className={`min-h-[44px] px-3.5 py-1.5 rounded-2xl border-2 border-[#8B5E3C] text-[16px] font-bold cursor-pointer ${
                                   selected
-                                    ? isNone
-                                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                      : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                                    : 'bg-[#111827] text-slate-400 border-slate-800 hover:border-slate-700'
+                                    ? tag === 'None'
+                                      ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                                      : 'bg-[#F5B8B0] text-[#9B2C20]'
+                                    : 'bg-[#FFFDF7] text-[#5C3D2E]'
                                 }`}
                               >
                                 {tag}
-                              </motion.button>
+                              </button>
                             );
                           })}
                         </div>
                       </div>
-
-                      <div className="lg:col-span-6">
-                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                          Psychology Notes &amp; Execution Context
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={trade.notes}
-                          placeholder="Why did you take this setup? How did you manage emotions & stop loss?"
-                          onChange={(e) =>
-                            onUpdateTrade(trade.id, { notes: e.target.value })
-                          }
-                          className="w-full bg-[#111827] border border-slate-700/80 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 outline-none resize-y"
-                        />
-                      </div>
                     </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+                  )}
+                </div>
+
+                {/* Modal Action Buttons */}
+                <div className="pt-2 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="min-h-[52px] px-5 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 min-h-[52px] px-6 rounded-2xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[20px] font-bold uppercase text-[#2F6B3A] cursor-pointer"
+                  >
+                    {editingTradeId ? 'Save Changes' : 'Save Trade'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
         )}
-
-        {/* Running Daily P&L Total & R-Multiple Footer */}
-        <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="text-xs text-slate-400">
-            Daily Risk Cap:{' '}
-            <strong className="text-slate-200 font-mono">
-              {settings.maxTradesPerDay} × {formatCurrency(maxRiskDollar)} ={' '}
-              {formatCurrency(maxRiskDollar * settings.maxTradesPerDay)}
-            </strong>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="px-4 py-2.5 rounded-xl bg-[#0B0F19] border border-slate-800 flex items-center gap-2.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Daily R-Multiple:
-              </span>
-              <span
-                className={`text-base font-bold font-mono ${
-                  dailyR > 0
-                    ? 'text-emerald-400'
-                    : dailyR < 0
-                    ? 'text-rose-400'
-                    : 'text-slate-200'
-                }`}
-              >
-                <AnimatedNumber
-                  value={dailyR}
-                  formatter={(v) => formatRMultiple(v)}
-                />
-              </span>
-            </div>
-
-            <div
-              className={`px-4 py-2.5 rounded-xl border flex items-center gap-2.5 transition-colors ${
-                dailyPnl > 0
-                  ? 'bg-emerald-500/15 border-emerald-500/40'
-                  : dailyPnl < 0
-                  ? 'bg-rose-500/15 border-rose-500/40'
-                  : 'bg-[#0B0F19] border-slate-800'
-              }`}
-            >
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                Running Daily P&amp;L:
-              </span>
-              <span
-                className={`text-lg font-extrabold font-mono ${
-                  dailyPnl > 0
-                    ? 'text-emerald-300'
-                    : dailyPnl < 0
-                    ? 'text-rose-300'
-                    : 'text-slate-100'
-                }`}
-              >
-                <AnimatedNumber
-                  value={dailyPnl}
-                  formatter={(v) => formatCurrency(v, true)}
-                />
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </AnimatePresence>
+    </section>
   );
 };

@@ -73,28 +73,40 @@ export function useTrades() {
   );
 
   const addTrade = useCallback(
-    (dateIso: string): { ok: boolean; reason?: string } => {
+    (
+      dateIso: string,
+      customPayload?: Partial<TradeEntry>
+    ): { ok: boolean; reason?: string } => {
       const current = daysMap[dateIso] || createEmptyDay(dateIso);
       if (current.trades.length >= settings.maxTradesPerDay) {
         return {
           ok: false,
-          reason: `${settings.maxTradesPerDay}-trade limit reached, stop trading!`,
+          reason: `${settings.maxTradesPerDay} trades done. Stop trading for today!`,
         };
       }
 
       const defaultRiskDollar = getMaxRiskDollar(settings);
+      const riskAmt =
+        customPayload?.riskAmount !== undefined
+          ? Number(customPayload.riskAmount)
+          : defaultRiskDollar;
+      const riskPct =
+        settings.accountSize > 0
+          ? Math.round(((riskAmt / settings.accountSize) * 100) * 100) / 100
+          : settings.maxRiskPercent;
+
       const newTrade: TradeEntry = {
         id: `${dateIso}-t-${Date.now()}`,
         tradeNumber: current.trades.length + 1,
-        session: 'NY',
-        asset: 'XAUUSD / MGC',
-        riskPercent: settings.maxRiskPercent,
-        riskAmount: defaultRiskDollar,
-        setupQuality: 4,
-        disciplineScore: 5,
-        outcome: 0,
-        mistakes: ['None'],
-        notes: '',
+        session: customPayload?.session || 'NY',
+        asset: customPayload?.asset || 'XAUUSD',
+        riskPercent: riskPct,
+        riskAmount: riskAmt,
+        setupQuality: customPayload?.setupQuality ?? 4,
+        disciplineScore: customPayload?.disciplineScore ?? 5,
+        outcome: customPayload?.outcome ?? 0,
+        mistakes: customPayload?.mistakes || ['None'],
+        notes: customPayload?.notes || '',
         createdAt: new Date().toISOString(),
       };
 

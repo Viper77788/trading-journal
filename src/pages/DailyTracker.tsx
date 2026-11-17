@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
 import {
   ChevronLeft,
   ChevronRight,
-  Calendar as CalendarIcon,
-  RotateCcw,
+  Printer,
+  Check,
+  X,
 } from 'lucide-react';
 import {
   DayRecord,
@@ -16,14 +16,14 @@ import { TradeEntry } from '../types/trade';
 import {
   calculateDailyDisciplineScore,
   calculateDayTotals,
+  getEffectiveAuditAnswers,
+  isTradeRiskViolated,
 } from '../utils/calculations';
 import {
   formatReadableDate,
   getTodayDateISO,
   shiftDateISO,
 } from '../utils/formatters';
-import { dateSlideVariants } from '../utils/animations';
-import { StaggerContainer } from '../components/animations/StaggerContainer';
 import { FadeInUp } from '../components/animations/FadeInUp';
 import { DisciplineGauge } from '../components/DisciplineGauge';
 import { ChecklistCard } from '../components/ChecklistCard';
@@ -34,20 +34,48 @@ interface DailyTrackerProps {
   selectedDate: string;
   onSelectDate: (dateIso: string) => void;
   day: DayRecord;
+  daysMap: Record<string, DayRecord>;
   settings: AccountSettings;
   onUpdateChecklist: (patch: Partial<SessionChecklistState>) => void;
   onUpdateSettings: (patch: Partial<AccountSettings>) => void;
-  onAddTrade: () => { ok: boolean; reason?: string };
+  onAddTrade: (customPayload?: Partial<TradeEntry>) => {
+    ok: boolean;
+    reason?: string;
+  };
   onUpdateTrade: (tradeId: string, patch: Partial<TradeEntry>) => void;
   onDeleteTrade: (tradeId: string) => void;
   onUpdateAudit: (patch: Partial<DailyAuditState>) => void;
-  onNotify: (title: string, type: 'success' | 'warning' | 'error' | 'info') => void;
+  onNotify: (
+    title: string,
+    type: 'success' | 'warning' | 'error' | 'info'
+  ) => void;
+}
+
+/**
+ * Computes the Monday..Sunday dates for the week of `selectedDate`
+ */
+function getWeekDatesMondayToSunday(selectedDateIso: string) {
+  const [y, m, d] = selectedDateIso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y || 2026, (m || 1) - 1, d || 1));
+  const dayOfWeek = dt.getUTCDay(); // 0=Sun..6=Sat
+  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  return letters.map((letter, idx) => {
+    const dateIso = shiftDateISO(selectedDateIso, offsetToMonday + idx);
+    return {
+      letter,
+      dateIso,
+      dayNum: Number(dateIso.split('-')[2]),
+    };
+  });
 }
 
 export const DailyTracker: React.FC<DailyTrackerProps> = ({
   selectedDate,
   onSelectDate,
   day,
+  daysMap,
   settings,
   onUpdateChecklist,
   onUpdateSettings,
@@ -57,150 +85,194 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
   onUpdateAudit,
   onNotify,
 }) => {
-  const [slideDir, setSlideDir] = useState<number>(1);
   const todayIso = getTodayDateISO();
-
-  const handleStepDay = (delta: number) => {
-    setSlideDir(delta);
-    onSelectDate(shiftDateISO(selectedDate, delta));
-  };
-
-  const handleDateInputChange = (nextDate: string) => {
-    if (!nextDate) return;
-    setSlideDir(nextDate > selectedDate ? 1 : -1);
-    onSelectDate(nextDate);
-  };
-
-  const readinessCount = [
-    day.checklist.checkedEconomicCalendar,
-    day.checklist.confirmedAllowedWindows,
-    day.checklist.mentalStateCalm,
-  ].filter(Boolean).length;
-
   const disciplineScore = calculateDailyDisciplineScore(day, settings);
   const { totalPnl, totalR } = calculateDayTotals(day);
 
+  const weekDays = getWeekDatesMondayToSunday(selectedDate);
+
+  const getDayCircleStatus = (
+    dateIso: string
+  ): 'green' | 'red' | 'empty' => {
+    const record = daysMap[dateIso];
+    if (!record || !record.trades || record.trades.length === 0) {
+      return 'empty';
+    }
+    const effective = getEffectiveAuditAnswers(record, settings);
+    const hasRiskBreak = record.trades.some((t) =>
+      isTradeRiskViolated(t, settings)
+    );
+    const hasRuleBreak =
+      hasRiskBreak ||
+      record.trades.length > settings.maxTradesPerDay ||
+      !effective.stuckToMaxTrades ||
+      !effective.respectedRiskCap ||
+      !effective.executedInAllowedWindows;
+
+    return hasRuleBreak ? 'red' : 'green';
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Page Header with Date Picker & Prev/Next Day Navigation */}
-      <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-5 sm:p-6 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
-            FEATURE 1 • SESSION EXECUTION JOURNAL
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mt-1">
-            📅 Daily Trading &amp; Psychology Tracker
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            {formatReadableDate(selectedDate)} • Pre-session readiness, 1% risk
-            cap enforcement, and post-session audit.
-          </p>
-        </div>
+    <FadeInUp>
+      <div className="paper-sheet p-6 sm:p-9 space-y-8">
+        {/* TOP HEADER: Big Chunky Title + Date Controls + Dotted Line */}
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h1 className="font-heading text-[32px] sm:text-[42px] font-bold uppercase text-[#8B5E3C] leading-none m-0">
+                DAILY TRADING TRACKER
+              </h1>
+              <p className="text-[18px] font-bold text-[#5C3D2E] mt-2 mb-0">
+                {formatReadableDate(selectedDate)}
+              </p>
+            </div>
 
-        {/* Date Navigation Bar */}
-        <div className="flex flex-wrap items-center gap-2">
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.94 }}
-            onClick={() => handleStepDay(-1)}
-            className="h-10 px-3 rounded-xl bg-[#0B0F19] hover:bg-slate-800 text-slate-200 border border-slate-800 flex items-center gap-1 text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Prev Day</span>
-          </motion.button>
+            {/* Date Picker + Previous / Next Buttons + Print Button */}
+            <div className="no-print flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => onSelectDate(shiftDateISO(selectedDate, -1))}
+                className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                <span>Prev</span>
+              </button>
 
-          <div className="relative flex items-center">
-            <CalendarIcon className="w-4 h-4 text-emerald-400 absolute left-3.5 pointer-events-none" />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => handleDateInputChange(e.target.value)}
-              className="h-10 pl-10 pr-3 rounded-xl bg-[#0B0F19] border border-slate-700/80 focus:border-emerald-500 text-xs sm:text-sm font-mono font-bold text-slate-100 outline-none cursor-pointer"
-            />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  if (e.target.value) onSelectDate(e.target.value);
+                }}
+                aria-label="Choose date"
+                className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] outline-none cursor-pointer"
+              />
+
+              <button
+                type="button"
+                onClick={() => onSelectDate(shiftDateISO(selectedDate, 1))}
+                className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-5 h-5" />
+              </button>
+
+              {selectedDate !== todayIso && (
+                <button
+                  type="button"
+                  onClick={() => onSelectDate(todayIso)}
+                  className="min-h-[48px] px-4 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
+                >
+                  Today
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="min-h-[48px] px-4 rounded-2xl bg-[#DCEEF2] hover:bg-[#c7e4eb] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print this page</span>
+              </button>
+            </div>
           </div>
 
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.94 }}
-            onClick={() => handleStepDay(1)}
-            className="h-10 px-3 rounded-xl bg-[#0B0F19] hover:bg-slate-800 text-slate-200 border border-slate-800 flex items-center gap-1 text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <span>Next Day</span>
-            <ChevronRight className="w-4 h-4" />
-          </motion.button>
+          <div className="dotted-divider w-full pt-1" />
 
-          {selectedDate !== todayIso && (
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleDateInputChange(todayIso)}
-              className="h-10 px-3.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/35 flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Today</span>
-            </motion.button>
-          )}
+          {/* 3.5 Weekly Discipline Row (M T W T F S S habit row right under the page title) */}
+          <div className="p-4 sm:px-6 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="font-heading text-[20px] font-bold uppercase text-[#8B5E3C]">
+                THIS WEEK&apos;S HABIT ROW
+              </div>
+              <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
+                Green = followed rules • Red = broke a rule • Empty = no trades
+              </p>
+            </div>
+
+            <div className="grid grid-cols-7 gap-2 sm:gap-3">
+              {weekDays.map((wd) => {
+                const status = getDayCircleStatus(wd.dateIso);
+                const isSelected = wd.dateIso === selectedDate;
+                return (
+                  <button
+                    key={wd.dateIso}
+                    type="button"
+                    onClick={() => onSelectDate(wd.dateIso)}
+                    title={`Open ${wd.dateIso}`}
+                    className={`flex flex-col items-center p-1.5 rounded-2xl transition-transform cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#F2D29B]/60 ring-2 ring-[#8B5E3C]'
+                        : 'hover:bg-[#F0DED4]/40'
+                    }`}
+                  >
+                    <span className="font-heading text-[16px] font-bold text-[#8B5E3C]">
+                      {wd.letter}
+                    </span>
+                    <div
+                      className={`mt-1 w-10 h-10 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center ${
+                        status === 'green'
+                          ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                          : status === 'red'
+                          ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                          : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                      }`}
+                    >
+                      {status === 'green' && (
+                        <Check className="w-5 h-5 stroke-[3]" />
+                      )}
+                      {status === 'red' && (
+                        <X className="w-5 h-5 stroke-[3]" />
+                      )}
+                      {status === 'empty' && (
+                        <span className="text-[16px] font-bold">
+                          {wd.dayNum}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
+
+        {/* 3.1 Today at a Glance (3 big simple cards) */}
+        <DisciplineGauge
+          score={disciplineScore}
+          dailyPnl={totalPnl}
+          tradesCount={day.trades.length}
+          maxTrades={settings.maxTradesPerDay}
+        />
+
+        {/* 3.2 Before You Trade (habit-style checklist) */}
+        <ChecklistCard
+          checklist={day.checklist}
+          onUpdate={onUpdateChecklist}
+        />
+
+        {/* 3.3 My Trades Today (simple trade cards + 5-field Add Trade pop-up) */}
+        <TradeTable
+          trades={day.trades}
+          settings={settings}
+          onUpdateSettings={onUpdateSettings}
+          onAddTrade={onAddTrade}
+          onUpdateTrade={onUpdateTrade}
+          onDeleteTrade={onDeleteTrade}
+          onNotify={onNotify}
+          dailyPnl={totalPnl}
+          dailyR={totalR}
+        />
+
+        {/* 3.4 End-of-Day Review (Yes / No rows + emotion chips + lined notepad) */}
+        <AuditForm
+          day={day}
+          settings={settings}
+          onUpdateAudit={onUpdateAudit}
+          onNotify={onNotify}
+        />
       </div>
-
-      {/* Animated Date Slide Container */}
-      <AnimatePresence mode="wait" custom={slideDir}>
-        <motion.div
-          key={selectedDate}
-          custom={slideDir}
-          variants={dateSlideVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-        >
-          <StaggerContainer className="space-y-6">
-            {/* E) Daily Discipline Score Circular Gauge at Top */}
-            <FadeInUp>
-              <DisciplineGauge
-                score={disciplineScore}
-                readinessCount={readinessCount}
-                dailyPnl={totalPnl}
-                dailyR={totalR}
-                tradesCount={day.trades.length}
-                maxTrades={settings.maxTradesPerDay}
-              />
-            </FadeInUp>
-
-            {/* A) Session Checklist */}
-            <FadeInUp delay={0.06}>
-              <ChecklistCard
-                checklist={day.checklist}
-                onUpdate={onUpdateChecklist}
-              />
-            </FadeInUp>
-
-            {/* B) Account Settings & C) Trade Log Table */}
-            <FadeInUp delay={0.12}>
-              <TradeTable
-                trades={day.trades}
-                settings={settings}
-                onUpdateSettings={onUpdateSettings}
-                onAddTrade={onAddTrade}
-                onUpdateTrade={onUpdateTrade}
-                onDeleteTrade={onDeleteTrade}
-                onNotify={onNotify}
-                dailyPnl={totalPnl}
-                dailyR={totalR}
-              />
-            </FadeInUp>
-
-            {/* D) Daily Review & Discipline Audit */}
-            <FadeInUp delay={0.18}>
-              <AuditForm
-                day={day}
-                settings={settings}
-                onUpdateAudit={onUpdateAudit}
-                onNotify={onNotify}
-              />
-            </FadeInUp>
-          </StaggerContainer>
-        </motion.div>
-      </AnimatePresence>
-    </div>
+    </FadeInUp>
   );
 };

@@ -1,10 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTrades } from './hooks/useTrades';
 import { useCalculator } from './hooks/useCalculator';
 import { getTodayDateISO } from './utils/formatters';
-import { calculateDailyDisciplineScore } from './utils/calculations';
-import { pageTransitionVariants } from './utils/animations';
 import { Sidebar, NavPageId } from './components/Sidebar';
 import { ToastContainer, ToastMessage } from './components/ToastContainer';
 import { DailyTracker } from './pages/DailyTracker';
@@ -48,7 +46,7 @@ export default function App() {
       setToasts((prev) => [...prev, { id, title, type }]);
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 3300);
+      }, 3000);
     },
     []
   );
@@ -57,20 +55,7 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (settings.theme === 'light') {
-      root.classList.add('light');
-      root.classList.remove('dark');
-    } else {
-      root.classList.add('dark');
-      root.classList.remove('light');
-    }
-  }, [settings.theme]);
-
   const currentDayRecord = getDayRecord(selectedDate);
-  const todayRecord = getDayRecord(getTodayDateISO());
-  const todayScore = calculateDailyDisciplineScore(todayRecord, settings);
 
   const handleExportJson = () => {
     const json = exportBackupJson();
@@ -78,78 +63,63 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `apexflow-trading-backup-${getTodayDateISO()}.json`;
+    a.download = `trading-habit-tracker-backup-${getTodayDateISO()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    addToast('Exported JSON backup file!', 'success');
+    addToast('Backup downloaded!', 'success');
   };
 
   const handleSelectDayFromDashboard = (dateIso: string) => {
     setSelectedDate(dateIso);
     setActivePage('tracker');
-    addToast(`Opened journal for ${dateIso}`, 'info');
+    addToast(`Opened ${dateIso}`, 'info');
   };
 
   const handleClearDemoData = () => {
     clearAllData();
     setSelectedDate(getTodayDateISO());
-    addToast('Demo data cleared — fresh journal ready!', 'info');
+    addToast('Cleared demo data!', 'info');
   };
 
   const handleRestoreDemoData = () => {
     resetToDemoData();
-    addToast('Restored 8 days of sample demo data!', 'success');
+    addToast('Restored sample days!', 'success');
   };
 
   return (
-    <div
-      className={`min-h-screen w-full flex flex-col lg:flex-row ${
-        settings.theme === 'light'
-          ? 'bg-slate-900 text-slate-100'
-          : 'bg-[#0B0F19] text-slate-100'
-      }`}
-    >
-      {/* Animated Top-Right Toast Notifications */}
+    <div className="min-h-screen w-full bg-[#FFFBF2] text-[#5C3D2E] pb-14">
+      {/* Soft Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Left Sidebar Navigation */}
-      <Sidebar
-        activePage={activePage}
-        onSelectPage={setActivePage}
-        streakCount={dashboardAnalytics.currentDisciplineStreak}
-        todayScore={todayScore}
-        theme={settings.theme}
-        onToggleTheme={() =>
-          updateAccountSettings({
-            theme: settings.theme === 'dark' ? 'light' : 'dark',
-          })
-        }
-        onQuickExport={handleExportJson}
-      />
+      {/* Top Pastel Tab Bar (TODAY, HISTORY, FUTURE, SETTINGS) */}
+      <Sidebar activePage={activePage} onSelectPage={setActivePage} />
 
-      {/* Main Content Area with Smooth Cross-Fade & Slide */}
-      <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
+      {/* Centered Paper Habit Tracker Sheet Container (max-width 1000px) */}
+      <main className="w-full max-w-[1000px] mx-auto px-4 pt-3">
         <AnimatePresence mode="wait">
           <motion.div
             key={activePage}
-            variants={pageTransitionVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22 }}
           >
             {activePage === 'tracker' && (
               <DailyTracker
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
                 day={currentDayRecord}
+                daysMap={daysMap}
                 settings={settings}
                 onUpdateChecklist={(patch) =>
                   updateChecklist(selectedDate, patch)
                 }
                 onUpdateSettings={updateAccountSettings}
-                onAddTrade={() => addTrade(selectedDate)}
+                onAddTrade={(customPayload) =>
+                  addTrade(selectedDate, customPayload)
+                }
                 onUpdateTrade={(tradeId, patch) =>
                   updateTrade(selectedDate, tradeId, patch)
                 }
@@ -176,7 +146,7 @@ export default function App() {
                 onUpdateCalc={updateCalcSettings}
                 onResetCalc={() => {
                   resetCalcSettings();
-                  addToast('Calculator reset to defaults', 'info');
+                  addToast('Calculator reset!', 'info');
                 }}
                 projection={projection}
                 monteCarlo={monteCarlo}

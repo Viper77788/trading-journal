@@ -1,19 +1,9 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  Calculator,
-  Sparkles,
-  RotateCcw,
-  TrendingUp,
-  Target,
-  ShieldAlert,
-  Activity,
-  Layers,
-} from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -31,11 +21,8 @@ import {
 import {
   formatCurrency,
   formatCompactCurrency,
-  formatPercent,
-  formatRMultiple,
 } from '../utils/formatters';
 import { AnimatedNumber } from '../components/animations/AnimatedNumber';
-import { StaggerContainer } from '../components/animations/StaggerContainer';
 import { FadeInUp } from '../components/animations/FadeInUp';
 
 interface FutureCalculatorProps {
@@ -56,7 +43,10 @@ interface FutureCalculatorProps {
     rewardToRisk: number;
     currentBalance: number;
   };
-  onNotify: (title: string, type: 'success' | 'warning' | 'error' | 'info') => void;
+  onNotify: (
+    title: string,
+    type: 'success' | 'warning' | 'error' | 'info'
+  ) => void;
 }
 
 export const FutureCalculator: React.FC<FutureCalculatorProps> = ({
@@ -68,20 +58,16 @@ export const FutureCalculator: React.FC<FutureCalculatorProps> = ({
   realStats,
   onNotify,
 }) => {
-  const [chartMode, setChartMode] = useState<'scenarios' | 'montecarlo'>(
-    'scenarios'
-  );
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
 
-  const handleLoadRealStats = () => {
+  const handleUseRealStats = () => {
     onUpdateCalc({
       startingBalance: Math.max(100, Math.round(realStats.currentBalance)),
-      winRate: Math.max(10, Math.min(90, realStats.winRate)),
+      winRate: Math.max(10, Math.min(90, Math.round(realStats.winRate))),
       rewardToRisk: Math.max(0.5, Math.min(10, realStats.rewardToRisk)),
     });
-    onNotify(
-      `Loaded your real tracker stats (${realStats.winRate}% Win Rate, 1:${realStats.rewardToRisk} R:R)!`,
-      'success'
-    );
+    onNotify('Filled in your real stats from your tracker!', 'success');
   };
 
   const periods: Array<{ id: ProjectionPeriod; label: string }> = [
@@ -92,122 +78,87 @@ export const FutureCalculator: React.FC<FutureCalculatorProps> = ({
     { id: 'custom', label: 'Custom' },
   ];
 
-  const milestonePresets = [50000, 100000, 250000, 500000];
+  const periodText =
+    calcSettings.period === '1m'
+      ? '1 month'
+      : calcSettings.period === '3m'
+      ? '3 months'
+      : calcSettings.period === '6m'
+      ? '6 months'
+      : calcSettings.period === '1y'
+      ? '1 year'
+      : `${projection.monthsCount} months`;
 
   return (
-    <StaggerContainer className="space-y-6">
-      {/* Header */}
-      <FadeInUp>
-        <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
-              FEATURE 2 • ACCOUNT GROWTH &amp; MONTE CARLO SIMULATOR
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mt-1 flex items-center gap-2.5">
-              <Calculator className="w-7 h-7 text-emerald-400" />
-              <span>Future Account Growth Calculator</span>
+    <FadeInUp>
+      <div className="paper-sheet p-6 sm:p-9 space-y-8">
+        {/* Title + Dotted Line + "Use my real stats" Pastel Button */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h1 className="font-heading text-[32px] sm:text-[42px] font-bold uppercase text-[#8B5E3C] leading-none m-0">
+              FUTURE CALCULATOR
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Simulate compounding equity trajectories, Risk of Ruin, and
-              1,000-run Monte Carlo probability bands.
-            </p>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <motion.button
-              type="button"
-              whileHover={{ y: -1 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={handleLoadRealStats}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-[#0B0F19] font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 stroke-[2.5]" />
-              <span>Load from my real stats</span>
-            </motion.button>
-
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.96 }}
-              onClick={onResetCalc}
-              className="px-3.5 py-2.5 rounded-xl bg-[#0B0F19] hover:bg-slate-800 text-slate-300 border border-slate-700/80 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Defaults</span>
-            </motion.button>
-          </div>
-        </div>
-      </FadeInUp>
-
-      {/* Main Grid: Left = Interactive Sliders & Inputs | Right = Live Outputs & Charts */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: Interactive Parameters */}
-        <FadeInUp delay={0.06} className="xl:col-span-5 space-y-6">
-          <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-100">
-                Simulation Parameters
-              </h3>
-              {/* Compounding ON/OFF Toggle */}
+            <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
-                onClick={() =>
-                  onUpdateCalc({ compounding: !calcSettings.compounding })
-                }
-                className={`px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                  calcSettings.compounding
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
-                }`}
+                onClick={handleUseRealStats}
+                className="min-h-[50px] px-5 py-2.5 rounded-2xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase text-[#2F6B3A] shadow-sm cursor-pointer"
               >
-                Compounding: {calcSettings.compounding ? 'ON' : 'OFF'}
+                Use my real stats
+              </button>
+              <button
+                type="button"
+                onClick={onResetCalc}
+                className="min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
+              >
+                Reset
               </button>
             </div>
+          </div>
+          <div className="dotted-divider w-full pt-1" />
+        </div>
 
-            {/* 1. Starting Balance */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300">
-                  Starting Balance
-                </span>
-                <span className="font-mono font-bold text-emerald-400">
-                  {formatCurrency(calcSettings.startingBalance)}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min={1000}
-                  max={200000}
-                  step={1000}
-                  value={calcSettings.startingBalance}
-                  onChange={(e) =>
-                    onUpdateCalc({ startingBalance: Number(e.target.value) })
-                  }
-                  className="flex-1 accent-emerald-500 cursor-pointer"
-                />
-                <input
-                  type="number"
-                  value={calcSettings.startingBalance}
-                  onChange={(e) =>
-                    onUpdateCalc({
-                      startingBalance: Math.max(100, Number(e.target.value) || 0),
-                    })
-                  }
-                  className="w-28 bg-[#0B0F19] border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-slate-100 outline-none"
-                />
-              </div>
+        {/* THE 5 MAIN INPUTS (Pastel Label Bars + Large Sliders + Number Boxes) */}
+        <section aria-label="Main calculator inputs" className="space-y-4">
+          {/* 1. Starting Balance */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C] grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <label className="md:col-span-4 text-[19px] font-extrabold text-[#5C3D2E]">
+              1. Starting Balance ($)
+            </label>
+            <div className="md:col-span-5">
+              <input
+                type="range"
+                min={1000}
+                max={200000}
+                step={1000}
+                value={calcSettings.startingBalance}
+                onChange={(e) =>
+                  onUpdateCalc({ startingBalance: Number(e.target.value) })
+                }
+                className="w-full cursor-pointer"
+              />
             </div>
+            <div className="md:col-span-3">
+              <input
+                type="number"
+                value={calcSettings.startingBalance}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    startingBalance: Math.max(100, Number(e.target.value) || 0),
+                  })
+                }
+                className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
+          </div>
 
-            {/* 2. Risk % per trade */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300">
-                  Risk % per Trade
-                </span>
-                <span className="font-mono font-bold text-emerald-400">
-                  {calcSettings.riskPercent.toFixed(2)}%
-                </span>
-              </div>
+          {/* 2. Risk % */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <label className="md:col-span-4 text-[19px] font-extrabold text-[#5C3D2E]">
+              2. Risk % per trade
+            </label>
+            <div className="md:col-span-5">
               <input
                 type="range"
                 min={0.25}
@@ -217,20 +168,32 @@ export const FutureCalculator: React.FC<FutureCalculatorProps> = ({
                 onChange={(e) =>
                   onUpdateCalc({ riskPercent: Number(e.target.value) })
                 }
-                className="w-full accent-emerald-500 cursor-pointer"
+                className="w-full cursor-pointer"
               />
             </div>
+            <div className="md:col-span-3">
+              <input
+                type="number"
+                step={0.25}
+                min={0.1}
+                max={25}
+                value={calcSettings.riskPercent}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    riskPercent: Math.max(0.1, Number(e.target.value) || 1),
+                  })
+                }
+                className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
+          </div>
 
-            {/* 3. Win Rate % */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300">
-                  Win Rate %
-                </span>
-                <span className="font-mono font-bold text-sky-400">
-                  {calcSettings.winRate}%
-                </span>
-              </div>
+          {/* 3. Win Rate % */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <label className="md:col-span-4 text-[19px] font-extrabold text-[#5C3D2E]">
+              3. Win Rate %
+            </label>
+            <div className="md:col-span-5">
               <input
                 type="range"
                 min={15}
@@ -240,20 +203,31 @@ export const FutureCalculator: React.FC<FutureCalculatorProps> = ({
                 onChange={(e) =>
                   onUpdateCalc({ winRate: Number(e.target.value) })
                 }
-                className="w-full accent-sky-500 cursor-pointer"
+                className="w-full cursor-pointer"
               />
             </div>
+            <div className="md:col-span-3">
+              <input
+                type="number"
+                min={5}
+                max={95}
+                value={calcSettings.winRate}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    winRate: Math.max(5, Math.min(95, Number(e.target.value) || 50)),
+                  })
+                }
+                className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
+          </div>
 
-            {/* 4. Average Risk:Reward Ratio */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300">
-                  Average Risk:Reward Ratio
-                </span>
-                <span className="font-mono font-bold text-violet-400">
-                  1 : {calcSettings.rewardToRisk.toFixed(1)}
-                </span>
-              </div>
+          {/* 4. Reward Ratio */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#E8E0A9] border-2 border-[#8B5E3C] grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <label className="md:col-span-4 text-[19px] font-extrabold text-[#5C3D2E]">
+              4. Reward Ratio (1 : X)
+            </label>
+            <div className="md:col-span-5">
               <input
                 type="range"
                 min={0.5}
@@ -263,567 +237,443 @@ export const FutureCalculator: React.FC<FutureCalculatorProps> = ({
                 onChange={(e) =>
                   onUpdateCalc({ rewardToRisk: Number(e.target.value) })
                 }
-                className="w-full accent-violet-500 cursor-pointer"
+                className="w-full cursor-pointer"
               />
             </div>
+            <div className="md:col-span-3">
+              <input
+                type="number"
+                step={0.1}
+                min={0.1}
+                max={20}
+                value={calcSettings.rewardToRisk}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    rewardToRisk: Math.max(0.1, Number(e.target.value) || 2),
+                  })
+                }
+                className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
+          </div>
 
-            {/* 5. Trades per Day & Trading Days per Week */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-semibold text-slate-300">
-                    Trades / Day
-                  </span>
-                  <span className="font-mono font-bold text-slate-100">
-                    {calcSettings.tradesPerDay}
-                  </span>
-                </div>
+          {/* 5. Time Period */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#F8D0CC] border-2 border-[#8B5E3C] flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <label className="text-[19px] font-extrabold text-[#5C3D2E]">
+              5. Time Period
+            </label>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {periods.map((p) => {
+                const active = calcSettings.period === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onUpdateCalc({ period: p.id })}
+                    className={`min-h-[48px] px-4 rounded-xl border-2 border-[#8B5E3C] text-[17px] font-bold cursor-pointer ${
+                      active
+                        ? 'bg-[#8B5E3C] text-[#FFFDF7]'
+                        : 'bg-[#FFFDF7] text-[#5C3D2E] hover:bg-[#FFFBF2]'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+              {calcSettings.period === 'custom' && (
                 <input
-                  type="range"
+                  type="number"
                   min={1}
-                  max={10}
-                  step={1}
-                  value={calcSettings.tradesPerDay}
-                  onChange={(e) =>
-                    onUpdateCalc({ tradesPerDay: Number(e.target.value) })
-                  }
-                  className="w-full accent-emerald-500 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-semibold text-slate-300">
-                    Days / Week
-                  </span>
-                  <span className="font-mono font-bold text-slate-100">
-                    {calcSettings.tradingDaysPerWeek}d
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={7}
-                  step={1}
-                  value={calcSettings.tradingDaysPerWeek}
+                  max={36}
+                  value={calcSettings.customMonths}
                   onChange={(e) =>
                     onUpdateCalc({
-                      tradingDaysPerWeek: Number(e.target.value),
+                      customMonths: Math.max(1, Math.min(36, Number(e.target.value) || 6)),
                     })
                   }
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  className="w-24 min-h-[48px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E] outline-none"
                 />
-              </div>
+              )}
             </div>
+          </div>
 
-            {/* 6. Projection Period */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-300">
-                Projection Horizon
-              </label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {periods.map((p) => {
-                  const active = calcSettings.period === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => onUpdateCalc({ period: p.id })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                        active
-                          ? 'bg-emerald-500 text-[#0B0F19] border-emerald-500'
-                          : 'bg-[#0B0F19] text-slate-300 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Collapsible "More options" Section */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowMoreOptions((prev) => !prev)}
+              className="w-full min-h-[50px] px-5 py-2.5 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] flex items-center justify-between cursor-pointer"
+            >
+              <span>More options (trades per day, compounding, fees)</span>
+              {showMoreOptions ? (
+                <ChevronUp className="w-5 h-5" />
+              ) : (
+                <ChevronDown className="w-5 h-5" />
+              )}
+            </button>
 
-              {calcSettings.period === 'custom' && (
-                <div className="pt-2 flex items-center justify-between gap-3">
-                  <span className="text-xs text-slate-400">
-                    Custom Months (1–36):
-                  </span>
+            {showMoreOptions && (
+              <div className="mt-3 p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[17px] font-bold text-[#5C3D2E] mb-1">
+                    Trades per day
+                  </label>
                   <input
                     type="number"
                     min={1}
-                    max={36}
-                    value={calcSettings.customMonths}
+                    max={15}
+                    value={calcSettings.tradesPerDay}
                     onChange={(e) =>
                       onUpdateCalc({
-                        customMonths: Math.max(
+                        tradesPerDay: Math.max(1, Number(e.target.value) || 3),
+                      })
+                    }
+                    className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[17px] font-bold text-[#5C3D2E] mb-1">
+                    Days per week
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={calcSettings.tradingDaysPerWeek}
+                    onChange={(e) =>
+                      onUpdateCalc({
+                        tradingDaysPerWeek: Math.max(
                           1,
-                          Math.min(36, Number(e.target.value) || 6)
+                          Math.min(7, Number(e.target.value) || 5)
                         ),
                       })
                     }
-                    className="w-24 bg-[#0B0F19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-slate-100 outline-none"
+                    className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E]"
                   />
                 </div>
-              )}
-            </div>
 
-            {/* 7. Optional Monthly Deposit/Withdrawal & Commission/Trade */}
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                  Monthly Cashflow ($)
-                </label>
-                <input
-                  type="number"
-                  step={100}
-                  value={calcSettings.monthlyDepositOrWithdrawal}
-                  onChange={(e) =>
-                    onUpdateCalc({
-                      monthlyDepositOrWithdrawal: Number(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="+Deposit / -Withdraw"
-                  className="w-full bg-[#0B0F19] border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-100 outline-none"
-                />
-              </div>
+                <div>
+                  <label className="block text-[17px] font-bold text-[#5C3D2E] mb-1">
+                    Compounding
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateCalc({ compounding: !calcSettings.compounding })
+                    }
+                    className={`w-full min-h-[48px] px-4 rounded-xl border-2 border-[#8B5E3C] text-[18px] font-extrabold cursor-pointer ${
+                      calcSettings.compounding
+                        ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                        : 'bg-[#FFFDF7] text-[#5C3D2E]'
+                    }`}
+                  >
+                    {calcSettings.compounding ? 'ON ✓' : 'OFF'}
+                  </button>
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                  Commission / Trade ($)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={calcSettings.commissionPerTrade}
-                  onChange={(e) =>
-                    onUpdateCalc({
-                      commissionPerTrade: Math.max(
-                        0,
-                        Number(e.target.value) || 0
-                      ),
-                    })
-                  }
-                  className="w-full bg-[#0B0F19] border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-100 outline-none"
-                />
+                <div>
+                  <label className="block text-[17px] font-bold text-[#5C3D2E] mb-1">
+                    Monthly deposit / withdraw ($)
+                  </label>
+                  <input
+                    type="number"
+                    step={100}
+                    value={calcSettings.monthlyDepositOrWithdrawal}
+                    onChange={(e) =>
+                      onUpdateCalc({
+                        monthlyDepositOrWithdrawal: Number(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[17px] font-bold text-[#5C3D2E] mb-1">
+                    Fee per trade ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={calcSettings.commissionPerTrade}
+                    onChange={(e) =>
+                      onUpdateCalc({
+                        commissionPerTrade: Math.max(
+                          0,
+                          Number(e.target.value) || 0
+                        ),
+                      })
+                    }
+                    className="w-full min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E]"
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
+        </section>
 
-          {/* Milestone Calculator Card ("How long to reach $X?") */}
-          <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-violet-400" />
-              <h3 className="text-base font-bold text-slate-100">
-                Milestone Calculator: &ldquo;How long to reach $X?&rdquo;
-              </h3>
+        {/* Plain-English Summary Sentence */}
+        <div className="p-5 rounded-2xl bg-[#BFE3C0] border-2 border-[#8B5E3C] text-[20px] font-extrabold text-[#2F6B3A]">
+          If you keep this up for {periodText}, you could grow from{' '}
+          {formatCurrency(calcSettings.startingBalance)} to about{' '}
+          {formatCurrency(projection.expectedEndingBalance)}.
+        </div>
+
+        {/* 4 Big Plain Result Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 1. Balance at the end */}
+          <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+            <div className="text-[17px] font-bold text-[#8B5E3C]">
+              Balance at the end
             </div>
-
-            <div className="flex flex-wrap gap-2">
-              {milestonePresets.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onUpdateCalc({ targetMilestone: preset })}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
-                    calcSettings.targetMilestone === preset
-                      ? 'bg-violet-500/20 text-violet-300 border-violet-500/50'
-                      : 'bg-[#0B0F19] text-slate-400 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  {formatCompactCurrency(preset)}
-                </button>
-              ))}
-              <input
-                type="number"
-                step={5000}
-                value={calcSettings.targetMilestone}
-                onChange={(e) =>
-                  onUpdateCalc({
-                    targetMilestone: Math.max(1000, Number(e.target.value) || 50000),
-                  })
-                }
-                className="w-28 bg-[#0B0F19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-slate-100 outline-none"
+            <div className="text-[30px] font-extrabold text-[#2F6B3A] mt-1">
+              <AnimatedNumber
+                value={projection.expectedEndingBalance}
+                formatter={(v) => formatCurrency(v)}
               />
             </div>
-
-            <div className="p-4 rounded-xl bg-[#0B0F19]/90 border border-slate-800/80 flex items-center justify-between">
-              <div>
-                <div className="text-xs text-slate-400">
-                  Estimated Time to Reach{' '}
-                  <strong className="text-slate-200 font-mono">
-                    {formatCurrency(calcSettings.targetMilestone)}
-                  </strong>
-                </div>
-                <div className="text-lg font-extrabold font-mono text-violet-300 mt-1">
-                  {projection.daysToReachMilestone === null
-                    ? 'Edge negative — increase Win% or R:R'
-                    : projection.daysToReachMilestone === 0
-                    ? 'Already achieved!'
-                    : `${projection.daysToReachMilestone} Trading Days (~${projection.monthsToReachMilestone} Months)`}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[11px] uppercase tracking-wider text-slate-400">
-                  Monte Carlo Hit Prob
-                </div>
-                <div className="text-base font-mono font-bold text-emerald-400">
-                  {monteCarlo.probabilityOfMilestone}%
-                </div>
-              </div>
-            </div>
           </div>
-        </FadeInUp>
 
-        {/* RIGHT COLUMN: Live Outputs, Growth Chart, Monte Carlo & Monthly Table */}
-        <FadeInUp delay={0.12} className="xl:col-span-7 space-y-6">
-          {/* Top 6 Output Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* 1. Projected Ending Balance */}
-            <div className="p-5 rounded-2xl bg-[#111827]/90 border border-emerald-500/30 shadow-lg">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Projected Ending Balance
-              </span>
-              <div className="text-2xl font-extrabold font-mono text-emerald-400 mt-1.5">
-                <AnimatedNumber
-                  value={projection.expectedEndingBalance}
-                  formatter={(v) => formatCurrency(v)}
-                />
-              </div>
-              <span className="text-xs text-slate-400 mt-1 block">
-                After {projection.totalTrades} trades ({projection.monthsCount}m)
-              </span>
+          {/* 2. Total profit */}
+          <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+            <div className="text-[17px] font-bold text-[#8B5E3C]">
+              Total profit
             </div>
-
-            {/* 2. Total Net Profit $ & % */}
-            <div className="p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/80 shadow-lg">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Total Net Profit
-              </span>
-              <div
-                className={`text-2xl font-extrabold font-mono mt-1.5 ${
-                  projection.totalNetProfitDollar >= 0
-                    ? 'text-emerald-400'
-                    : 'text-rose-400'
-                }`}
-              >
-                <AnimatedNumber
-                  value={projection.totalNetProfitDollar}
-                  formatter={(v) => formatCurrency(v, true)}
-                />
-              </div>
-              <span className="text-xs font-mono text-emerald-300 mt-1 block">
-                {formatPercent(projection.totalNetProfitPercent, 1, true)} ROI
-              </span>
-            </div>
-
-            {/* 3. Expectancy per Trade (R and $) */}
-            <div className="p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/80 shadow-lg">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Expectancy / Trade
-              </span>
-              <div
-                className={`text-2xl font-extrabold font-mono mt-1.5 ${
-                  projection.expectancyR > 0
-                    ? 'text-sky-400'
-                    : 'text-rose-400'
-                }`}
-              >
-                {formatRMultiple(projection.expectancyR)}
-              </div>
-              <span className="text-xs font-mono text-slate-400 mt-1 block">
-                Initial: {formatCurrency(projection.expectancyInitialDollar, true)} / trade
-              </span>
-            </div>
-
-            {/* 4. Max Drawdown Estimate */}
-            <div className="p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/80 shadow-lg">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Est. Max Drawdown
-              </span>
-              <div className="text-2xl font-extrabold font-mono text-amber-400 mt-1.5">
-                -{projection.maxDrawdownPercent}%
-              </div>
-              <span className="text-xs text-slate-400 mt-1 block">
-                During peak losing cluster
-              </span>
-            </div>
-
-            {/* 5. Risk of Ruin Probability */}
-            <div className="p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/80 shadow-lg">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Risk of Ruin
-              </span>
-              <div
-                className={`text-2xl font-extrabold font-mono mt-1.5 ${
-                  projection.riskOfRuinPercent < 2
-                    ? 'text-emerald-400'
-                    : projection.riskOfRuinPercent < 15
-                    ? 'text-amber-400'
-                    : 'text-rose-400'
-                }`}
-              >
-                {projection.riskOfRuinPercent}%
-              </div>
-              <span className="text-xs text-slate-400 mt-1 block">
-                Account depletion probability
-              </span>
-            </div>
-
-            {/* 6. Longest Expected Losing Streak */}
-            <div className="p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/80 shadow-lg">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Longest Losing Streak
-              </span>
-              <div className="text-2xl font-extrabold font-mono text-rose-300 mt-1.5">
-                {projection.longestLosingStreak} Losses
-              </div>
-              <span className="text-xs text-slate-400 mt-1 block">
-                Expected over {projection.totalTrades} trades
-              </span>
+            <div
+              className={`text-[30px] font-extrabold mt-1 ${
+                projection.totalNetProfitDollar >= 0
+                  ? 'text-[#2F6B3A]'
+                  : 'text-[#9B2C20]'
+              }`}
+            >
+              <AnimatedNumber
+                value={projection.totalNetProfitDollar}
+                formatter={(v) => formatCurrency(v, true)}
+              />
             </div>
           </div>
 
-          {/* Growth Curve Chart (Best / Expected / Worst Case vs. 1,000-Run Monte Carlo) */}
-          <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-emerald-400" />
-                  <span>
-                    {chartMode === 'scenarios'
-                      ? 'Projected Growth Curve (Best / Expected / Worst Case)'
-                      : '1,000-Run Monte Carlo Probability Fan (P10 / P50 / P90)'}
+          {/* 3. Worst losing streak */}
+          <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+            <div className="text-[17px] font-bold text-[#8B5E3C]">
+              Worst losing streak
+            </div>
+            <div className="text-[30px] font-extrabold text-[#5C3D2E] mt-1">
+              {projection.longestLosingStreak} in a row
+            </div>
+          </div>
+
+          {/* 4. Chance of blowing the account */}
+          <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+            <div className="text-[17px] font-bold text-[#8B5E3C]">
+              Chance of blowing account
+            </div>
+            <div
+              className={`text-[30px] font-extrabold mt-1 ${
+                projection.riskOfRuinPercent < 2
+                  ? 'text-[#2F6B3A]'
+                  : 'text-[#9B2C20]'
+              }`}
+            >
+              {projection.riskOfRuinPercent}%
+            </div>
+          </div>
+        </div>
+
+        {/* Growth Chart: 3 Pastel Lines (Best / Expected / Worst) */}
+        <section className="space-y-4">
+          <div className="px-5 py-3 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C]">
+            <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0">
+              GROWTH CHART (BEST / EXPECTED / WORST)
+            </h2>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={projection.growthChartData}
+                margin={{ top: 12, right: 24, left: 12, bottom: 8 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="4 4"
+                  stroke="rgba(139, 94, 60, 0.25)"
+                />
+                <XAxis
+                  dataKey="period"
+                  stroke="#5C3D2E"
+                  tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+                />
+                <YAxis
+                  tickFormatter={(v) => formatCompactCurrency(v)}
+                  stroke="#5C3D2E"
+                  tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#FFFDF7',
+                    borderColor: '#8B5E3C',
+                    borderWidth: '2px',
+                    borderRadius: '14px',
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    color: '#5C3D2E',
+                  }}
+                  formatter={(val: number) => formatCurrency(val)}
+                />
+                <Legend
+                  wrapperStyle={{
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    paddingTop: '8px',
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="bestCase"
+                  name="Best Case"
+                  stroke="#3B7A8C"
+                  strokeWidth={3}
+                  strokeDasharray="6 4"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expected"
+                  name="Expected"
+                  stroke="#2F6B3A"
+                  strokeWidth={4}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="worstCase"
+                  name="Worst Case"
+                  stroke="#9B2C20"
+                  strokeWidth={3}
+                  strokeDasharray="6 4"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        {/* Collapsible "Advanced details" Section (Milestone Calculator, Monte Carlo, Monthly Table) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowAdvancedDetails((prev) => !prev)}
+            className="w-full min-h-[52px] px-5 py-3 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] flex items-center justify-between cursor-pointer"
+          >
+            <span>
+              Advanced details (Milestone Goal, Monte Carlo &amp; Monthly Table)
+            </span>
+            {showAdvancedDetails ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </button>
+
+          {showAdvancedDetails && (
+            <div className="mt-4 space-y-6">
+              {/* Milestone Goal Calculator */}
+              <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-3">
+                <div className="text-[20px] font-extrabold text-[#8B5E3C]">
+                  How long to reach a goal balance?
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-[17px] font-bold text-[#5C3D2E]">
+                    Goal ($):
                   </span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {chartMode === 'scenarios'
-                    ? 'Compares baseline win rate against +6% best-case and -6% worst-case variance.'
-                    : `1,000 randomized paths • Median: ${formatCompactCurrency(
-                        monteCarlo.medianEnding
-                      )} • P90: ${formatCompactCurrency(
-                        monteCarlo.p90Ending
-                      )} • P10: ${formatCompactCurrency(monteCarlo.p10Ending)}`}
+                  <input
+                    type="number"
+                    step={5000}
+                    value={calcSettings.targetMilestone}
+                    onChange={(e) =>
+                      onUpdateCalc({
+                        targetMilestone: Math.max(
+                          1000,
+                          Number(e.target.value) || 50000
+                        ),
+                      })
+                    }
+                    className="w-36 min-h-[48px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E]"
+                  />
+                  <span className="text-[18px] font-bold text-[#2F6B3A]">
+                    {projection.daysToReachMilestone === null
+                      ? 'Increase Win% or Reward Ratio to reach this goal.'
+                      : projection.daysToReachMilestone === 0
+                      ? 'Already reached!'
+                      : `About ${projection.daysToReachMilestone} trading days (~${projection.monthsToReachMilestone} months)`}
+                  </span>
+                </div>
+              </div>
+
+              {/* 1,000-Run Monte Carlo Summary */}
+              <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-2">
+                <div className="text-[20px] font-extrabold text-[#8B5E3C]">
+                  1,000-Run Monte Carlo Simulation
+                </div>
+                <p className="text-[17px] font-semibold text-[#5C3D2E] m-0">
+                  Across 1,000 random simulations, your middle result is{' '}
+                  <strong>{formatCurrency(monteCarlo.medianEnding)}</strong>,
+                  lucky top 10% is{' '}
+                  <strong>{formatCurrency(monteCarlo.p90Ending)}</strong>, and
+                  unlucky bottom 10% is{' '}
+                  <strong>{formatCurrency(monteCarlo.p10Ending)}</strong>.
                 </p>
               </div>
 
-              <div className="inline-flex p-1 rounded-xl bg-[#0B0F19] border border-slate-800 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setChartMode('scenarios')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    chartMode === 'scenarios'
-                      ? 'bg-emerald-500 text-[#0B0F19]'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Scenarios
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChartMode('montecarlo')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                    chartMode === 'montecarlo'
-                      ? 'bg-violet-500 text-white'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Monte Carlo (1,000x)</span>
-                </button>
+              {/* Monthly Breakdown Table */}
+              <div className="rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
+                <div className="px-5 py-3 bg-[#F2D29B] border-b-2 border-[#8B5E3C] font-heading text-[20px] font-bold uppercase text-[#8B5E3C]">
+                  MONTH-BY-MONTH TABLE
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-[17px]">
+                    <thead>
+                      <tr className="border-b-2 border-[#8B5E3C] bg-[#F0DED4] font-bold text-[#5C3D2E]">
+                        <th className="py-3 px-4">Month</th>
+                        <th className="py-3 px-4">Start</th>
+                        <th className="py-3 px-4">Trades</th>
+                        <th className="py-3 px-4">Wins / Losses</th>
+                        <th className="py-3 px-4 text-right">Profit</th>
+                        <th className="py-3 px-4 text-right">End Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#8B5E3C]/30 font-semibold">
+                      {projection.monthlyBreakdown.map((row) => (
+                        <tr key={row.month}>
+                          <td className="py-3 px-4 font-bold">{row.label}</td>
+                          <td className="py-3 px-4">
+                            {formatCurrency(row.startBalance)}
+                          </td>
+                          <td className="py-3 px-4">{row.tradesCount}</td>
+                          <td className="py-3 px-4">
+                            {row.wins}W / {row.losses}L
+                          </td>
+                          <td
+                            className={`py-3 px-4 text-right font-extrabold ${
+                              row.netProfit >= 0
+                                ? 'text-[#2F6B3A]'
+                                : 'text-[#9B2C20]'
+                            }`}
+                          >
+                            {formatCurrency(row.netProfit, true)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-extrabold">
+                            {formatCurrency(row.endBalance)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                {chartMode === 'scenarios' ? (
-                  <AreaChart
-                    data={projection.growthChartData}
-                    margin={{ top: 10, right: 16, left: 8, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="rgba(148,163,184,0.1)"
-                    />
-                    <XAxis dataKey="period" stroke="#64748B" fontSize={12} />
-                    <YAxis
-                      tickFormatter={(v) => formatCompactCurrency(v)}
-                      stroke="#64748B"
-                      fontSize={12}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#0B0F19',
-                        borderColor: '#334155',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(val: number) => formatCurrency(val)}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="bestCase"
-                      name="Best Case (+6% WR)"
-                      stroke="#38BDF8"
-                      strokeWidth={2}
-                      strokeDasharray="4 4"
-                      fill="none"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="expected"
-                      name="Expected Trajectory"
-                      stroke="#10B981"
-                      strokeWidth={3}
-                      fill="url(#expGrad)"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="worstCase"
-                      name="Worst Case (-6% WR)"
-                      stroke="#F43F5E"
-                      strokeWidth={2}
-                      strokeDasharray="4 4"
-                      fill="none"
-                    />
-                  </AreaChart>
-                ) : (
-                  <AreaChart
-                    data={monteCarlo.bands}
-                    margin={{ top: 10, right: 16, left: 8, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="mcGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="rgba(148,163,184,0.1)"
-                    />
-                    <XAxis dataKey="label" stroke="#64748B" fontSize={12} />
-                    <YAxis
-                      tickFormatter={(v) => formatCompactCurrency(v)}
-                      stroke="#64748B"
-                      fontSize={12}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#0B0F19',
-                        borderColor: '#334155',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(val: number) => formatCurrency(val)}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="p90"
-                      name="90th Percentile (Top 10%)"
-                      stroke="#10B981"
-                      strokeWidth={2}
-                      fill="none"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="p50"
-                      name="Median (50th Percentile)"
-                      stroke="#8B5CF6"
-                      strokeWidth={3}
-                      fill="url(#mcGrad)"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="p10"
-                      name="10th Percentile (Bottom 10%)"
-                      stroke="#F59E0B"
-                      strokeWidth={2}
-                      fill="none"
-                    />
-                  </AreaChart>
-                )}
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Monthly Breakdown Table */}
-          <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-sky-400" />
-                <h3 className="text-lg font-bold text-slate-100">
-                  Monthly Breakdown Schedule
-                </h3>
-              </div>
-              <span className="text-xs text-slate-400">
-                {projection.monthsCount} Months •{' '}
-                {calcSettings.compounding ? 'Compounded' : 'Fixed Risk'}
-              </span>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#0B0F19]/80">
-              <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-400 bg-[#111827]">
-                    <th className="py-3 px-4">Month</th>
-                    <th className="py-3 px-4">Start Balance</th>
-                    <th className="py-3 px-4">Trades</th>
-                    <th className="py-3 px-4">Wins / Losses</th>
-                    <th className="py-3 px-4 text-right">Net Profit</th>
-                    <th className="py-3 px-4 text-right">End Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {projection.monthlyBreakdown.map((row) => (
-                    <tr
-                      key={row.month}
-                      className="hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="py-3 px-4 font-sans font-semibold text-slate-200">
-                        {row.label}
-                      </td>
-                      <td className="py-3 px-4 text-slate-300">
-                        {formatCurrency(row.startBalance)}
-                      </td>
-                      <td className="py-3 px-4 text-slate-300">
-                        {row.tradesCount}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-emerald-400 font-semibold">
-                          {row.wins}W
-                        </span>{' '}
-                        /{' '}
-                        <span className="text-rose-400 font-semibold">
-                          {row.losses}L
-                        </span>
-                      </td>
-                      <td
-                        className={`py-3 px-4 text-right font-bold ${
-                          row.netProfit >= 0
-                            ? 'text-emerald-400'
-                            : 'text-rose-400'
-                        }`}
-                      >
-                        {formatCurrency(row.netProfit, true)}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-slate-100">
-                        {formatCurrency(row.endBalance)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </FadeInUp>
+          )}
+        </div>
       </div>
-    </StaggerContainer>
+    </FadeInUp>
   );
 };

@@ -1,18 +1,8 @@
-import React, { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  Settings as SettingsIcon,
-  Download,
-  Upload,
-  RotateCcw,
-  Trash2,
-  Check,
-  ShieldCheck,
-} from 'lucide-react';
+import React, { useRef } from 'react';
+import { Download, Upload, RotateCcw, Trash2 } from 'lucide-react';
 import { AccountSettings } from '../types/settings';
 import { getMaxRiskDollar } from '../utils/calculations';
 import { formatCurrency } from '../utils/formatters';
-import { StaggerContainer } from '../components/animations/StaggerContainer';
 import { FadeInUp } from '../components/animations/FadeInUp';
 
 interface SettingsPageProps {
@@ -22,7 +12,10 @@ interface SettingsPageProps {
   onImportJson: (text: string) => { ok: boolean; message: string };
   onResetDemoData: () => void;
   onClearAllData: () => void;
-  onNotify: (title: string, type: 'success' | 'warning' | 'error' | 'info') => void;
+  onNotify: (
+    title: string,
+    type: 'success' | 'warning' | 'error' | 'info'
+  ) => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -35,8 +28,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onNotify,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [importSuccess, setImportSuccess] = useState(false);
-
   const maxRiskDollar = getMaxRiskDollar(settings);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,87 +38,108 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       const content = evt.target?.result;
       if (typeof content === 'string') {
         const res = onImportJson(content);
-        if (res.ok) {
-          setImportSuccess(true);
-          onNotify(res.message, 'success');
-          setTimeout(() => setImportSuccess(false), 2500);
-        } else {
-          onNotify(res.message, 'error');
-        }
+        onNotify(res.message, res.ok ? 'success' : 'error');
       }
     };
     reader.readAsText(file);
   };
 
   return (
-    <StaggerContainer className="space-y-6 max-w-4xl">
-      <FadeInUp>
-        <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
-            PREFERENCES &amp; DATA PORTABILITY
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mt-1 flex items-center gap-2.5">
-            <SettingsIcon className="w-7 h-7 text-emerald-400" />
-            <span>Account Settings &amp; JSON Backup</span>
+    <FadeInUp>
+      <div className="paper-sheet p-6 sm:p-9 space-y-8">
+        {/* Title + Dotted Line */}
+        <div className="space-y-3">
+          <h1 className="font-heading text-[32px] sm:text-[42px] font-bold uppercase text-[#8B5E3C] leading-none m-0">
+            SETTINGS
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Configure your global risk parameters, export/import full JSON
-            backups, or reset demo data.
-          </p>
+          <div className="dotted-divider w-full pt-1" />
         </div>
-      </FadeInUp>
 
-      {/* Account Settings Card */}
-      <FadeInUp delay={0.06}>
-        <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-5">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-lg font-bold text-slate-100">
-              Global Account &amp; Risk Limits
-            </h3>
+        {/* Account & Risk Settings Rows */}
+        <section className="space-y-4">
+          <div className="px-5 py-3 rounded-2xl bg-[#E8E0A9] border-2 border-[#8B5E3C]">
+            <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0">
+              MY ACCOUNT RULES
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Account Size ($)
-              </label>
+          <div className="space-y-4">
+            {/* 1. Account Size */}
+            <div className="p-5 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="text-[19px] font-extrabold text-[#5C3D2E]">
+                  Account Size ($)
+                </div>
+                <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
+                  Your starting trading account balance (default $25,000).
+                </p>
+              </div>
               <input
                 type="number"
+                min={100}
+                step={500}
                 value={settings.accountSize}
                 onChange={(e) =>
                   onUpdateSettings({
                     accountSize: Math.max(100, Number(e.target.value) || 25000),
                   })
                 }
-                className="w-full bg-[#111827] border border-slate-700 rounded-xl px-3.5 py-2 text-base font-mono font-bold text-slate-100 outline-none"
+                className="w-full sm:w-44 min-h-[50px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[19px] font-extrabold text-[#5C3D2E] outline-none"
               />
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Max Risk % / Trade
-              </label>
+            {/* 2. Max Risk % */}
+            <div className="p-5 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="text-[19px] font-extrabold text-[#5C3D2E]">
+                  Max Risk % per Trade
+                </div>
+                <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
+                  The most you allow yourself to risk on a single trade
+                  (default 1.0%).
+                </p>
+              </div>
               <input
                 type="number"
                 step={0.1}
+                min={0.1}
+                max={20}
                 value={settings.maxRiskPercent}
                 onChange={(e) =>
                   onUpdateSettings({
                     maxRiskPercent: Math.max(0.1, Number(e.target.value) || 1.0),
                   })
                 }
-                className="w-full bg-[#111827] border border-slate-700 rounded-xl px-3.5 py-2 text-base font-mono font-bold text-slate-100 outline-none"
+                className="w-full sm:w-44 min-h-[50px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[19px] font-extrabold text-[#5C3D2E] outline-none"
               />
-              <span className="text-xs text-emerald-400 mt-1 block font-mono">
-                Max Risk $: {formatCurrency(maxRiskDollar)}
-              </span>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Max Trades / Day
-              </label>
+            {/* 3. Max Risk $ (Auto) */}
+            <div className="p-5 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="text-[19px] font-extrabold text-[#5C3D2E]">
+                  Max Risk $ per Trade (Auto)
+                </div>
+                <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
+                  Automatically calculated as Account Size × Max Risk %.
+                </p>
+              </div>
+              <div className="w-full sm:w-44 min-h-[50px] px-4 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] text-[20px] font-extrabold text-[#2F6B3A] flex items-center justify-center">
+                {formatCurrency(maxRiskDollar)}
+              </div>
+            </div>
+
+            {/* 4. Max Trades per Day */}
+            <div className="p-5 rounded-2xl bg-[#F8D0CC] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="text-[19px] font-extrabold text-[#5C3D2E]">
+                  Max Trades per Day
+                </div>
+                <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
+                  Stops you from overtrading once you reach this number
+                  (default 3).
+                </p>
+              </div>
               <input
                 type="number"
                 min={1}
@@ -141,87 +153,106 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     ),
                   })
                 }
-                className="w-full bg-[#111827] border border-slate-700 rounded-xl px-3.5 py-2 text-base font-mono font-bold text-slate-100 outline-none"
+                className="w-full sm:w-44 min-h-[50px] px-4 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[19px] font-extrabold text-[#5C3D2E] outline-none"
               />
             </div>
           </div>
-        </div>
-      </FadeInUp>
+        </section>
 
-      {/* Export / Import JSON & Demo Data Reset */}
-      <FadeInUp delay={0.12}>
-        <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-5">
-          <h3 className="text-lg font-bold text-slate-100">
-            Backup &amp; Demo Data Controls
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-400">
-            Export your entire trading journal as a portable JSON file or import
-            a previous backup at any time.
-          </p>
+        {/* Backup & Data Buttons */}
+        <section className="space-y-4">
+          <div className="px-5 py-3 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C]">
+            <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0">
+              SAVE &amp; RESTORE YOUR DATA
+            </h2>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <motion.button
-              type="button"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onExportJson}
-              className="p-4 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-bold text-sm flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-            >
-              <Download className="w-5 h-5" />
-              <span>Export Full JSON Backup</span>
-            </motion.button>
+            <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col justify-between gap-3">
+              <div>
+                <div className="text-[18px] font-extrabold text-[#5C3D2E]">
+                  Export Backup
+                </div>
+                <p className="text-[16px] text-[#5C3D2E] m-0">
+                  Download a copy of all your trades and notes to your computer.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onExportJson}
+                className="min-h-[50px] px-5 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#2F6B3A] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Download className="w-5 h-5" />
+                <span>Export Backup</span>
+              </button>
+            </div>
 
-            <motion.button
-              type="button"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => fileInputRef.current?.click()}
-              className="p-4 rounded-2xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-300 font-bold text-sm flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-            >
-              {importSuccess ? (
-                <>
-                  <Check className="w-5 h-5 text-emerald-400" />
-                  <span>Backup Imported!</span>
-                </>
-              ) : (
-                <>
-                  <Upload className="w-5 h-5" />
-                  <span>Import JSON Backup</span>
-                </>
-              )}
-            </motion.button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,application/json"
-              onChange={handleFileChange}
-              className="hidden"
-            />
+            <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col justify-between gap-3">
+              <div>
+                <div className="text-[18px] font-extrabold text-[#5C3D2E]">
+                  Import Backup
+                </div>
+                <p className="text-[16px] text-[#5C3D2E] m-0">
+                  Load a backup file you saved earlier.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="min-h-[50px] px-5 rounded-xl bg-[#DCEEF2] hover:bg-[#c6e3ea] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Upload className="w-5 h-5" />
+                <span>Import Backup</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
 
-            <motion.button
-              type="button"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onResetDemoData}
-              className="p-4 rounded-2xl bg-[#0B0F19] hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4 text-emerald-400" />
-              <span>Restore Seed Demo Data</span>
-            </motion.button>
+            <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col justify-between gap-3">
+              <div>
+                <div className="text-[18px] font-extrabold text-[#5C3D2E]">
+                  Restore Demo Data
+                </div>
+                <p className="text-[16px] text-[#5C3D2E] m-0">
+                  Fill the tracker with sample days so you can see how it works.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onResetDemoData}
+                className="min-h-[50px] px-5 rounded-xl bg-[#F2D29B] hover:bg-[#ecc482] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <RotateCcw className="w-5 h-5" />
+                <span>Restore Demo Data</span>
+              </button>
+            </div>
 
-            <motion.button
-              type="button"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onClearAllData}
-              className="p-4 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Clear Demo Data (Start Fresh)</span>
-            </motion.button>
+            <div className="p-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col justify-between gap-3">
+              <div>
+                <div className="text-[18px] font-extrabold text-[#9B2C20]">
+                  Clear Demo Data
+                </div>
+                <p className="text-[16px] text-[#5C3D2E] m-0">
+                  Wipe all sample trades and start with a blank tracker sheet.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClearAllData}
+                className="min-h-[50px] px-5 rounded-xl bg-[#F5B8B0] hover:bg-[#efa197] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#9B2C20] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-5 h-5" />
+                <span>Clear Demo Data</span>
+              </button>
+            </div>
           </div>
-        </div>
-      </FadeInUp>
-    </StaggerContainer>
+        </section>
+      </div>
+    </FadeInUp>
   );
 };

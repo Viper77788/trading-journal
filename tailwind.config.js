@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class',
   content: [
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
@@ -8,15 +7,28 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        display: ['Fredoka', 'Nunito', 'system-ui', 'sans-serif'],
+        sans: ['Nunito', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
-        navy: {
-          950: '#0B0F19',
-          900: '#111827',
-          850: '#161F33',
-          800: '#1E293B',
+        paper: {
+          bg: '#FFFBF2',
+          card: '#FFFDF7',
+          brown: '#8B5E3C',
+          text: '#5C3D2E',
+        },
+        pastel: {
+          blue: '#DCEEF2',
+          peach: '#F2D29B',
+          lavender: '#E2DCEB',
+          olive: '#E8E0A9',
+          pink: '#F8D0CC',
+          beige: '#F0DED4',
+          green: '#BFE3C0',
+          greenText: '#2F6B3A',
+          red: '#F5B8B0',
+          redText: '#9B2C20',
+          yellow: '#F7E2A0',
         },
       },
     },

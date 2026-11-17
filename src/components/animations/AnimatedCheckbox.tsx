@@ -5,84 +5,61 @@ interface AnimatedCheckboxProps {
   checked: boolean;
   onChange: (next: boolean) => void;
   label: string;
-  sublabel?: string;
+  pastelBg?: string;
 }
 
 export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
   checked,
   onChange,
   label,
-  sublabel,
+  pastelBg = '#DCEEF2',
 }) => {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <motion.button
-      type="button"
-      onClick={() => onChange(!checked)}
-      whileTap={shouldReduceMotion ? undefined : { scale: 0.985 }}
-      className={`w-full flex items-center justify-between gap-4 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-        checked
-          ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_24px_-6px_rgba(16,185,129,0.28)]'
-          : 'bg-slate-900/60 dark:bg-[#0B0F19]/80 border-slate-800/80 hover:border-slate-700'
-      }`}
-    >
-      <div className="flex items-center gap-3.5 min-w-0">
-        <motion.div
-          animate={
-            checked
-              ? { scale: [1, 1.18, 1], backgroundColor: '#10B981', borderColor: '#10B981' }
-              : { scale: 1, backgroundColor: 'rgba(15,23,42,0.6)', borderColor: '#475569' }
-          }
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0"
+    <div className="flex items-center gap-3 sm:gap-4 w-full">
+      {/* Left: Pastel Rounded Label Bar */}
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        style={{ backgroundColor: pastelBg }}
+        className="flex-1 min-h-[56px] px-5 py-3 rounded-2xl border-2 border-[#8B5E3C] text-left flex items-center justify-between transition-transform active:scale-[0.99] cursor-pointer"
+      >
+        <span
+          className={`text-[17px] sm:text-[18px] font-bold text-[#5C3D2E] leading-snug ${
+            checked ? 'line-through decoration-[#8B5E3C]/70 opacity-85' : ''
+          }`}
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            className="w-4 h-4 text-[#0B0F19]"
-          >
-            <motion.path
-              d="M5 13l4 4L19 7"
-              stroke="currentColor"
-              strokeWidth={3.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              initial={false}
-              animate={{
-                pathLength: checked ? 1 : 0,
-                opacity: checked ? 1 : 0,
-              }}
-              transition={{ duration: 0.24, ease: 'easeOut' }}
-            />
-          </svg>
-        </motion.div>
+          {label}
+        </span>
+      </button>
 
-        <div className="min-w-0">
-          <div
-            className={`text-sm sm:text-[15px] font-medium transition-all duration-200 ${
-              checked
-                ? 'text-emerald-200 line-through decoration-emerald-500/60'
-                : 'text-slate-100'
-            }`}
-          >
-            {label}
-          </div>
-          {sublabel && (
-            <div className="text-xs text-slate-400 mt-0.5">{sublabel}</div>
-          )}
-        </div>
-      </div>
-
-      <span
-        className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition-colors ${
-          checked
-            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-            : 'bg-slate-800/80 text-slate-400 border border-slate-700/60'
+      {/* Right: Big Outlined Circle (48px) to Tick */}
+      <motion.button
+        type="button"
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+        className={`w-12 h-12 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+          checked ? 'bg-[#8B5E3C] text-[#FFFDF7]' : 'bg-[#FFFDF7] hover:bg-[#F0DED4]/50'
         }`}
       >
-        {checked ? 'Verified' : 'Pending'}
-      </span>
-    </motion.button>
+        <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
+          <motion.path
+            d="M5 13l4 4L19 7"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={false}
+            animate={{
+              pathLength: checked ? 1 : 0,
+              opacity: checked ? 1 : 0,
+            }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: 'easeOut' }}
+          />
+        </svg>
+      </motion.button>
+    </div>
   );
 };

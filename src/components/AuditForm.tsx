@@ -1,21 +1,11 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  ClipboardCheck,
-  Sparkles,
-  Check,
-  Loader2,
-  RotateCcw,
-} from 'lucide-react';
 import {
   DayRecord,
   DailyAuditState,
   EmotionTag,
-  EMOTION_TAGS,
 } from '../types/day';
 import { AccountSettings } from '../types/settings';
 import {
-  getAutoSuggestedAudit,
   getEffectiveAuditAnswers,
   getMaxRiskDollar,
 } from '../utils/calculations';
@@ -25,8 +15,26 @@ interface AuditFormProps {
   day: DayRecord;
   settings: AccountSettings;
   onUpdateAudit: (patch: Partial<DailyAuditState>) => void;
-  onNotify: (title: string, type: 'success' | 'warning' | 'error' | 'info') => void;
+  onNotify: (
+    title: string,
+    type: 'success' | 'warning' | 'error' | 'info'
+  ) => void;
 }
+
+const EMOTION_CHIP_META: Array<{
+  id: EmotionTag;
+  label: string;
+  pastelBg: string;
+}> = [
+  { id: 'Calm', label: '😌 Calm', pastelBg: '#DCEEF2' },
+  { id: 'Patient', label: '⏳ Patient', pastelBg: '#BFE3C0' },
+  { id: 'Focused', label: '🎯 Focused', pastelBg: '#E2DCEB' },
+  { id: 'Impatient', label: '⚡ Impatient', pastelBg: '#F2D29B' },
+  { id: 'FOMO', label: '🏃 FOMO', pastelBg: '#F8D0CC' },
+  { id: 'Anxious', label: '😰 Anxious', pastelBg: '#F7E2A0' },
+  { id: 'Overconfident', label: '🦁 Overconfident', pastelBg: '#E8E0A9' },
+  { id: 'Revenge', label: '😤 Revenge', pastelBg: '#F5B8B0' },
+];
 
 export const AuditForm: React.FC<AuditFormProps> = ({
   day,
@@ -34,41 +42,38 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   onUpdateAudit,
   onNotify,
 }) => {
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [isTextareaFocused, setIsTextareaFocused] = useState(false);
+  const [savedBanner, setSavedBanner] = useState(false);
 
-  const suggested = getAutoSuggestedAudit(day, settings);
   const effective = getEffectiveAuditAnswers(day, settings);
   const maxRiskDollar = getMaxRiskDollar(settings);
 
-  const auditQuestions: Array<{
+  const questions: Array<{
     key: 'stuckToMaxTrades' | 'respectedRiskCap' | 'executedInAllowedWindows';
-    number: number;
     label: string;
+    pastelBg: string;
     isAuto: boolean;
     value: boolean;
   }> = [
     {
       key: 'stuckToMaxTrades',
-      number: 1,
-      label: `Did I stick strictly to my ${settings.maxTradesPerDay}-trade max limit?`,
+      label: `Did I stick to my ${settings.maxTradesPerDay}-trade maximum?`,
+      pastelBg: '#DCEEF2',
       isAuto: day.audit.stuckToMaxTrades === null,
       value: effective.stuckToMaxTrades,
     },
     {
       key: 'respectedRiskCap',
-      number: 2,
       label: `Did I respect the ${settings.maxRiskPercent}% (${formatCurrency(
         maxRiskDollar
-      )}) risk cap on every trade?`,
+      )}) risk limit on every trade?`,
+      pastelBg: '#F2D29B',
       isAuto: day.audit.respectedRiskCap === null,
       value: effective.respectedRiskCap,
     },
     {
       key: 'executedInAllowedWindows',
-      number: 3,
-      label:
-        'Were all entries executed strictly during the London or NY windows?',
+      label: 'Did I trade only in the London or NY time?',
+      pastelBg: '#E2DCEB',
       isAuto: day.audit.executedInAllowedWindows === null,
       value: effective.executedInAllowedWindows,
     },
@@ -83,242 +88,141 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     onUpdateAudit({ emotions: next });
   };
 
-  const handleSaveAudit = () => {
-    if (saveState !== 'idle') return;
-    setSaveState('saving');
+  const handleSaveToday = () => {
+    onUpdateAudit({ savedAt: new Date().toISOString() });
+    setSavedBanner(true);
+    onNotify('Saved today’s tracker sheet!', 'success');
     setTimeout(() => {
-      onUpdateAudit({ savedAt: new Date().toISOString() });
-      setSaveState('saved');
-      onNotify('Daily Review & Discipline Audit saved!', 'success');
-      setTimeout(() => {
-        setSaveState('idle');
-      }, 2000);
-    }, 450);
+      setSavedBanner(false);
+    }, 2000);
   };
 
   return (
-    <div className="rounded-2xl bg-[#111827]/90 backdrop-blur-xl border border-slate-800/80 p-6 shadow-xl space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="w-5 h-5 text-violet-400" />
-            <h3 className="text-lg font-bold text-slate-100">
-              D) Daily Review &amp; Discipline Audit
-            </h3>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Q1–Q3 auto-suggest from your trade log data, with full manual
-            override.
-          </p>
-        </div>
+    <section aria-label="End-of-Day Review" className="space-y-5">
+      {/* Pastel Section Heading Bar */}
+      <div className="px-5 py-3 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C]">
+        <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0">
+          END-OF-DAY REVIEW
+        </h2>
+      </div>
 
-        {(day.audit.stuckToMaxTrades !== null ||
-          day.audit.respectedRiskCap !== null ||
-          day.audit.executedInAllowedWindows !== null) && (
-          <button
-            type="button"
-            onClick={() =>
-              onUpdateAudit({
-                stuckToMaxTrades: null,
-                respectedRiskCap: null,
-                executedInAllowedWindows: null,
-              })
-            }
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#0B0F19] hover:bg-slate-800 text-slate-300 border border-slate-700/80 transition-colors cursor-pointer self-start sm:self-auto"
+      {/* 3 Habit-Tracker Row Questions with Big Round YES / NO Buttons */}
+      <div className="space-y-3">
+        {questions.map((q) => (
+          <div
+            key={q.key}
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Reset Q1–Q3 to Auto-Suggest</span>
-          </button>
-        )}
-      </div>
-
-      {/* Q1 - Q3 Yes/No Toggles */}
-      <div className="space-y-3">
-        {auditQuestions.map((q) => {
-          const autoVal = suggested[q.key];
-
-          return (
+            {/* Left: Pastel Label Bar */}
             <div
-              key={q.key}
-              className="p-4 rounded-2xl bg-[#0B0F19]/85 border border-slate-800/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              style={{ backgroundColor: q.pastelBg }}
+              className="flex-1 min-h-[60px] px-5 py-3 rounded-2xl border-2 border-[#8B5E3C] flex flex-col justify-center"
             >
-              <div className="space-y-1">
-                <div className="flex items-center flex-wrap gap-2">
-                  <span className="text-xs font-mono font-bold text-slate-400">
-                    Q{q.number}.
-                  </span>
-                  <span className="text-sm sm:text-[15px] font-medium text-slate-100">
-                    {q.label}
-                  </span>
-                  {q.isAuto ? (
-                    <motion.span
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: [1, 1.07, 1], opacity: 1 }}
-                      transition={{ duration: 0.45 }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-500/15 text-violet-300 border border-violet-500/30"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Auto-suggested</span>
-                    </motion.span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-                      Manual override (Auto: {autoVal ? 'Yes' : 'No'})
-                    </span>
-                  )}
+              <div className="text-[17px] sm:text-[18px] font-bold text-[#5C3D2E]">
+                {q.label}
+              </div>
+              {q.isAuto && (
+                <div className="text-[16px] font-semibold text-[#8B5E3C]">
+                  Suggested from your trades
                 </div>
-              </div>
-
-              {/* Spring-animated Yes / No Segmented Switch */}
-              <div className="relative inline-grid grid-cols-2 p-1 rounded-xl bg-[#111827] border border-slate-800 w-36 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onUpdateAudit({ [q.key]: true })}
-                  className={`relative z-10 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    q.value ? 'text-[#0B0F19]' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {q.value && (
-                    <motion.div
-                      layoutId={`auditSwitch-${q.key}`}
-                      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                      className="absolute inset-0 rounded-lg bg-emerald-500 shadow-md shadow-emerald-500/30 -z-10"
-                    />
-                  )}
-                  Yes
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onUpdateAudit({ [q.key]: false })}
-                  className={`relative z-10 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    !q.value ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {!q.value && (
-                    <motion.div
-                      layoutId={`auditSwitch-${q.key}`}
-                      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                      className="absolute inset-0 rounded-lg bg-rose-500 shadow-md shadow-rose-500/30 -z-10"
-                    />
-                  )}
-                  No
-                </button>
-              </div>
+              )}
             </div>
-          );
-        })}
-      </div>
 
-      {/* Q4. Primary Emotion / Mindset Felt Today */}
-      <div className="space-y-3">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-          4. Primary Emotion / Mindset Felt Today
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {EMOTION_TAGS.map((emotion) => {
-            const isSelected = (day.audit.emotions || []).includes(emotion);
-            const isPositive =
-              emotion === 'Patient' ||
-              emotion === 'Calm' ||
-              emotion === 'Focused';
-
-            return (
-              <motion.button
-                key={emotion}
+            {/* Right: Two Big Round YES and NO Buttons */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
                 type="button"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => toggleEmotion(emotion)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  isSelected
-                    ? isPositive
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_16px_-4px_rgba(16,185,129,0.4)]'
-                      : 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-[0_0_16px_-4px_rgba(239,68,68,0.4)]'
-                    : 'bg-[#0B0F19] text-slate-300 border-slate-800 hover:border-slate-700'
+                onClick={() => onUpdateAudit({ [q.key]: true })}
+                className={`min-h-[50px] min-w-[84px] px-5 rounded-full border-2 border-[#8B5E3C] text-[18px] font-extrabold transition-colors cursor-pointer ${
+                  q.value
+                    ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                    : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#F0DED4]/40'
                 }`}
               >
-                {emotion}
-              </motion.button>
+                YES
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onUpdateAudit({ [q.key]: false })}
+                className={`min-h-[50px] min-w-[84px] px-5 rounded-full border-2 border-[#8B5E3C] text-[18px] font-extrabold transition-colors cursor-pointer ${
+                  !q.value
+                    ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                    : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#F0DED4]/40'
+                }`}
+              >
+                NO
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* How did I feel today? (Big emoji-style pastel chips) */}
+      <div className="p-5 rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-3">
+        <div className="text-[19px] font-bold text-[#8B5E3C]">
+          How did I feel today? (tap one or more)
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          {EMOTION_CHIP_META.map((item) => {
+            const isSelected = (day.audit.emotions || []).includes(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => toggleEmotion(item.id)}
+                style={{
+                  backgroundColor: isSelected ? item.pastelBg : '#FFFBF2',
+                }}
+                className={`min-h-[48px] px-4 py-2 rounded-full text-[17px] font-bold transition-all cursor-pointer ${
+                  isSelected
+                    ? 'border-2 border-[#8B5E3C] text-[#5C3D2E] shadow-sm -translate-y-0.5'
+                    : 'border border-[#8B5E3C]/50 text-[#8B5E3C] hover:border-[#8B5E3C]'
+                }`}
+              >
+                {item.label} {isSelected ? '✓' : ''}
+              </button>
             );
           })}
         </div>
-
-        <input
-          type="text"
-          value={day.audit.customEmotion || ''}
-          onChange={(e) => onUpdateAudit({ customEmotion: e.target.value })}
-          placeholder="Optional custom mindset note (e.g., Hesitant after early chop)..."
-          className="w-full bg-[#0B0F19] border border-slate-800 focus:border-emerald-500 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors"
-        />
       </div>
 
-      {/* Q5. Key Lesson / Adjustment for Tomorrow */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            5. Key Lesson / Adjustment for Tomorrow
-          </label>
-          <motion.span
-            animate={{ opacity: isTextareaFocused ? 1 : 0.5 }}
-            className="text-xs font-mono text-slate-400"
+      {/* What is my lesson for tomorrow? (Lined Notepad Style Textarea) */}
+      <div className="rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
+        <div className="px-5 py-3 bg-[#E8E0A9] border-b-2 border-[#8B5E3C]">
+          <label
+            htmlFor="lesson-notepad"
+            className="font-heading text-[20px] font-bold uppercase text-[#8B5E3C] block cursor-pointer"
           >
-            {(day.audit.keyLesson || '').length} / 500 chars
-          </motion.span>
+            WHAT IS MY LESSON FOR TOMORROW?
+          </label>
         </div>
-
-        <div
-          className={`rounded-2xl p-[1px] transition-all duration-300 ${
-            isTextareaFocused
-              ? 'bg-gradient-to-r from-emerald-500 via-sky-500 to-violet-500 shadow-[0_0_24px_-6px_rgba(16,185,129,0.35)]'
-              : 'bg-slate-800'
-          }`}
-        >
+        <div className="p-4">
           <textarea
-            rows={3}
-            maxLength={500}
+            id="lesson-notepad"
+            rows={4}
             value={day.audit.keyLesson || ''}
-            onFocus={() => setIsTextareaFocused(true)}
-            onBlur={() => setIsTextareaFocused(false)}
             onChange={(e) => onUpdateAudit({ keyLesson: e.target.value })}
-            placeholder="What is the #1 actionable adjustment you will carry into tomorrow's session?"
-            className="w-full rounded-[15px] bg-[#0B0F19] px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none resize-y"
+            placeholder="Write one simple thing to remember tomorrow..."
+            className="lined-notepad w-full px-3 text-[18px] font-semibold text-[#5C3D2E] placeholder-[#8B5E3C]/60 outline-none resize-y border-0"
           />
         </div>
       </div>
 
-      {/* Save Button with Morph Animation */}
-      <div className="flex items-center justify-end pt-2">
-        <motion.button
+      {/* One Big "SAVE TODAY" Button at the Bottom */}
+      <div className="no-print pt-1">
+        <button
           type="button"
-          whileHover={{ y: -1 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleSaveAudit}
-          className={`min-w-[180px] h-11 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-            saveState === 'saved'
-              ? 'bg-emerald-500 text-[#0B0F19] shadow-lg shadow-emerald-500/30'
-              : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-[#0B0F19] shadow-lg shadow-emerald-500/20'
+          onClick={handleSaveToday}
+          className={`w-full min-h-[56px] rounded-2xl border-2 border-[#8B5E3C] font-heading text-[22px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+            savedBanner
+              ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+              : 'bg-[#F2D29B] hover:bg-[#ecc482] text-[#5C3D2E] shadow-sm'
           }`}
         >
-          {saveState === 'saving' && (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Saving Audit...</span>
-            </>
-          )}
-          {saveState === 'saved' && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center gap-2"
-            >
-              <Check className="w-4 h-4 stroke-[3]" />
-              <span>Saved</span>
-            </motion.div>
-          )}
-          {saveState === 'idle' && <span>Save Daily Audit</span>}
-        </motion.button>
+          {savedBanner ? 'Saved ✓' : 'SAVE TODAY'}
+        </button>
       </div>
-    </div>
+    </section>
   );
 };

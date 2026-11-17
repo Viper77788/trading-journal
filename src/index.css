@@ -2,47 +2,103 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-cream: #FFFBF2;
+  --bg-paper: #FFFDF7;
+  --brown-border: #8B5E3C;
+  --brown-text: #5C3D2E;
+  --pastel-blue: #DCEEF2;
+  --pastel-peach: #F2D29B;
+  --pastel-lavender: #E2DCEB;
+  --pastel-olive: #E8E0A9;
+  --pastel-pink: #F8D0CC;
+  --pastel-beige: #F0DED4;
+  --good-bg: #BFE3C0;
+  --good-text: #2F6B3A;
+  --bad-bg: #F5B8B0;
+  --bad-text: #9B2C20;
+  --warn-bg: #F7E2A0;
+}
+
 @layer base {
   html,
   body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    background-color: #0B0F19;
-    color: #F8FAFC;
+    background-color: #FFFBF2;
+    color: #5C3D2E;
+    font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    font-size: 17px;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
 
-  html.light body {
-    background-color: #0F172A;
-    color: #F8FAFC;
+  h1,
+  h2,
+  h3,
+  .font-heading {
+    font-family: 'Fredoka', 'Nunito', sans-serif;
+    color: #8B5E3C;
+    letter-spacing: 0.04em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    font-size: 17px;
   }
 }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+/* Printable Paper Sheet Container */
+.paper-sheet {
+  background-color: #FFFDF7;
+  border: 2px solid #8B5E3C;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(139, 94, 60, 0.08);
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+/* Habit-Tracker Dotted Divider Line */
+.dotted-divider {
+  border-bottom: 2.5px dotted rgba(139, 94, 60, 0.55);
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Lined Notepad Textarea for Tomorrow's Lesson */
+.lined-notepad {
+  background-color: #FFFDF7;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 37px,
+    rgba(139, 94, 60, 0.35) 37px,
+    rgba(139, 94, 60, 0.35) 38px
+  );
+  line-height: 38px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
-::-webkit-scrollbar-track {
-  background: #0B0F19;
-}
-::-webkit-scrollbar-thumb {
-  background: #1E293B;
+
+/* Custom Range Slider in Warm Brown */
+input[type='range'] {
+  accent-color: #8B5E3C;
+  height: 10px;
   border-radius: 999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+
+/* Print Stylesheet so TODAY prints like a real paper tracker sheet */
+@media print {
+  body {
+    background-color: #FFFFFF !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .paper-sheet {
+    box-shadow: none !important;
+    border: 2px solid #8B5E3C !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
 }
