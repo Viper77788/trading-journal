@@ -153,15 +153,17 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => window.print()}
-            title="Print this page"
-            className="h-[36px] px-2.5 rounded-lg bg-[#DCEEF2] hover:bg-[#c7e4eb] border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Print</span>
-          </button>
+          {Boolean(settings.showPrintButton) && (
+            <button
+              type="button"
+              onClick={() => window.print()}
+              title="Print this page"
+              className="no-print h-[36px] px-2.5 rounded-lg bg-[#DCEEF2] hover:bg-[#c7e4eb] border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print</span>
+            </button>
+          )}
         </div>
       </div>
 

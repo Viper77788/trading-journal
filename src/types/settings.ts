@@ -3,6 +3,7 @@ export interface AccountSettings {
   maxRiskPercent: number; // default 1.0%
   maxTradesPerDay: number; // default 3
   theme: 'dark' | 'light';
+  showPrintButton?: boolean; // default false (OFF)
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: AccountSettings = {
@@ -10,6 +11,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: AccountSettings = {
   maxRiskPercent: 1.0,
   maxTradesPerDay: 3,
   theme: 'dark',
+  showPrintButton: false,
 };
 
 export type ProjectionPeriod = '1m' | '3m' | '6m' | '1y' | 'custom';

@@ -16,6 +16,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onExportJson,
 }) => {
   const maxRiskDollar = getMaxRiskDollar(settings);
+  const isPrintEnabled = Boolean(settings.showPrintButton);
 
   return (
     <div className="paper-sheet p-4 sm:p-6 space-y-4">
@@ -28,7 +29,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         </span>
       </div>
 
-      {/* §5. Two columns of compact fields (Account Size & Max Risk % on left; Max Risk $ & Max Trades on right) + Export Backup beside them */}
+      {/* Two columns of compact fields + Export Backup beside them */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
         {/* Left Column: Account Size & Max Risk % */}
         <div className="lg:col-span-5 space-y-3">
@@ -140,6 +141,44 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           >
             <Download className="w-5 h-5" />
             <span>Export Backup</span>
+          </button>
+        </div>
+      </div>
+
+      {/* §1. Show Print Button Setting with Big Pastel ON / OFF Switch (Default OFF) */}
+      <div className="p-4 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="text-[18px] font-extrabold text-[#5C3D2E]">
+            Show Print button
+          </div>
+          <p className="text-[16px] text-[#5C3D2E] m-0">
+            Shows a Print button on the Today page so you can print your daily
+            sheet.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => onUpdateSettings({ showPrintButton: true })}
+            className={`h-[44px] min-w-[78px] px-5 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
+              isPrintEnabled
+                ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
+            }`}
+          >
+            ON
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdateSettings({ showPrintButton: false })}
+            className={`h-[44px] min-w-[78px] px-5 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
+              !isPrintEnabled
+                ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
+            }`}
+          >
+            OFF
           </button>
         </div>
       </div>
