@@ -165,67 +165,69 @@ export const TradeTable: React.FC<TradeTableProps> = ({
       ? (((Number(riskDollar) || 0) / settings.accountSize) * 100).toFixed(1)
       : '0.0';
 
-  const pastelCardColors = ['#FFFDF7', '#FFFDF7', '#FFFDF7'];
-
   return (
-    <section aria-label="My Trades Today" className="space-y-4">
-      {/* Pastel Section Heading Bar */}
-      <div className="px-5 py-3 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0">
+    <section
+      aria-label="My Trades Today"
+      className="flex flex-col h-full min-h-0 gap-2.5"
+    >
+      {/* Slim Pastel Heading Bar + "+ ADD TRADE" Button on One Line */}
+      <div className="px-4 py-2 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2 shrink-0">
+        <div className="min-w-0">
+          <h2 className="font-heading text-[19px] font-bold uppercase text-[#8B5E3C] m-0 leading-tight">
             MY TRADES TODAY
           </h2>
-          <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
-            Max {settings.maxTradesPerDay} trades per day • Max risk{' '}
-            {formatCurrency(maxRiskDollar)} ({settings.maxRiskPercent}%) per
-            trade
-          </p>
+          <span className="text-[16px] font-semibold text-[#5C3D2E] block leading-tight">
+            Max {settings.maxTradesPerDay} trades • Limit{' '}
+            {formatCurrency(maxRiskDollar)} ({settings.maxRiskPercent}%)
+          </span>
         </div>
 
-        {/* Big Pastel "+ ADD TRADE" Button */}
         <button
           type="button"
           disabled={isAtLimit}
           onClick={openNewTradeModal}
-          className={`no-print min-h-[50px] px-6 py-2.5 rounded-2xl border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-transform ${
+          className={`no-print h-[42px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 transition-transform ${
             isAtLimit
               ? 'bg-[#F0DED4] text-[#8B5E3C]/60 cursor-not-allowed'
-              : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer shadow-sm'
+              : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer'
           }`}
         >
-          <Plus className="w-5 h-5 stroke-[2.8]" />
+          <Plus className="w-4 h-4 stroke-[2.8]" />
           <span>+ ADD TRADE</span>
         </button>
       </div>
 
-      {/* If 3 trades are already added: show clear stop message */}
+      {/* Stop Trading Banner when 3 trades reached */}
       {isAtLimit && (
-        <div className="p-4 rounded-2xl bg-[#F7E2A0] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] text-center">
+        <div className="px-3.5 py-2 rounded-xl bg-[#F7E2A0] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] text-center shrink-0">
           {settings.maxTradesPerDay} trades done. Stop trading for today!
         </div>
       )}
 
-      {/* Trade Cards List */}
-      {trades.length === 0 ? (
-        <div className="p-8 rounded-2xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center space-y-2">
-          <div className="text-[20px] font-bold text-[#8B5E3C]">
-            No trades yet today. Tap + ADD TRADE to start.
+      {/* Scrollable Trade Cards List */}
+      <div className="flex-1 panel-scroll space-y-2.5 pr-0.5">
+        {trades.length === 0 ? (
+          <div className="p-6 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center h-full min-h-[180px]">
+            <div className="text-[18px] font-bold text-[#8B5E3C]">
+              No trades yet today. Tap + ADD TRADE to start.
+            </div>
+            <p className="text-[16px] text-[#5C3D2E] mt-1 mb-0">
+              Up to {settings.maxTradesPerDay} trades per day.
+            </p>
           </div>
-          <p className="text-[17px] text-[#5C3D2E] m-0">
-            You can log up to {settings.maxTradesPerDay} trades per day.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {trades.map((trade, index) => {
+        ) : (
+          trades.map((trade) => {
             const violated = isTradeRiskViolated(trade, settings);
             const isWin = trade.outcome >= 0;
             const sessionName =
               trade.session === 'London'
                 ? 'London'
                 : trade.session === 'NY'
-                ? 'New York'
-                : 'Outside Allowed Time';
+                ? 'NY'
+                : 'Outside';
+            const nonNoneMistakes = (trade.mistakes || []).filter(
+              (m) => m !== 'None'
+            );
 
             return (
               <ShakeOnError
@@ -233,114 +235,98 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                 triggerKey={`${trade.id}-${trade.riskAmount}-${violated}`}
                 isError={violated}
               >
-                <div
-                  style={{
-                    backgroundColor:
-                      pastelCardColors[index % pastelCardColors.length],
-                  }}
-                  className="rounded-2xl border-2 border-[#8B5E3C] p-5 space-y-4"
-                >
-                  {/* Red Bar if Risk Limit Exceeded */}
-                  {violated && (
-                    <div className="px-4 py-2.5 rounded-xl bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#9B2C20]">
-                      Over your risk limit! (Risked{' '}
-                      {formatCurrency(trade.riskAmount)}, limit is{' '}
-                      {formatCurrency(maxRiskDollar)})
-                    </div>
-                  )}
-
-                  {/* Top Row: "Trade 1" + Pair + Session on Left, Big Result + Edit/Delete on Right */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <span className="px-3.5 py-1 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] font-heading text-[18px] font-bold text-[#8B5E3C]">
-                          Trade {trade.tradeNumber}
-                        </span>
-                        <span className="text-[22px] font-extrabold text-[#5C3D2E]">
-                          {trade.asset}
-                        </span>
-                        <span className="px-3 py-1 rounded-xl bg-[#F0DED4] border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E]">
-                          {sessionName}
-                        </span>
-                      </div>
-
-                      <div className="text-[17px] font-semibold text-[#5C3D2E] pt-1">
-                        Money risked:{' '}
-                        <strong>{formatCurrency(trade.riskAmount)}</strong> (
-                        {trade.riskPercent}% of account)
-                      </div>
+                {/* Compact Row Card (~90px tall) */}
+                <div className="rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] px-3.5 py-2.5 space-y-1.5">
+                  {/* Line 1: Trade #, pair, session chip, money risked (% of account) | Result badge + Edit/Delete icon buttons */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-[#DCEEF2] border border-[#8B5E3C] font-heading text-[16px] font-bold text-[#8B5E3C]">
+                        #{trade.tradeNumber}
+                      </span>
+                      <span className="text-[18px] font-extrabold text-[#5C3D2E]">
+                        {trade.asset}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-lg bg-[#F0DED4] border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E]">
+                        {sessionName}
+                      </span>
+                      <span className="text-[16px] font-semibold text-[#5C3D2E]">
+                        Risk: <strong>{formatCurrency(trade.riskAmount)}</strong>{' '}
+                        ({trade.riskPercent}%)
+                      </span>
                     </div>
 
-                    {/* Right: Big Green/Red Result + Edit & Delete Buttons */}
-                    <div className="flex items-center justify-between sm:justify-end gap-4">
-                      <div
-                        className={`px-4 py-2 rounded-2xl border-2 border-[#8B5E3C] text-[24px] font-extrabold ${
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`px-3 py-1 rounded-xl border-2 border-[#8B5E3C] text-[18px] font-extrabold leading-none ${
                           isWin
                             ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                             : 'bg-[#F5B8B0] text-[#9B2C20]'
                         }`}
                       >
                         {formatCurrency(trade.outcome, true)}
-                      </div>
+                      </span>
 
-                      <div className="no-print flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEditTradeModal(trade)}
-                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#FFFBF2] hover:bg-[#F2D29B] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteTrade(trade.id)}
-                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#FFFBF2] hover:bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20] flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openEditTradeModal(trade)}
+                        aria-label="Edit trade"
+                        title="Edit trade"
+                        className="no-print w-9 h-9 rounded-lg bg-[#FFFBF2] hover:bg-[#F2D29B] border border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteTrade(trade.id)}
+                        aria-label="Delete trade"
+                        title="Delete trade"
+                        className="no-print w-9 h-9 rounded-lg bg-[#FFFBF2] hover:bg-[#F5B8B0] border border-[#8B5E3C] text-[#9B2C20] flex items-center justify-center cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Note or Mistake Chips if present */}
-                  {(trade.notes ||
-                    (trade.mistakes &&
-                      trade.mistakes.some((m) => m !== 'None'))) && (
-                    <div className="pt-3 border-t-2 border-dotted border-[#8B5E3C]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      {trade.notes && (
-                        <p className="text-[17px] text-[#5C3D2E] m-0">
-                          <strong>Note:</strong> {trade.notes}
-                        </p>
-                      )}
-                      {trade.mistakes &&
-                        trade.mistakes.some((m) => m !== 'None') && (
-                          <div className="flex flex-wrap gap-2">
-                            {trade.mistakes
-                              .filter((m) => m !== 'None')
-                              .map((m) => (
-                                <span
-                                  key={m}
-                                  className="px-3 py-1 rounded-full bg-[#F8D0CC] border border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20]"
-                                >
-                                  {m}
-                                </span>
-                              ))}
-                          </div>
+                  {/* Line 2: Risk limit warning, note, and mistake tags */}
+                  {(violated || trade.notes || nonNoneMistakes.length > 0) && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-dotted border-[#8B5E3C]/40">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        {violated && (
+                          <span className="px-2.5 py-0.5 rounded-lg bg-[#F5B8B0] border border-[#8B5E3C] text-[16px] font-extrabold text-[#9B2C20]">
+                            Over your risk limit!
+                          </span>
                         )}
+                        {trade.notes && (
+                          <span className="text-[16px] text-[#5C3D2E] truncate max-w-md">
+                            {trade.notes}
+                          </span>
+                        )}
+                      </div>
+
+                      {nonNoneMistakes.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {nonNoneMistakes.map((m) => (
+                            <span
+                              key={m}
+                              className="px-2.5 py-0.5 rounded-full bg-[#F8D0CC] border border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20]"
+                            >
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </ShakeOnError>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
 
-      {/* Bottom Total Line */}
-      <div className="p-4 sm:px-6 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="text-[19px] font-extrabold text-[#5C3D2E]">
+      {/* Slim Bottom Bar: Total today & R total */}
+      <div className="px-4 py-2.5 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-between gap-2 shrink-0">
+        <div className="text-[17px] font-extrabold text-[#5C3D2E]">
           Total today:{' '}
           <span
             className={
@@ -357,7 +343,7 @@ export const TradeTable: React.FC<TradeTableProps> = ({
             />
           </span>
         </div>
-        <div className="text-[18px] font-bold text-[#5C3D2E]">
+        <div className="text-[17px] font-bold text-[#5C3D2E]">
           R total:{' '}
           <strong>
             <AnimatedNumber
@@ -368,87 +354,93 @@ export const TradeTable: React.FC<TradeTableProps> = ({
         </div>
       </div>
 
-      {/* SIMPLE 5-FIELD "+ ADD TRADE" POP-UP MODAL */}
+      {/* §6. COMPACT 2-COLUMN ADD TRADE POP-UP MODAL */}
       <AnimatePresence>
         {isModalOpen && (
           <div
             onClick={() => setIsModalOpen(false)}
-            className="no-print fixed inset-0 z-50 bg-[#5C3D2E]/45 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto"
+            className="no-print fixed inset-0 z-50 bg-[#5C3D2E]/45 backdrop-blur-[2px] flex items-center justify-center p-3"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.18 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg rounded-3xl bg-[#FFFDF7] border-2 border-[#8B5E3C] shadow-2xl p-6 sm:p-7 my-8 max-h-[92vh] overflow-y-auto space-y-5"
+              className="w-full max-w-2xl rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] shadow-2xl p-5 space-y-4 max-h-[94vh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b-2 border-dotted border-[#8B5E3C]/50 pb-3">
-                <h3 className="font-heading text-[26px] font-bold uppercase text-[#8B5E3C] m-0">
+              <div className="flex items-center justify-between border-b-2 border-dotted border-[#8B5E3C]/50 pb-2.5">
+                <h3 className="font-heading text-[22px] font-bold uppercase text-[#8B5E3C] m-0">
                   {editingTradeId ? 'EDIT TRADE' : 'ADD A TRADE'}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="w-11 h-11 rounded-full bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
+                  className="w-9 h-9 rounded-full bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveModal} className="space-y-5">
-                {/* Field 1: Pair / Asset */}
-                <div className="space-y-1.5">
-                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
-                    1. Pair / Asset
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={asset}
-                    onChange={(e) => setAsset(e.target.value)}
-                    placeholder="Example: XAUUSD or NQ"
-                    className="w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] outline-none"
-                  />
-                </div>
+              <form onSubmit={handleSaveModal} className="space-y-3.5">
+                {/* Row 1 (2 Columns): Pair / Asset + Session */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
+                      1. Pair / Asset
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={asset}
+                      onChange={(e) => setAsset(e.target.value)}
+                      placeholder="Example: XAUUSD"
+                      className="w-full h-[46px] px-3.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] outline-none"
+                    />
+                  </div>
 
-                {/* Field 2: Session (two big buttons: London / New York) */}
-                <div className="space-y-1.5">
-                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
-                    2. Session
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSession('London')}
-                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-bold cursor-pointer transition-colors ${
-                        session === 'London'
-                          ? 'bg-[#DCEEF2] text-[#5C3D2E] shadow-sm'
-                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
-                      }`}
-                    >
-                      London (1–4 AM)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSession('NY')}
-                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-bold cursor-pointer transition-colors ${
-                        session === 'NY'
-                          ? 'bg-[#F2D29B] text-[#5C3D2E] shadow-sm'
-                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
-                      }`}
-                    >
-                      New York (8–11 AM)
-                    </button>
+                  <div>
+                    <label className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
+                      2. Session
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSession('London')}
+                        className={`h-[46px] rounded-xl border-2 border-[#8B5E3C] text-[16px] font-bold cursor-pointer ${
+                          session === 'London'
+                            ? 'bg-[#DCEEF2] text-[#5C3D2E]'
+                            : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                        }`}
+                      >
+                        London
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSession('NY')}
+                        className={`h-[46px] rounded-xl border-2 border-[#8B5E3C] text-[16px] font-bold cursor-pointer ${
+                          session === 'NY'
+                            ? 'bg-[#F2D29B] text-[#5C3D2E]'
+                            : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                        }`}
+                      >
+                        New York
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Field 3: How much did I risk? ($ with auto % shown next to it) */}
-                <div className="space-y-1.5">
-                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
-                    3. How much did I risk? ($)
-                  </label>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                {/* Row 2 (2 Columns): Risk ($) + Result (WIN/LOSS + $) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[16px] font-bold text-[#5C3D2E]">
+                        3. Money risked ($)
+                      </label>
+                      <span className="text-[16px] font-bold text-[#8B5E3C]">
+                        ({calculatedRiskPctInModal}%)
+                      </span>
+                    </div>
                     <input
                       type="number"
                       min={0}
@@ -456,66 +448,59 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                       required
                       value={riskDollar}
                       onChange={(e) => setRiskDollar(e.target.value)}
-                      className="flex-1 min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] outline-none"
+                      className="w-full h-[46px] px-3.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] outline-none"
                     />
-                    <span className="text-[16px] font-bold text-[#8B5E3C] px-3 py-2 rounded-xl bg-[#F0DED4] border border-[#8B5E3C]">
-                      = {calculatedRiskPctInModal}% of your account
-                    </span>
+                    {Number(riskDollar) > maxRiskDollar && (
+                      <div className="mt-1 px-2.5 py-1 rounded-lg bg-[#F5B8B0] border border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20]">
+                        Over {formatCurrency(maxRiskDollar)} risk limit!
+                      </div>
+                    )}
                   </div>
-                  {Number(riskDollar) > maxRiskDollar && (
-                    <div className="px-3.5 py-2 rounded-xl bg-[#F5B8B0] border border-[#8B5E3C] text-[16px] font-bold text-[#9B2C20]">
-                      Warning: This is over your {formatCurrency(maxRiskDollar)}{' '}
-                      ({settings.maxRiskPercent}%) risk limit!
+
+                  <div>
+                    <label className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
+                      4. Result ($ amount)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setResultType('WIN')}
+                        className={`h-[46px] px-3 rounded-xl border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer shrink-0 ${
+                          resultType === 'WIN'
+                            ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                            : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                        }`}
+                      >
+                        WIN
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setResultType('LOSS')}
+                        className={`h-[46px] px-3 rounded-xl border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer shrink-0 ${
+                          resultType === 'LOSS'
+                            ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                            : 'bg-[#FFFBF2] text-[#8B5E3C]'
+                        }`}
+                      >
+                        LOSS
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        required
+                        value={resultDollar}
+                        onChange={(e) => setResultDollar(e.target.value)}
+                        placeholder="$"
+                        className="flex-1 min-w-0 h-[46px] px-3 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] outline-none"
+                      />
                     </div>
-                  )}
-                </div>
-
-                {/* Field 4: Result (two big buttons: WIN green / LOSS red, then amount in $) */}
-                <div className="space-y-2">
-                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
-                    4. Result
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setResultType('WIN')}
-                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-extrabold cursor-pointer transition-colors ${
-                        resultType === 'WIN'
-                          ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
-                      }`}
-                    >
-                      WIN ✓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setResultType('LOSS')}
-                      className={`min-h-[52px] rounded-2xl border-2 border-[#8B5E3C] text-[18px] font-extrabold cursor-pointer transition-colors ${
-                        resultType === 'LOSS'
-                          ? 'bg-[#F5B8B0] text-[#9B2C20]'
-                          : 'bg-[#FFFBF2] text-[#8B5E3C]'
-                      }`}
-                    >
-                      LOSS ✕
-                    </button>
-                  </div>
-                  <div className="pt-1">
-                    <input
-                      type="number"
-                      min={0}
-                      step="any"
-                      required
-                      value={resultDollar}
-                      onChange={(e) => setResultDollar(e.target.value)}
-                      placeholder="Amount in $ (example: 500)"
-                      className="w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] outline-none"
-                    />
                   </div>
                 </div>
 
-                {/* Field 5: Quick note (optional) */}
-                <div className="space-y-1.5">
-                  <label className="block text-[18px] font-bold text-[#5C3D2E]">
+                {/* Row 3: Quick Note */}
+                <div>
+                  <label className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
                     5. Quick note (optional)
                   </label>
                   <input
@@ -523,79 +508,78 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Short note about this trade..."
-                    className="w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] text-[#5C3D2E] outline-none"
+                    className="w-full h-[46px] px-3.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[16px] text-[#5C3D2E] outline-none"
                   />
                 </div>
 
-                {/* Collapsible "More details (optional)" — closed by default */}
-                <div className="pt-1">
+                {/* Collapsible "More details (optional)" */}
+                <div>
                   <button
                     type="button"
                     onClick={() => setShowMoreDetails((prev) => !prev)}
-                    className="w-full min-h-[48px] px-4 py-2 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] flex items-center justify-between cursor-pointer"
+                    className="w-full h-[42px] px-3.5 rounded-xl bg-[#E2DCEB] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center justify-between cursor-pointer"
                   >
                     <span>More details (optional)</span>
                     {showMoreDetails ? (
-                      <ChevronUp className="w-5 h-5" />
+                      <ChevronUp className="w-4 h-4" />
                     ) : (
-                      <ChevronDown className="w-5 h-5" />
+                      <ChevronDown className="w-4 h-4" />
                     )}
                   </button>
 
                   {showMoreDetails && (
-                    <div className="mt-3 p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-4">
-                      {/* Setup Quality (1-5 circles) */}
-                      <div>
-                        <span className="block text-[17px] font-bold text-[#5C3D2E] mb-2">
-                          Setup Quality (1 to 5)
-                        </span>
-                        <div className="flex items-center gap-2.5">
-                          {[1, 2, 3, 4, 5].map((num) => (
-                            <button
-                              key={num}
-                              type="button"
-                              onClick={() => setSetupQuality(num)}
-                              className={`w-11 h-11 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold cursor-pointer ${
-                                setupQuality >= num
-                                  ? 'bg-[#F2D29B] text-[#5C3D2E]'
-                                  : 'bg-[#FFFDF7] text-[#8B5E3C]'
-                              }`}
-                            >
-                              {num}
-                            </button>
-                          ))}
+                    <div className="mt-2.5 p-3.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <span className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
+                            Setup Quality (1–5)
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {[1, 2, 3, 4, 5].map((num) => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setSetupQuality(num)}
+                                className={`w-9 h-9 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+                                  setupQuality >= num
+                                    ? 'bg-[#F2D29B] text-[#5C3D2E]'
+                                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                                }`}
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
+                            Discipline (1–5)
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {[1, 2, 3, 4, 5].map((num) => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setDisciplineScore(num)}
+                                className={`w-9 h-9 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+                                  disciplineScore >= num
+                                    ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                                }`}
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Discipline (1-5 circles) */}
                       <div>
-                        <span className="block text-[17px] font-bold text-[#5C3D2E] mb-2">
-                          Discipline (1 to 5)
-                        </span>
-                        <div className="flex items-center gap-2.5">
-                          {[1, 2, 3, 4, 5].map((num) => (
-                            <button
-                              key={num}
-                              type="button"
-                              onClick={() => setDisciplineScore(num)}
-                              className={`w-11 h-11 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold cursor-pointer ${
-                                disciplineScore >= num
-                                  ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                                  : 'bg-[#FFFDF7] text-[#8B5E3C]'
-                              }`}
-                            >
-                              {num}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Mistake tags */}
-                      <div>
-                        <span className="block text-[17px] font-bold text-[#5C3D2E] mb-2">
+                        <span className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
                           Mistake tags
                         </span>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                           {MISTAKE_TAGS.map((tag) => {
                             const selected = mistakes.includes(tag);
                             return (
@@ -603,7 +587,7 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                                 key={tag}
                                 type="button"
                                 onClick={() => toggleMistakeInModal(tag)}
-                                className={`min-h-[44px] px-3.5 py-1.5 rounded-2xl border-2 border-[#8B5E3C] text-[16px] font-bold cursor-pointer ${
+                                className={`px-3 py-1 rounded-xl border-2 border-[#8B5E3C] text-[16px] font-bold cursor-pointer ${
                                   selected
                                     ? tag === 'None'
                                       ? 'bg-[#BFE3C0] text-[#2F6B3A]'
@@ -622,17 +606,17 @@ export const TradeTable: React.FC<TradeTableProps> = ({
                 </div>
 
                 {/* Modal Action Buttons */}
-                <div className="pt-2 flex items-center gap-3">
+                <div className="pt-1 flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="min-h-[52px] px-5 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] text-[18px] font-bold text-[#5C3D2E] cursor-pointer"
+                    className="h-[46px] px-5 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 min-h-[52px] px-6 rounded-2xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[20px] font-bold uppercase text-[#2F6B3A] cursor-pointer"
+                    className="flex-1 h-[46px] px-6 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase text-[#2F6B3A] cursor-pointer"
                   >
                     {editingTradeId ? 'Save Changes' : 'Save Trade'}
                   </button>

@@ -51,30 +51,24 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     key: 'stuckToMaxTrades' | 'respectedRiskCap' | 'executedInAllowedWindows';
     label: string;
     pastelBg: string;
-    isAuto: boolean;
     value: boolean;
   }> = [
     {
       key: 'stuckToMaxTrades',
-      label: `Did I stick to my ${settings.maxTradesPerDay}-trade maximum?`,
+      label: `Stuck to ${settings.maxTradesPerDay}-trade max?`,
       pastelBg: '#DCEEF2',
-      isAuto: day.audit.stuckToMaxTrades === null,
       value: effective.stuckToMaxTrades,
     },
     {
       key: 'respectedRiskCap',
-      label: `Did I respect the ${settings.maxRiskPercent}% (${formatCurrency(
-        maxRiskDollar
-      )}) risk limit on every trade?`,
+      label: `Kept risk under ${formatCurrency(maxRiskDollar)}?`,
       pastelBg: '#F2D29B',
-      isAuto: day.audit.respectedRiskCap === null,
       value: effective.respectedRiskCap,
     },
     {
       key: 'executedInAllowedWindows',
-      label: 'Did I trade only in the London or NY time?',
+      label: 'Traded only in London or NY?',
       pastelBg: '#E2DCEB',
-      isAuto: day.audit.executedInAllowedWindows === null,
       value: effective.executedInAllowedWindows,
     },
   ];
@@ -98,57 +92,48 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   };
 
   return (
-    <section aria-label="End-of-Day Review" className="space-y-5">
-      {/* Pastel Section Heading Bar */}
-      <div className="px-5 py-3 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C]">
-        <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0">
+    <section aria-label="End-of-Day Review" className="space-y-2.5">
+      {/* Slim Pastel Heading Bar */}
+      <div className="px-3.5 py-2 rounded-xl bg-[#E2DCEB] border-2 border-[#8B5E3C] flex items-center justify-between">
+        <h2 className="font-heading text-[18px] font-bold uppercase text-[#8B5E3C] m-0">
           END-OF-DAY REVIEW
         </h2>
+        <span className="text-[16px] font-semibold text-[#5C3D2E]">
+          Auto-suggested
+        </span>
       </div>
 
-      {/* 3 Habit-Tracker Row Questions with Big Round YES / NO Buttons */}
-      <div className="space-y-3">
+      {/* 3 Single Compact Rows (~48px tall) with Question on Left and YES/NO on Right */}
+      <div className="space-y-1.5">
         {questions.map((q) => (
           <div
             key={q.key}
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            style={{ backgroundColor: q.pastelBg }}
+            className="min-h-[48px] px-3.5 py-1.5 rounded-xl border-2 border-[#8B5E3C] flex items-center justify-between gap-2"
           >
-            {/* Left: Pastel Label Bar */}
-            <div
-              style={{ backgroundColor: q.pastelBg }}
-              className="flex-1 min-h-[60px] px-5 py-3 rounded-2xl border-2 border-[#8B5E3C] flex flex-col justify-center"
-            >
-              <div className="text-[17px] sm:text-[18px] font-bold text-[#5C3D2E]">
-                {q.label}
-              </div>
-              {q.isAuto && (
-                <div className="text-[16px] font-semibold text-[#8B5E3C]">
-                  Suggested from your trades
-                </div>
-              )}
-            </div>
+            <span className="text-[16px] font-bold text-[#5C3D2E] leading-tight">
+              {q.label}
+            </span>
 
-            {/* Right: Two Big Round YES and NO Buttons */}
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => onUpdateAudit({ [q.key]: true })}
-                className={`min-h-[50px] min-w-[84px] px-5 rounded-full border-2 border-[#8B5E3C] text-[18px] font-extrabold transition-colors cursor-pointer ${
+                className={`h-[36px] px-3.5 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold transition-colors cursor-pointer ${
                   q.value
                     ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                    : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#F0DED4]/40'
+                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
                 }`}
               >
                 YES
               </button>
-
               <button
                 type="button"
                 onClick={() => onUpdateAudit({ [q.key]: false })}
-                className={`min-h-[50px] min-w-[84px] px-5 rounded-full border-2 border-[#8B5E3C] text-[18px] font-extrabold transition-colors cursor-pointer ${
+                className={`h-[36px] px-3.5 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold transition-colors cursor-pointer ${
                   !q.value
                     ? 'bg-[#F5B8B0] text-[#9B2C20]'
-                    : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#F0DED4]/40'
+                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
                 }`}
               >
                 NO
@@ -158,12 +143,12 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         ))}
       </div>
 
-      {/* How did I feel today? (Big emoji-style pastel chips) */}
-      <div className="p-5 rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-3">
-        <div className="text-[19px] font-bold text-[#8B5E3C]">
-          How did I feel today? (tap one or more)
+      {/* Emotion Chips in One Compact Wrapped Row */}
+      <div className="p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1.5">
+        <div className="text-[16px] font-bold text-[#8B5E3C]">
+          How did I feel today?
         </div>
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap gap-1.5">
           {EMOTION_CHIP_META.map((item) => {
             const isSelected = (day.audit.emotions || []).includes(item.id);
             return (
@@ -174,50 +159,50 @@ export const AuditForm: React.FC<AuditFormProps> = ({
                 style={{
                   backgroundColor: isSelected ? item.pastelBg : '#FFFBF2',
                 }}
-                className={`min-h-[48px] px-4 py-2 rounded-full text-[17px] font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-full text-[16px] font-bold transition-all cursor-pointer ${
                   isSelected
-                    ? 'border-2 border-[#8B5E3C] text-[#5C3D2E] shadow-sm -translate-y-0.5'
+                    ? 'border-2 border-[#8B5E3C] text-[#5C3D2E]'
                     : 'border border-[#8B5E3C]/50 text-[#8B5E3C] hover:border-[#8B5E3C]'
                 }`}
               >
-                {item.label} {isSelected ? '✓' : ''}
+                {item.label}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* What is my lesson for tomorrow? (Lined Notepad Style Textarea) */}
-      <div className="rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
-        <div className="px-5 py-3 bg-[#E8E0A9] border-b-2 border-[#8B5E3C]">
+      {/* Compact 3-Line Lesson Box */}
+      <div className="rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
+        <div className="px-3.5 py-1.5 bg-[#E8E0A9] border-b-2 border-[#8B5E3C]">
           <label
             htmlFor="lesson-notepad"
-            className="font-heading text-[20px] font-bold uppercase text-[#8B5E3C] block cursor-pointer"
+            className="font-heading text-[16px] font-bold uppercase text-[#8B5E3C] block cursor-pointer"
           >
-            WHAT IS MY LESSON FOR TOMORROW?
+            LESSON FOR TOMORROW
           </label>
         </div>
-        <div className="p-4">
+        <div className="p-2">
           <textarea
             id="lesson-notepad"
-            rows={4}
+            rows={2}
             value={day.audit.keyLesson || ''}
             onChange={(e) => onUpdateAudit({ keyLesson: e.target.value })}
             placeholder="Write one simple thing to remember tomorrow..."
-            className="lined-notepad w-full px-3 text-[18px] font-semibold text-[#5C3D2E] placeholder-[#8B5E3C]/60 outline-none resize-y border-0"
+            className="lined-notepad w-full px-2 text-[16px] font-semibold text-[#5C3D2E] placeholder-[#8B5E3C]/60 outline-none resize-none border-0"
           />
         </div>
       </div>
 
-      {/* One Big "SAVE TODAY" Button at the Bottom */}
-      <div className="no-print pt-1">
+      {/* Full-Width Save Button at Bottom */}
+      <div className="no-print">
         <button
           type="button"
           onClick={handleSaveToday}
-          className={`w-full min-h-[56px] rounded-2xl border-2 border-[#8B5E3C] font-heading text-[22px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+          className={`w-full h-[44px] rounded-xl border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
             savedBanner
               ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-              : 'bg-[#F2D29B] hover:bg-[#ecc482] text-[#5C3D2E] shadow-sm'
+              : 'bg-[#F2D29B] hover:bg-[#ecc482] text-[#5C3D2E]'
           }`}
         >
           {savedBanner ? 'Saved ✓' : 'SAVE TODAY'}

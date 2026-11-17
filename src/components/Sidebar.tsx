@@ -15,42 +15,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const tabs: Array<{
     id: NavPageId;
     label: string;
+    pageTitle: string;
     pastelColor: string;
     icon: React.ElementType;
   }> = [
     {
       id: 'tracker',
       label: 'TODAY',
+      pageTitle: 'DAILY TRADING TRACKER',
       pastelColor: '#F2D29B', // Peach
       icon: CalendarCheck,
     },
     {
       id: 'dashboard',
       label: 'HISTORY',
+      pageTitle: 'MY PROGRESS',
       pastelColor: '#DCEEF2', // Blue
       icon: BarChart2,
     },
     {
       id: 'calculator',
       label: 'FUTURE',
+      pageTitle: 'FUTURE CALCULATOR',
       pastelColor: '#E2DCEB', // Lavender
       icon: Calculator,
     },
     {
       id: 'settings',
       label: 'SETTINGS',
+      pageTitle: 'SETTINGS',
       pastelColor: '#E8E0A9', // Olive
       icon: Settings,
     },
   ];
 
+  const activeTabMeta =
+    tabs.find((t) => t.id === activePage) || tabs[0];
+
   return (
-    <>
-      {/* Top Pastel Tab Bar (Desktop & Tablet) */}
-      <header className="no-print w-full max-w-[1400px] mx-auto pt-5 pb-2 px-4">
+    <header className="no-print w-full px-3 pt-2.5 pb-0 shrink-0">
+      <div className="w-full px-4 py-2 rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-3">
+        {/* Left: Compact Page Title */}
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="font-heading text-[24px] sm:text-[26px] font-bold uppercase text-[#8B5E3C] leading-none m-0 truncate">
+            {activeTabMeta.pageTitle}
+          </h1>
+        </div>
+
+        {/* Right: 4 Slim 44px Pastel Tabs */}
         <nav
           aria-label="Main navigation"
-          className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+          className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto"
         >
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -61,21 +76,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 onClick={() => onSelectPage(tab.id)}
                 style={{
-                  backgroundColor: isActive ? tab.pastelColor : '#FFFDF7',
+                  backgroundColor: isActive ? tab.pastelColor : '#FFFBF2',
                 }}
-                className={`min-h-[52px] px-4 py-2.5 rounded-2xl flex items-center justify-center gap-2.5 font-heading text-[18px] font-bold tracking-wider transition-all cursor-pointer ${
+                className={`h-[44px] px-4 rounded-xl flex items-center justify-center gap-2 font-heading text-[16px] sm:text-[17px] font-bold tracking-wide transition-all cursor-pointer ${
                   isActive
-                    ? 'border-2 border-[#8B5E3C] text-[#5C3D2E] shadow-sm -translate-y-0.5'
-                    : 'border border-[#8B5E3C]/45 text-[#8B5E3C] hover:border-[#8B5E3C] hover:bg-[#F0DED4]/40'
+                    ? 'border-2 border-[#8B5E3C] text-[#5C3D2E] shadow-xs'
+                    : 'border border-[#8B5E3C]/50 text-[#8B5E3C] hover:border-[#8B5E3C] hover:bg-[#F0DED4]/40'
                 }`}
               >
-                <Icon className="w-5 h-5 shrink-0 stroke-[2.2]" />
+                <Icon className="w-4 h-4 shrink-0 stroke-[2.2]" />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </nav>
-      </header>
-    </>
+      </div>
+    </header>
   );
 };

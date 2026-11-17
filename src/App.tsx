@@ -75,22 +75,23 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#FFFBF2] text-[#5C3D2E] pb-14">
+    <div className="app-viewport-shell">
       {/* Soft Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Top Pastel Tab Bar (TODAY, HISTORY, FUTURE, SETTINGS) */}
+      {/* Slim Top Pastel Tab Bar with Page Title tucked on the left */}
       <Sidebar activePage={activePage} onSelectPage={setActivePage} />
 
-      {/* Centered Paper Habit Tracker Sheet Container (max-width 1400px) */}
-      <main className="w-full max-w-[1400px] mx-auto px-4 pt-3">
+      {/* Main Content Area (Fills remaining 100vh on desktop with 12px padding) */}
+      <main className="app-main-area w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={activePage}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.22 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            className="h-full min-h-0"
           >
             {activePage === 'tracker' && (
               <DailyTracker

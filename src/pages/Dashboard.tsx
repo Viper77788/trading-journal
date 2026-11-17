@@ -3,12 +3,12 @@ import { DayRecord } from '../types/day';
 import { AccountSettings } from '../types/settings';
 import { DashboardAnalytics } from '../utils/calculations';
 import { AnimatedNumber } from '../components/animations/AnimatedNumber';
-import { FadeInUp } from '../components/animations/FadeInUp';
 import {
   CalendarHeatmap,
   EquityCurveChart,
   MistakeBarChart,
   EmotionDonutChart,
+  WinLossChart,
 } from '../components/Charts';
 
 interface DashboardProps {
@@ -28,148 +28,149 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const cleanDays = activeDays.filter((d) => !d.hasViolation).length;
 
   return (
-    <FadeInUp>
-      <div className="paper-sheet p-5 sm:p-8 space-y-7">
-        {/* Title + Dotted Line + One-line Plain-English Summary */}
-        <div className="space-y-3">
-          <h1 className="font-heading text-[32px] sm:text-[38px] font-bold uppercase text-[#8B5E3C] leading-none m-0">
-            MY PROGRESS
-          </h1>
-          <div className="dotted-divider w-full pt-1" />
+    <div className="history-grid h-full">
+      {/* LEFT (40%): Monthly Calendar + Summary Bar */}
+      <div className="paper-sheet p-3.5 panel-scroll space-y-2.5">
+        <div className="px-3.5 py-2 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E]">
           {activeDays.length === 0 ? (
-            <p className="text-[19px] font-bold text-[#5C3D2E] pt-1 m-0">
-              Your progress will show up here after your first day.
-            </p>
+            <span>Your progress will show up here after your first day.</span>
           ) : (
-            <p className="text-[19px] font-bold text-[#5C3D2E] pt-1 m-0">
+            <span>
               You followed all rules on{' '}
-              <span className="px-2.5 py-0.5 rounded-xl bg-[#BFE3C0] border border-[#8B5E3C] text-[#2F6B3A]">
+              <strong className="text-[#2F6B3A]">
                 {cleanDays} of the last {activeDays.length}
-              </span>{' '}
+              </strong>{' '}
               trading days.
-            </p>
+            </span>
           )}
         </div>
 
-        {/* Two-Column Layout on Wide Screens (>= 1100px): LEFT = Calendar | RIGHT = Stat Cards + Charts */}
-        <div className="two-col-1100">
-          {/* LEFT COLUMN: Current Month Calendar */}
-          <div className="space-y-4 min-w-0">
-            <CalendarHeatmap
-              daysMap={daysMap}
-              settings={settings}
-              onSelectDate={onSelectDayToEdit}
-            />
+        <CalendarHeatmap
+          daysMap={daysMap}
+          settings={settings}
+          onSelectDate={onSelectDayToEdit}
+        />
+      </div>
+
+      {/* RIGHT (60%): 4 Stat Cards in ONE Row + 2x2 Charts Grid */}
+      <div className="paper-sheet p-3.5 panel-scroll space-y-3">
+        {/* 4 Compact Stat Cards in ONE Row (~82px tall) */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
+          {/* 1. Win Rate */}
+          <div className="px-3.5 py-2.5 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] flex flex-col justify-between">
+            <div className="text-[16px] font-bold text-[#8B5E3C]">
+              Win Rate
+            </div>
+            <div className="flex items-baseline justify-between gap-2 mt-1">
+              <span className="text-[24px] font-extrabold text-[#5C3D2E] leading-none">
+                <AnimatedNumber
+                  value={analytics.winRate}
+                  formatter={(v) => `${v.toFixed(0)}%`}
+                />
+              </span>
+              <span className="text-[16px] font-semibold text-[#5C3D2E]">
+                {analytics.wins}W/{analytics.losses}L
+              </span>
+            </div>
           </div>
 
-          {/* RIGHT COLUMN: 4 Stat Cards + Charts */}
-          <div className="space-y-6 min-w-0">
-            {/* 4 Big Simple Cards with Large Numbers & Plain Labels */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* 1. Win Rate */}
-              <div className="p-5 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C]">
-                <div className="text-[17px] font-bold text-[#8B5E3C]">
-                  Win Rate
-                </div>
-                <div className="text-[32px] font-extrabold text-[#5C3D2E] mt-1">
-                  <AnimatedNumber
-                    value={analytics.winRate}
-                    formatter={(v) => `${v.toFixed(0)}%`}
-                  />
-                </div>
-                <div className="text-[16px] font-semibold text-[#5C3D2E] mt-1">
-                  {analytics.wins} wins / {analytics.losses} losses
-                </div>
-              </div>
-
-              {/* 2. Average Discipline */}
-              <div className="p-5 rounded-2xl bg-[#BFE3C0] border-2 border-[#8B5E3C]">
-                <div className="text-[17px] font-bold text-[#2F6B3A]">
-                  Average Discipline
-                </div>
-                <div className="text-[32px] font-extrabold text-[#2F6B3A] mt-1">
-                  <AnimatedNumber
-                    value={analytics.avgDisciplineScore}
-                    formatter={(v) => `${Math.round(v)} / 100`}
-                  />
-                </div>
-                <div className="text-[16px] font-semibold text-[#2F6B3A] mt-1">
-                  Daily habit score
-                </div>
-              </div>
-
-              {/* 3. Rule Breaks */}
-              <div className="p-5 rounded-2xl bg-[#F8D0CC] border-2 border-[#8B5E3C]">
-                <div className="text-[17px] font-bold text-[#9B2C20]">
-                  Rule Breaks
-                </div>
-                <div className="text-[32px] font-extrabold text-[#9B2C20] mt-1">
-                  <AnimatedNumber
-                    value={analytics.totalRuleViolations}
-                    formatter={(v) => Math.round(v).toString()}
-                  />
-                </div>
-                <div className="text-[16px] font-semibold text-[#9B2C20] mt-1">
-                  Total mistakes made
-                </div>
-              </div>
-
-              {/* 4. Current Streak */}
-              <div className="p-5 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C]">
-                <div className="text-[17px] font-bold text-[#8B5E3C]">
-                  Current Streak
-                </div>
-                <div className="text-[32px] font-extrabold text-[#5C3D2E] mt-1">
-                  🔥{' '}
-                  <AnimatedNumber
-                    value={analytics.currentDisciplineStreak}
-                    formatter={(v) => `${Math.round(v)} days`}
-                  />
-                </div>
-                <div className="text-[16px] font-semibold text-[#5C3D2E] mt-1">
-                  Best streak: {analytics.bestDisciplineStreak} days
-                </div>
-              </div>
+          {/* 2. Average Discipline */}
+          <div className="px-3.5 py-2.5 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] flex flex-col justify-between">
+            <div className="text-[16px] font-bold text-[#2F6B3A]">
+              Avg Discipline
             </div>
+            <div className="text-[24px] font-extrabold text-[#2F6B3A] leading-none mt-1">
+              <AnimatedNumber
+                value={analytics.avgDisciplineScore}
+                formatter={(v) => `${Math.round(v)} / 100`}
+              />
+            </div>
+          </div>
 
-            {/* Chart 1: Profit Over Time */}
-            <section className="space-y-3">
-              <div className="px-5 py-3 rounded-2xl bg-[#BFE3C0] border-2 border-[#8B5E3C]">
-                <h2 className="font-heading text-[22px] font-bold uppercase text-[#2F6B3A] m-0">
-                  PROFIT OVER TIME
-                </h2>
-              </div>
-              <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-                <EquityCurveChart data={analytics.equityCurve} />
-              </div>
-            </section>
+          {/* 3. Rule Breaks */}
+          <div className="px-3.5 py-2.5 rounded-xl bg-[#F8D0CC] border-2 border-[#8B5E3C] flex flex-col justify-between">
+            <div className="text-[16px] font-bold text-[#9B2C20]">
+              Rule Breaks
+            </div>
+            <div className="text-[24px] font-extrabold text-[#9B2C20] leading-none mt-1">
+              <AnimatedNumber
+                value={analytics.totalRuleViolations}
+                formatter={(v) => Math.round(v).toString()}
+              />
+            </div>
+          </div>
 
-            {/* Chart 2: Most Common Mistakes */}
-            <section className="space-y-3">
-              <div className="px-5 py-3 rounded-2xl bg-[#F8D0CC] border-2 border-[#8B5E3C]">
-                <h2 className="font-heading text-[22px] font-bold uppercase text-[#9B2C20] m-0">
-                  MOST COMMON MISTAKES
-                </h2>
-              </div>
-              <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-                <MistakeBarChart data={analytics.mistakeChartData} />
-              </div>
-            </section>
-
-            {/* Chart 3: Feelings */}
-            <section className="space-y-3">
-              <div className="px-5 py-3 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C]">
-                <h2 className="font-heading text-[22px] font-bold uppercase text-[#8B5E3C] m-0">
-                  FEELINGS
-                </h2>
-              </div>
-              <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-                <EmotionDonutChart data={analytics.emotionChartData} />
-              </div>
-            </section>
+          {/* 4. Current Streak */}
+          <div className="px-3.5 py-2.5 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex flex-col justify-between">
+            <div className="text-[16px] font-bold text-[#8B5E3C]">
+              Current Streak
+            </div>
+            <div className="flex items-baseline justify-between gap-1 mt-1">
+              <span className="text-[24px] font-extrabold text-[#5C3D2E] leading-none">
+                🔥{' '}
+                <AnimatedNumber
+                  value={analytics.currentDisciplineStreak}
+                  formatter={(v) => `${Math.round(v)}d`}
+                />
+              </span>
+              <span className="text-[16px] font-semibold text-[#5C3D2E]">
+                Best: {analytics.bestDisciplineStreak}d
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* 2x2 Charts Grid: Profit Over Time, Most Common Mistakes, Feelings, Win/Loss */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          {/* 1. Profit Over Time */}
+          <section className="rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
+            <div className="px-3.5 py-1.5 bg-[#BFE3C0] border-b-2 border-[#8B5E3C]">
+              <h2 className="font-heading text-[18px] font-bold uppercase text-[#2F6B3A] m-0">
+                PROFIT OVER TIME
+              </h2>
+            </div>
+            <div className="p-2.5">
+              <EquityCurveChart data={analytics.equityCurve} />
+            </div>
+          </section>
+
+          {/* 2. Most Common Mistakes */}
+          <section className="rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
+            <div className="px-3.5 py-1.5 bg-[#F8D0CC] border-b-2 border-[#8B5E3C]">
+              <h2 className="font-heading text-[18px] font-bold uppercase text-[#9B2C20] m-0">
+                MOST COMMON MISTAKES
+              </h2>
+            </div>
+            <div className="p-2.5">
+              <MistakeBarChart data={analytics.mistakeChartData} />
+            </div>
+          </section>
+
+          {/* 3. Feelings */}
+          <section className="rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
+            <div className="px-3.5 py-1.5 bg-[#E2DCEB] border-b-2 border-[#8B5E3C]">
+              <h2 className="font-heading text-[18px] font-bold uppercase text-[#8B5E3C] m-0">
+                FEELINGS
+              </h2>
+            </div>
+            <div className="p-2.5">
+              <EmotionDonutChart data={analytics.emotionChartData} />
+            </div>
+          </section>
+
+          {/* 4. Win / Loss */}
+          <section className="rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
+            <div className="px-3.5 py-1.5 bg-[#DCEEF2] border-b-2 border-[#8B5E3C]">
+              <h2 className="font-heading text-[18px] font-bold uppercase text-[#8B5E3C] m-0">
+                WIN / LOSS
+              </h2>
+            </div>
+            <div className="p-2.5">
+              <WinLossChart wins={analytics.wins} losses={analytics.losses} />
+            </div>
+          </section>
+        </div>
       </div>
-    </FadeInUp>
+    </div>
   );
 };

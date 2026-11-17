@@ -28,8 +28,8 @@
     background-color: #FFFBF2;
     color: #5C3D2E;
     font-family: 'Nunito', system-ui, -apple-system, sans-serif;
-    font-size: 17px;
-    line-height: 1.55;
+    font-size: 16px;
+    line-height: 1.4;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
@@ -40,7 +40,7 @@
   .font-heading {
     font-family: 'Fredoka', 'Nunito', sans-serif;
     color: #8B5E3C;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
   }
 
   button,
@@ -48,42 +48,116 @@
   select,
   textarea {
     font-family: 'Nunito', system-ui, -apple-system, sans-serif;
-    font-size: 17px;
+    font-size: 16px;
   }
 }
 
-/* Printable Paper Sheet Container */
+/* App Shell: 100vh locked on desktop (>= 800px), normal scroll on mobile (< 800px) */
+.app-viewport-shell {
+  min-height: 100vh;
+  width: 100%;
+  background-color: #FFFBF2;
+  color: #5C3D2E;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 800px) {
+  html,
+  body {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .app-viewport-shell {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  .app-main-area {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 799.98px) {
+  .app-main-area {
+    padding: 10px;
+  }
+}
+
+/* Paper Sheet Panel */
 .paper-sheet {
   background-color: #FFFDF7;
   border: 2px solid #8B5E3C;
-  border-radius: 20px;
-  box-shadow: 0 8px 24px rgba(139, 94, 60, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(139, 94, 60, 0.07);
 }
 
-/* Habit-Tracker Dotted Divider Line */
-.dotted-divider {
-  border-bottom: 2.5px dotted rgba(139, 94, 60, 0.55);
+/* Scrollable Inner Column Panel */
+.panel-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
 }
 
-/* Two-Column Layout at >= 1100px, Single Column below 1100px */
-.two-col-1100 {
+/* TODAY Grid:
+   - < 800px: 1 column
+   - 800px - 1299px: 2 columns (50% / 50%)
+   - >= 1300px: 3 columns (30% / 40% / 30%)
+*/
+.today-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+  gap: 12px;
 }
 
-@media (min-width: 1100px) {
-  .two-col-1100 {
+@media (min-width: 800px) and (max-width: 1299.98px) {
+  .today-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 24px;
+    height: 100%;
+    min-height: 0;
   }
+}
 
-  .sticky-right-1100 {
-    position: sticky;
-    top: 16px;
-    max-height: calc(100vh - 32px);
-    overflow-y: auto;
+@media (min-width: 1300px) {
+  .today-grid {
+    grid-template-columns: 3fr 4fr 3fr;
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+/* HISTORY Grid (40% Left Calendar / 60% Right Stats + 2x2 Charts at >= 960px) */
+.history-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 960px) {
+  .history-grid {
+    grid-template-columns: 2fr 3fr;
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+/* FUTURE Grid (35% Left Inputs / 65% Right Outputs + Chart at >= 960px) */
+.future-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 960px) {
+  .future-grid {
+    grid-template-columns: 7fr 13fr;
+    height: 100%;
+    min-height: 0;
   }
 }
 
@@ -93,25 +167,49 @@
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0px,
-    transparent 37px,
-    rgba(139, 94, 60, 0.35) 37px,
-    rgba(139, 94, 60, 0.35) 38px
+    transparent 29px,
+    rgba(139, 94, 60, 0.3) 29px,
+    rgba(139, 94, 60, 0.3) 30px
   );
-  line-height: 38px;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  line-height: 30px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 /* Custom Range Slider in Warm Brown */
 input[type='range'] {
   accent-color: #8B5E3C;
-  height: 10px;
+  height: 8px;
   border-radius: 999px;
 }
 
-/* Print Stylesheet so TODAY prints like a real paper tracker sheet */
+/* Thin Pastel Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FFFBF2;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 94, 60, 0.38);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 94, 60, 0.65);
+}
+
+/* Print Stylesheet */
 @media print {
-  body {
+  html,
+  body,
+  .app-viewport-shell,
+  .app-main-area,
+  .panel-scroll {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     background-color: #FFFFFF !important;
   }
   .no-print {
@@ -120,15 +218,5 @@ input[type='range'] {
   .paper-sheet {
     box-shadow: none !important;
     border: 2px solid #8B5E3C !important;
-    margin: 0 !important;
-    max-width: 100% !important;
-  }
-  .two-col-1100 {
-    grid-template-columns: 1fr !important;
-  }
-  .sticky-right-1100 {
-    position: static !important;
-    max-height: none !important;
-    overflow: visible !important;
   }
 }

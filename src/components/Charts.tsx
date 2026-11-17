@@ -58,7 +58,7 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
   const [initYear, initMonth] = todayIso.split('-').map(Number);
 
   const [viewYear, setViewYear] = useState<number>(initYear || 2026);
-  const [viewMonth, setViewMonth] = useState<number>((initMonth || 11) - 1); // 0-indexed (10 = Nov)
+  const [viewMonth, setViewMonth] = useState<number>((initMonth || 11) - 1);
 
   const handleStepMonth = (delta: number) => {
     const dt = new Date(Date.UTC(viewYear, viewMonth + delta, 1));
@@ -66,7 +66,6 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
     setViewMonth(dt.getUTCMonth());
   };
 
-  // First weekday of month (0 = Sun .. 6 = Sat) and total days in month
   const firstDayOfWeek = new Date(Date.UTC(viewYear, viewMonth, 1)).getUTCDay();
   const daysInMonth = new Date(
     Date.UTC(viewYear, viewMonth + 1, 0)
@@ -120,19 +119,19 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
   });
 
   return (
-    <div className="space-y-4">
-      {/* Month Title Bar with Prev / Next Month Arrow Buttons */}
-      <div className="px-4 py-3 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
+    <div className="space-y-2.5">
+      {/* Slim Month Title Bar with Prev / Next Month Arrow Buttons */}
+      <div className="px-3.5 py-2 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => handleStepMonth(-1)}
           aria-label="Previous month"
-          className="w-11 h-11 rounded-xl bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
+          className="w-9 h-9 rounded-lg bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <h2 className="font-heading text-[22px] sm:text-[24px] font-bold uppercase text-[#8B5E3C] m-0 text-center">
+        <h2 className="font-heading text-[20px] font-bold uppercase text-[#8B5E3C] m-0 text-center">
           {MONTH_NAMES[viewMonth]} {viewYear}
         </h2>
 
@@ -140,37 +139,35 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
           type="button"
           onClick={() => handleStepMonth(1)}
           aria-label="Next month"
-          className="w-11 h-11 rounded-xl bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
+          className="w-9 h-9 rounded-lg bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Calendar Box */}
-      <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-2">
-        {/* Weekday Header Row: Sun, Mon, Tue, Wed, Thu, Fri, Sat */}
-        <div className="grid grid-cols-7 gap-1.5 text-center pb-1 border-b-2 border-dotted border-[#8B5E3C]/40">
+      {/* Compact Calendar Box */}
+      <div className="p-2.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-1.5">
+        {/* Weekday Header Row */}
+        <div className="grid grid-cols-7 gap-1 text-center pb-1 border-b border-dotted border-[#8B5E3C]/40">
           {WEEKDAYS.map((dayName) => (
             <div
               key={dayName}
-              className="font-heading text-[16px] font-bold text-[#8B5E3C] py-1"
+              className="font-heading text-[16px] font-bold text-[#8B5E3C]"
             >
               {dayName}
             </div>
           ))}
         </div>
 
-        {/* Month Days Grid */}
-        <div className="grid grid-cols-7 gap-1.5">
-          {/* Blank cells before Day 1 */}
+        {/* Month Days Grid (~62px tall per cell) */}
+        <div className="grid grid-cols-7 gap-1">
           {leadingBlanks.map((b) => (
             <div
               key={`lead-${b}`}
-              className="min-h-[82px] rounded-xl bg-transparent"
+              className="h-[62px] rounded-lg bg-transparent"
             />
           ))}
 
-          {/* Days of the current month only */}
           {monthCells.map((cell) => {
             const isToday = cell.date === todayIso;
             const isGreen = cell.status === 'green';
@@ -182,13 +179,12 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
                 type="button"
                 onClick={() => onSelectDate(cell.date)}
                 title={`Open ${cell.date}`}
-                className={`min-h-[82px] p-1.5 rounded-xl flex flex-col items-center justify-start gap-1 transition-transform active:scale-95 cursor-pointer ${
+                className={`h-[62px] p-1 rounded-lg flex flex-col items-center justify-between transition-transform active:scale-95 cursor-pointer ${
                   isToday
-                    ? 'bg-[#F2D29B]/45 border-[3px] border-[#8B5E3C] shadow-xs'
-                    : 'bg-[#FFFDF7] hover:bg-[#F0DED4]/50 border border-[#8B5E3C]/45'
+                    ? 'bg-[#F2D29B]/50 border-[3px] border-[#8B5E3C]'
+                    : 'bg-[#FFFDF7] hover:bg-[#F0DED4]/50 border border-[#8B5E3C]/40'
                 }`}
               >
-                {/* Day Number */}
                 <span
                   className={`text-[16px] leading-none ${
                     isToday
@@ -199,9 +195,8 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
                   {cell.dayNum}
                 </span>
 
-                {/* Habit Circle */}
                 <div
-                  className={`w-8 h-8 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center shrink-0 ${
+                  className={`w-6 h-6 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center shrink-0 ${
                     isGreen
                       ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                       : isRed
@@ -209,46 +204,46 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
                       : 'bg-[#FFFDF7]'
                   }`}
                 >
-                  {isGreen && <Check className="w-4 h-4 stroke-[3]" />}
-                  {isRed && <X className="w-4 h-4 stroke-[3]" />}
+                  {isGreen && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  {isRed && <X className="w-3.5 h-3.5 stroke-[3]" />}
                 </div>
 
-                {/* Profit / Loss shown ONLY if that day has trades */}
-                {cell.hasTrades && (
+                {cell.hasTrades ? (
                   <span
-                    className={`text-[16px] font-extrabold leading-tight ${
+                    className={`text-[13px] font-extrabold leading-none truncate max-w-full ${
                       cell.pnl >= 0 ? 'text-[#2F6B3A]' : 'text-[#9B2C20]'
                     }`}
                   >
                     {formatCurrency(cell.pnl, true)}
                   </span>
+                ) : (
+                  <span className="h-[13px]" />
                 )}
               </button>
             );
           })}
 
-          {/* Blank cells after last day */}
           {trailingBlanks.map((b) => (
             <div
               key={`trail-${b}`}
-              className="min-h-[82px] rounded-xl bg-transparent"
+              className="h-[62px] rounded-lg bg-transparent"
             />
           ))}
         </div>
       </div>
 
       {/* Small Legend Underneath */}
-      <div className="flex flex-wrap items-center gap-5 pt-1 text-[16px] font-bold text-[#5C3D2E]">
-        <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-[#BFE3C0] border-2 border-[#8B5E3C] inline-block" />
-          <span>Disciplined day</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[16px] font-bold text-[#5C3D2E]">
+        <div className="flex items-center gap-1.5">
+          <span className="w-4 h-4 rounded-full bg-[#BFE3C0] border-2 border-[#8B5E3C] inline-block" />
+          <span>Disciplined</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-[#F5B8B0] border-2 border-[#8B5E3C] inline-block" />
+        <div className="flex items-center gap-1.5">
+          <span className="w-4 h-4 rounded-full bg-[#F5B8B0] border-2 border-[#8B5E3C] inline-block" />
           <span>Rule broken</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-[#FFFDF7] border-2 border-[#8B5E3C] inline-block" />
+        <div className="flex items-center gap-1.5">
+          <span className="w-4 h-4 rounded-full bg-[#FFFDF7] border-2 border-[#8B5E3C] inline-block" />
           <span>No trades</span>
         </div>
       </div>
@@ -263,18 +258,18 @@ interface EquityCurveChartProps {
 export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ data }) => {
   if (data.length === 0) {
     return (
-      <div className="py-10 text-center text-[17px] font-bold text-[#8B5E3C]">
-        Your profit chart will appear here after you log your first trade.
+      <div className="h-44 flex items-center justify-center text-[16px] font-bold text-[#8B5E3C] text-center px-3">
+        Your profit chart will appear after your first trade.
       </div>
     );
   }
 
   return (
-    <div className="h-64 w-full">
+    <div className="h-44 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={data}
-          margin={{ top: 12, right: 20, left: 10, bottom: 8 }}
+          margin={{ top: 8, right: 14, left: 0, bottom: 4 }}
         >
           <CartesianGrid
             strokeDasharray="4 4"
@@ -284,19 +279,20 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ data }) => {
             dataKey="date"
             tickFormatter={(v) => String(v).slice(5)}
             stroke="#5C3D2E"
-            tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+            tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
           />
           <YAxis
             tickFormatter={(v) => `$${v}`}
             stroke="#5C3D2E"
-            tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+            tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
+            width={52}
           />
           <Tooltip
             contentStyle={{
               backgroundColor: '#FFFDF7',
               borderColor: '#8B5E3C',
               borderWidth: '2px',
-              borderRadius: '14px',
+              borderRadius: '12px',
               fontSize: '16px',
               fontWeight: 700,
               color: '#5C3D2E',
@@ -310,9 +306,9 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ data }) => {
             type="monotone"
             dataKey="cumulativePnl"
             stroke="#2F6B3A"
-            strokeWidth={4}
-            dot={{ r: 6, fill: '#BFE3C0', stroke: '#8B5E3C', strokeWidth: 2 }}
-            animationDuration={500}
+            strokeWidth={3.5}
+            dot={{ r: 5, fill: '#BFE3C0', stroke: '#8B5E3C', strokeWidth: 2 }}
+            animationDuration={450}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -327,19 +323,19 @@ interface MistakeBarChartProps {
 export const MistakeBarChart: React.FC<MistakeBarChartProps> = ({ data }) => {
   if (data.length === 0) {
     return (
-      <div className="py-10 text-center text-[17px] font-bold text-[#8B5E3C]">
+      <div className="h-44 flex items-center justify-center text-[16px] font-bold text-[#8B5E3C] text-center px-3">
         No mistakes recorded yet.
       </div>
     );
   }
 
   return (
-    <div className="h-56 w-full">
+    <div className="h-44 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           layout="vertical"
           data={data}
-          margin={{ top: 8, right: 20, left: 20, bottom: 8 }}
+          margin={{ top: 4, right: 16, left: 10, bottom: 4 }}
         >
           <CartesianGrid
             strokeDasharray="4 4"
@@ -349,21 +345,21 @@ export const MistakeBarChart: React.FC<MistakeBarChartProps> = ({ data }) => {
             type="number"
             allowDecimals={false}
             stroke="#5C3D2E"
-            tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+            tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
           />
           <YAxis
             type="category"
             dataKey="name"
-            width={130}
+            width={110}
             stroke="#5C3D2E"
-            tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+            tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
           />
           <Tooltip
             contentStyle={{
               backgroundColor: '#FFFDF7',
               borderColor: '#8B5E3C',
               borderWidth: '2px',
-              borderRadius: '14px',
+              borderRadius: '12px',
               fontSize: '16px',
               fontWeight: 700,
               color: '#5C3D2E',
@@ -375,8 +371,8 @@ export const MistakeBarChart: React.FC<MistakeBarChartProps> = ({ data }) => {
             fill="#F5B8B0"
             stroke="#8B5E3C"
             strokeWidth={2}
-            radius={[0, 10, 10, 0]}
-            animationDuration={500}
+            radius={[0, 8, 8, 0]}
+            animationDuration={450}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -402,15 +398,15 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
 }) => {
   if (data.length === 0) {
     return (
-      <div className="py-10 text-center text-[17px] font-bold text-[#8B5E3C]">
-        Tap your feelings on the TODAY page to see them here.
+      <div className="h-44 flex items-center justify-center text-[16px] font-bold text-[#8B5E3C] text-center px-3">
+        Tap your feelings on TODAY to see them here.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-6">
-      <div className="w-full sm:w-1/2 h-56">
+    <div className="h-44 flex items-center gap-3">
+      <div className="w-1/2 h-40">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -419,10 +415,10 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={82}
+              outerRadius={64}
               stroke="#8B5E3C"
               strokeWidth={2}
-              animationDuration={500}
+              animationDuration={450}
             >
               {data.map((entry, idx) => (
                 <Cell
@@ -436,7 +432,7 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
                 backgroundColor: '#FFFDF7',
                 borderColor: '#8B5E3C',
                 borderWidth: '2px',
-                borderRadius: '14px',
+                borderRadius: '12px',
                 fontSize: '16px',
                 fontWeight: 700,
                 color: '#5C3D2E',
@@ -446,7 +442,7 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
         </ResponsiveContainer>
       </div>
 
-      <div className="w-full sm:w-1/2 space-y-2">
+      <div className="w-1/2 space-y-1.5 overflow-y-auto max-h-40 pr-1">
         {data.map((item, idx) => (
           <div
             key={item.name}
@@ -454,15 +450,83 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
               backgroundColor:
                 PASTEL_PIE_COLORS[idx % PASTEL_PIE_COLORS.length],
             }}
-            className="flex items-center justify-between px-4 py-2 rounded-2xl border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E]"
+            className="flex items-center justify-between px-3 py-1 rounded-xl border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E]"
           >
-            <span>{item.name}</span>
-            <span>
-              {item.value} {item.value === 1 ? 'day' : 'days'}
-            </span>
+            <span className="truncate">{item.name}</span>
+            <span>{item.value}d</span>
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+interface WinLossChartProps {
+  wins: number;
+  losses: number;
+}
+
+export const WinLossChart: React.FC<WinLossChartProps> = ({ wins, losses }) => {
+  if (wins === 0 && losses === 0) {
+    return (
+      <div className="h-44 flex items-center justify-center text-[16px] font-bold text-[#8B5E3C] text-center px-3">
+        Wins and losses will show up after your first trade.
+      </div>
+    );
+  }
+
+  const data = [
+    { name: 'Wins', count: wins, fill: '#BFE3C0' },
+    { name: 'Losses', count: losses, fill: '#F5B8B0' },
+  ];
+
+  return (
+    <div className="h-44 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 20, left: 0, bottom: 4 }}
+        >
+          <CartesianGrid
+            strokeDasharray="4 4"
+            stroke="rgba(139, 94, 60, 0.25)"
+          />
+          <XAxis
+            dataKey="name"
+            stroke="#5C3D2E"
+            tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+          />
+          <YAxis
+            allowDecimals={false}
+            stroke="#5C3D2E"
+            tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
+            width={40}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#FFFDF7',
+              borderColor: '#8B5E3C',
+              borderWidth: '2px',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: 700,
+              color: '#5C3D2E',
+            }}
+          />
+          <Bar
+            dataKey="count"
+            name="Trades"
+            stroke="#8B5E3C"
+            strokeWidth={2}
+            radius={[8, 8, 0, 0]}
+            animationDuration={450}
+          >
+            {data.map((entry) => (
+              <Cell key={entry.name} fill={entry.fill} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 };
