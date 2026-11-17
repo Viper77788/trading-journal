@@ -114,164 +114,171 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
 
   return (
     <FadeInUp>
-      <div className="paper-sheet p-6 sm:p-9 space-y-8">
-        {/* TOP HEADER: Big Chunky Title + Date Controls + Dotted Line */}
-        <div className="space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <h1 className="font-heading text-[32px] sm:text-[42px] font-bold uppercase text-[#8B5E3C] leading-none m-0">
-                DAILY TRADING TRACKER
-              </h1>
-              <p className="text-[18px] font-bold text-[#5C3D2E] mt-2 mb-0">
-                {formatReadableDate(selectedDate)}
-              </p>
-            </div>
+      <div className="paper-sheet p-5 sm:p-8">
+        <div className="two-col-1100">
+          {/* LEFT COLUMN: Title + Date + Prev/Next + Print, Weekly Row, 3 Stat Cards, Before You Trade Checklist, End-of-Day Review */}
+          <div className="space-y-7 min-w-0">
+            {/* Page Title + Date + Prev/Next + Print Button */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div>
+                  <h1 className="font-heading text-[32px] sm:text-[38px] font-bold uppercase text-[#8B5E3C] leading-none m-0">
+                    DAILY TRADING TRACKER
+                  </h1>
+                  <p className="text-[18px] font-bold text-[#5C3D2E] mt-2 mb-0">
+                    {formatReadableDate(selectedDate)}
+                  </p>
+                </div>
 
-            {/* Date Picker + Previous / Next Buttons + Print Button */}
-            <div className="no-print flex flex-wrap items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => onSelectDate(shiftDateISO(selectedDate, -1))}
-                className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                <span>Prev</span>
-              </button>
-
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  if (e.target.value) onSelectDate(e.target.value);
-                }}
-                aria-label="Choose date"
-                className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] outline-none cursor-pointer"
-              />
-
-              <button
-                type="button"
-                onClick={() => onSelectDate(shiftDateISO(selectedDate, 1))}
-                className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-5 h-5" />
-              </button>
-
-              {selectedDate !== todayIso && (
                 <button
                   type="button"
-                  onClick={() => onSelectDate(todayIso)}
-                  className="min-h-[48px] px-4 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
+                  onClick={() => window.print()}
+                  className="no-print min-h-[48px] px-4 rounded-2xl bg-[#DCEEF2] hover:bg-[#c7e4eb] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-2 cursor-pointer self-start shrink-0"
                 >
-                  Today
+                  <Printer className="w-4 h-4" />
+                  <span>Print this page</span>
                 </button>
-              )}
+              </div>
 
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="min-h-[48px] px-4 rounded-2xl bg-[#DCEEF2] hover:bg-[#c7e4eb] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-2 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print this page</span>
-              </button>
+              {/* Date Picker + Previous / Next Buttons */}
+              <div className="no-print flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => onSelectDate(shiftDateISO(selectedDate, -1))}
+                  className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  <span>Prev</span>
+                </button>
+
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    if (e.target.value) onSelectDate(e.target.value);
+                  }}
+                  aria-label="Choose date"
+                  className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] outline-none cursor-pointer"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => onSelectDate(shiftDateISO(selectedDate, 1))}
+                  className="min-h-[48px] px-4 rounded-2xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
+                {selectedDate !== todayIso && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectDate(todayIso)}
+                    className="min-h-[48px] px-4 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
+                  >
+                    Today
+                  </button>
+                )}
+              </div>
+
+              <div className="dotted-divider w-full pt-1" />
+
+              {/* This Week's Habit Row (M T W T F S S) */}
+              <div className="p-4 sm:px-5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-heading text-[20px] font-bold uppercase text-[#8B5E3C]">
+                    THIS WEEK&apos;S HABIT ROW
+                  </div>
+                  <span className="text-[16px] font-semibold text-[#5C3D2E]">
+                    Green = followed rules • Red = broke rule
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-7 gap-2">
+                  {weekDays.map((wd) => {
+                    const status = getDayCircleStatus(wd.dateIso);
+                    const isSelected = wd.dateIso === selectedDate;
+                    return (
+                      <button
+                        key={wd.dateIso}
+                        type="button"
+                        onClick={() => onSelectDate(wd.dateIso)}
+                        title={`Open ${wd.dateIso}`}
+                        className={`flex flex-col items-center p-1.5 rounded-2xl transition-transform cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#F2D29B]/70 ring-2 ring-[#8B5E3C]'
+                            : 'hover:bg-[#F0DED4]/40'
+                        }`}
+                      >
+                        <span className="font-heading text-[16px] font-bold text-[#8B5E3C]">
+                          {wd.letter}
+                        </span>
+                        <div
+                          className={`mt-1 w-10 h-10 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center ${
+                            status === 'green'
+                              ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                              : status === 'red'
+                              ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                              : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                          }`}
+                        >
+                          {status === 'green' && (
+                            <Check className="w-5 h-5 stroke-[3]" />
+                          )}
+                          {status === 'red' && (
+                            <X className="w-5 h-5 stroke-[3]" />
+                          )}
+                          {status === 'empty' && (
+                            <span className="text-[16px] font-bold">
+                              {wd.dayNum}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
+
+            {/* 3.1 Today at a Glance (3 stat cards) */}
+            <DisciplineGauge
+              score={disciplineScore}
+              dailyPnl={totalPnl}
+              tradesCount={day.trades.length}
+              maxTrades={settings.maxTradesPerDay}
+            />
+
+            {/* 3.2 Before You Trade (habit-style checklist) */}
+            <ChecklistCard
+              checklist={day.checklist}
+              onUpdate={onUpdateChecklist}
+            />
+
+            {/* 3.4 End-of-Day Review */}
+            <AuditForm
+              day={day}
+              settings={settings}
+              onUpdateAudit={onUpdateAudit}
+              onNotify={onNotify}
+            />
           </div>
 
-          <div className="dotted-divider w-full pt-1" />
-
-          {/* 3.5 Weekly Discipline Row (M T W T F S S habit row right under the page title) */}
-          <div className="p-4 sm:px-6 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="font-heading text-[20px] font-bold uppercase text-[#8B5E3C]">
-                THIS WEEK&apos;S HABIT ROW
-              </div>
-              <p className="text-[16px] font-semibold text-[#5C3D2E] m-0">
-                Green = followed rules • Red = broke a rule • Empty = no trades
-              </p>
-            </div>
-
-            <div className="grid grid-cols-7 gap-2 sm:gap-3">
-              {weekDays.map((wd) => {
-                const status = getDayCircleStatus(wd.dateIso);
-                const isSelected = wd.dateIso === selectedDate;
-                return (
-                  <button
-                    key={wd.dateIso}
-                    type="button"
-                    onClick={() => onSelectDate(wd.dateIso)}
-                    title={`Open ${wd.dateIso}`}
-                    className={`flex flex-col items-center p-1.5 rounded-2xl transition-transform cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#F2D29B]/60 ring-2 ring-[#8B5E3C]'
-                        : 'hover:bg-[#F0DED4]/40'
-                    }`}
-                  >
-                    <span className="font-heading text-[16px] font-bold text-[#8B5E3C]">
-                      {wd.letter}
-                    </span>
-                    <div
-                      className={`mt-1 w-10 h-10 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center ${
-                        status === 'green'
-                          ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                          : status === 'red'
-                          ? 'bg-[#F5B8B0] text-[#9B2C20]'
-                          : 'bg-[#FFFDF7] text-[#8B5E3C]'
-                      }`}
-                    >
-                      {status === 'green' && (
-                        <Check className="w-5 h-5 stroke-[3]" />
-                      )}
-                      {status === 'red' && (
-                        <X className="w-5 h-5 stroke-[3]" />
-                      )}
-                      {status === 'empty' && (
-                        <span className="text-[16px] font-bold">
-                          {wd.dayNum}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          {/* RIGHT COLUMN: Sticky "My Trades Today" with Add Trade button and all trade cards */}
+          <div className="sticky-right-1100 min-w-0 pr-0.5">
+            <TradeTable
+              trades={day.trades}
+              settings={settings}
+              onUpdateSettings={onUpdateSettings}
+              onAddTrade={onAddTrade}
+              onUpdateTrade={onUpdateTrade}
+              onDeleteTrade={onDeleteTrade}
+              onNotify={onNotify}
+              dailyPnl={totalPnl}
+              dailyR={totalR}
+            />
           </div>
         </div>
-
-        {/* 3.1 Today at a Glance (3 big simple cards) */}
-        <DisciplineGauge
-          score={disciplineScore}
-          dailyPnl={totalPnl}
-          tradesCount={day.trades.length}
-          maxTrades={settings.maxTradesPerDay}
-        />
-
-        {/* 3.2 Before You Trade (habit-style checklist) */}
-        <ChecklistCard
-          checklist={day.checklist}
-          onUpdate={onUpdateChecklist}
-        />
-
-        {/* 3.3 My Trades Today (simple trade cards + 5-field Add Trade pop-up) */}
-        <TradeTable
-          trades={day.trades}
-          settings={settings}
-          onUpdateSettings={onUpdateSettings}
-          onAddTrade={onAddTrade}
-          onUpdateTrade={onUpdateTrade}
-          onDeleteTrade={onDeleteTrade}
-          onNotify={onNotify}
-          dailyPnl={totalPnl}
-          dailyR={totalR}
-        />
-
-        {/* 3.4 End-of-Day Review (Yes / No rows + emotion chips + lined notepad) */}
-        <AuditForm
-          day={day}
-          settings={settings}
-          onUpdateAudit={onUpdateAudit}
-          onNotify={onNotify}
-        />
       </div>
     </FadeInUp>
   );

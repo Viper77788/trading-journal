@@ -65,16 +65,37 @@ export function getEffectiveAuditAnswers(
 }
 
 /**
- * Calculates a 0-100 Daily Discipline Score from:
- * 1. Session Checklist (up to 25 points)
- * 2. Audit Q1-Q3 Compliance (up to 30 points)
- * 3. Trade Risk Cap Compliance (up to 25 points)
- * 4. Average Trade Discipline Star Rating (up to 20 points)
+ * Checks whether the user has interacted with a day record yet.
+ */
+export function hasDayActivity(day: DayRecord): boolean {
+  const checklistCount = [
+    day.checklist.checkedEconomicCalendar,
+    day.checklist.confirmedAllowedWindows,
+    day.checklist.mentalStateCalm,
+  ].filter(Boolean).length;
+
+  const hasManualAudit =
+    day.audit.stuckToMaxTrades !== null ||
+    day.audit.respectedRiskCap !== null ||
+    day.audit.executedInAllowedWindows !== null ||
+    (day.audit.emotions && day.audit.emotions.length > 0) ||
+    Boolean(day.audit.keyLesson && day.audit.keyLesson.trim().length > 0);
+
+  return (day.trades && day.trades.length > 0) || checklistCount > 0 || hasManualAudit;
+}
+
+/**
+ * Calculates a 0-100 Daily Discipline Score.
+ * Returns 0 if the day has no activity yet.
  */
 export function calculateDailyDisciplineScore(
   day: DayRecord,
   settings: AccountSettings
 ): number {
+  if (!hasDayActivity(day)) {
+    return 0;
+  }
+
   const checklistCount = [
     day.checklist.checkedEconomicCalendar,
     day.checklist.confirmedAllowedWindows,
@@ -89,14 +110,22 @@ export function calculateDailyDisciplineScore(
     effectiveAudit.respectedRiskCap,
     effectiveAudit.executedInAllowedWindows,
   ].filter(Boolean).length;
-  const auditScore = (auditYesCount / 3) * 30;
 
   const trades = day.trades || [];
   if (trades.length === 0) {
-    // If no trades yet, scale checklist + audit to 100
+    // Only checklist or manual audit ticked so far
+    const hasManualAudit =
+      day.audit.stuckToMaxTrades !== null ||
+      day.audit.respectedRiskCap !== null ||
+      day.audit.executedInAllowedWindows !== null;
+    if (!hasManualAudit) {
+      return Math.round((checklistCount / 3) * 100);
+    }
+    const auditScore = (auditYesCount / 3) * 30;
     return Math.round(((checklistScore + auditScore) / 55) * 100);
   }
 
+  const auditScore = (auditYesCount / 3) * 30;
   const compliantRiskCount = trades.filter(
     (t) => !isTradeRiskViolated(t, settings)
   ).length;
@@ -107,13 +136,12 @@ export function calculateDailyDisciplineScore(
     trades.length;
   const starScore = (avgDisciplineStars / 5) * 20;
 
-  // Penalty if trade count exceeds maxTradesPerDay
   const overtradePenalty =
     trades.length > settings.maxTradesPerDay
       ? (trades.length - settings.maxTradesPerDay) * 12
       : 0;
 
-  const total = Math.max(
+  return Math.max(
     0,
     Math.min(
       100,
@@ -122,7 +150,6 @@ export function calculateDailyDisciplineScore(
       )
     )
   );
-  return total;
 }
 
 export function calculateDayTotals(day: DayRecord) {
@@ -213,10 +240,12 @@ export function computeDashboardAnalytics(
     const effectiveAudit = getEffectiveAuditAnswers(day, settings);
 
     let dayViolations = 0;
-    if (trades.length > settings.maxTradesPerDay) dayViolations += 1;
-    if (!effectiveAudit.stuckToMaxTrades) dayViolations += 1;
-    if (!effectiveAudit.respectedRiskCap) dayViolations += 1;
-    if (!effectiveAudit.executedInAllowedWindows) dayViolations += 1;
+    if (trades.length > 0) {
+      if (trades.length > settings.maxTradesPerDay) dayViolations += 1;
+      if (!effectiveAudit.stuckToMaxTrades) dayViolations += 1;
+      if (!effectiveAudit.respectedRiskCap) dayViolations += 1;
+      if (!effectiveAudit.executedInAllowedWindows) dayViolations += 1;
+    }
 
     for (const t of trades) {
       totalTrades += 1;
@@ -248,10 +277,6 @@ export function computeDashboardAnalytics(
 
     for (const em of day.audit.emotions || []) {
       emotionCounts[em] = (emotionCounts[em] || 0) + 1;
-    }
-    if (day.audit.customEmotion?.trim()) {
-      const custom = day.audit.customEmotion.trim();
-      emotionCounts[custom] = (emotionCounts[custom] || 0) + 1;
     }
 
     if (trades.length > 0) {
@@ -290,7 +315,7 @@ export function computeDashboardAnalytics(
             ? 'disciplined-profit'
             : 'disciplined-loss',
       });
-    } else {
+    } else if (hasDayActivity(day)) {
       daySummaries.push({
         date,
         pnl: 0,
@@ -303,13 +328,13 @@ export function computeDashboardAnalytics(
   }
 
   const winRate =
-    totalTrades > 0 ? Math.round((wins / totalTrades) * 1000) / 10 : 50;
+    totalTrades > 0 ? Math.round((wins / totalTrades) * 1000) / 10 : 0;
   const avgSetupQuality =
     totalTrades > 0 ? Math.round((setupQualitySum / totalTrades) * 10) / 10 : 0;
   const avgDisciplineScore =
     activeDaysCount > 0
       ? Math.round(disciplineScoreSum / activeDaysCount)
-      : 100;
+      : 0;
   const avgRealRewardToRisk =
     winRCount > 0 ? Math.round((winRSum / winRCount) * 100) / 100 : 2.0;
 

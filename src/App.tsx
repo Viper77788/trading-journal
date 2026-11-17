@@ -22,10 +22,7 @@ export default function App() {
     deleteTrade,
     updateAudit,
     updateAccountSettings,
-    resetToDemoData,
-    clearAllData,
     exportBackupJson,
-    importBackupJson,
   } = useTrades();
 
   const {
@@ -77,17 +74,6 @@ export default function App() {
     addToast(`Opened ${dateIso}`, 'info');
   };
 
-  const handleClearDemoData = () => {
-    clearAllData();
-    setSelectedDate(getTodayDateISO());
-    addToast('Cleared demo data!', 'info');
-  };
-
-  const handleRestoreDemoData = () => {
-    resetToDemoData();
-    addToast('Restored sample days!', 'success');
-  };
-
   return (
     <div className="min-h-screen w-full bg-[#FFFBF2] text-[#5C3D2E] pb-14">
       {/* Soft Toast Notifications */}
@@ -96,8 +82,8 @@ export default function App() {
       {/* Top Pastel Tab Bar (TODAY, HISTORY, FUTURE, SETTINGS) */}
       <Sidebar activePage={activePage} onSelectPage={setActivePage} />
 
-      {/* Centered Paper Habit Tracker Sheet Container (max-width 1000px) */}
-      <main className="w-full max-w-[1000px] mx-auto px-4 pt-3">
+      {/* Centered Paper Habit Tracker Sheet Container (max-width 1400px) */}
+      <main className="w-full max-w-[1400px] mx-auto px-4 pt-3">
         <AnimatePresence mode="wait">
           <motion.div
             key={activePage}
@@ -135,8 +121,6 @@ export default function App() {
                 settings={settings}
                 analytics={dashboardAnalytics}
                 onSelectDayToEdit={handleSelectDayFromDashboard}
-                onClearDemoData={handleClearDemoData}
-                onResetDemoData={handleRestoreDemoData}
               />
             )}
 
@@ -165,10 +149,6 @@ export default function App() {
                 settings={settings}
                 onUpdateSettings={updateAccountSettings}
                 onExportJson={handleExportJson}
-                onImportJson={importBackupJson}
-                onResetDemoData={handleRestoreDemoData}
-                onClearAllData={handleClearDemoData}
-                onNotify={addToast}
               />
             )}
           </motion.div>

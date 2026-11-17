@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        wide: '1100px',
+      },
       fontFamily: {
         display: ['Fredoka', 'Nunito', 'system-ui', 'sans-serif'],
         sans: ['Nunito', 'system-ui', '-apple-system', 'sans-serif'],

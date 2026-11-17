@@ -207,13 +207,12 @@ export const TradeTable: React.FC<TradeTableProps> = ({
 
       {/* Trade Cards List */}
       {trades.length === 0 ? (
-        <div className="p-8 rounded-2xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center space-y-3">
+        <div className="p-8 rounded-2xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center space-y-2">
           <div className="text-[20px] font-bold text-[#8B5E3C]">
-            No trades added yet today
+            No trades yet today. Tap + ADD TRADE to start.
           </div>
           <p className="text-[17px] text-[#5C3D2E] m-0">
-            Tap the green <strong>+ ADD TRADE</strong> button above when you
-            finish a trade.
+            You can log up to {settings.maxTradesPerDay} trades per day.
           </p>
         </div>
       ) : (

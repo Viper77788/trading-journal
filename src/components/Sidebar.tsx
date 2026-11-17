@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Top Pastel Tab Bar (Desktop & Tablet) */}
-      <header className="no-print w-full max-w-[1000px] mx-auto pt-5 pb-2 px-4">
+      <header className="no-print w-full max-w-[1400px] mx-auto pt-5 pb-2 px-4">
         <nav
           aria-label="Main navigation"
           className="grid grid-cols-2 sm:grid-cols-4 gap-3"
