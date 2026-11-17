@@ -1,4 +1,14 @@
 {
+  "env": {
+    "VITE_SUPABASE_URL": "https://mmohmuksokqreujzluik.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "sb_publishable_nZ2JvfzlJTVFC2yadHDOKQ_7ytMXX1k"
+  },
+  "build": {
+    "env": {
+      "VITE_SUPABASE_URL": "https://mmohmuksokqreujzluik.supabase.co",
+      "VITE_SUPABASE_ANON_KEY": "sb_publishable_nZ2JvfzlJTVFC2yadHDOKQ_7ytMXX1k"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
