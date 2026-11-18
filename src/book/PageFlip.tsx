@@ -1,6 +1,7 @@
 import React, {
   useRef,
   useEffect,
+  useLayoutEffect,
   useImperativeHandle,
   forwardRef,
   useCallback,
@@ -11,6 +12,7 @@ import {
   useTransform,
   animate,
   AnimationPlaybackControls,
+  MotionValue,
 } from 'framer-motion';
 import { BookPage, BookPageData } from './BookPage';
 import { PageTurnStyle } from '../hooks/useDisplayMode';
@@ -68,13 +70,128 @@ function shouldIgnoreSwipeTarget(target: EventTarget | null): boolean {
   ) {
     return true;
   }
-  // Only block swipe on text/number inputs or textareas when they are actively focused
   const inputOrTextarea = el.closest('input, textarea');
   if (inputOrTextarea && document.activeElement === inputOrTextarea) {
     return true;
   }
   return false;
 }
+
+/**
+ * Persistent Keyed Single-Page Deck Item (`key={page.id}`):
+ * Because each page keeps the exact same React key and DOM node as its role
+ * transitions between 'next' -> 'current' -> 'prev', changing pages NEVER
+ * unmounts or remounts the page DOM tree, completely eliminating any page-turn blink!
+ */
+interface SingleDeckPageItemProps {
+  page: BookPageData;
+  pageNumber: number;
+  totalPages: number;
+  role: 'prev' | 'current' | 'next';
+  progress: MotionValue<number>;
+  effectiveStyle: PageTurnStyle;
+  isMobile: boolean;
+  onEdgeTapPrev?: () => void;
+  onEdgeTapNext?: () => void;
+}
+
+const SingleDeckPageItem: React.FC<SingleDeckPageItemProps> = React.memo(
+  ({
+    page,
+    pageNumber,
+    totalPages,
+    role,
+    progress,
+    effectiveStyle,
+    isMobile,
+    onEdgeTapPrev,
+    onEdgeTapNext,
+  }) => {
+    const visibility = useTransform(progress, (p) => {
+      if (role === 'current') return 'visible';
+      if (role === 'next') return p > 0.0005 ? 'visible' : 'hidden';
+      if (role === 'prev') return p < -0.0005 ? 'visible' : 'hidden';
+      return 'hidden';
+    });
+
+    const zIndex = useTransform(progress, (p) => {
+      if (role === 'prev') return 30;
+      if (role === 'current') return p < -0.0005 ? 15 : 25;
+      return 15; // 'next' sits underneath 'current' while 'current' turns away
+    });
+
+    const transform = useTransform(progress, (p) => {
+      if (role === 'current') {
+        if (p > 0.0005) {
+          // Turning forward: current page rotates around left spine (or slides left)
+          const clamped = Math.min(1, p);
+          if (effectiveStyle === 'slide') {
+            return `translate3d(${(-clamped * 100).toFixed(2)}%, 0px, 0px)`;
+          }
+          const deg = (-clamped * 100).toFixed(2);
+          const tx = (-clamped * 8).toFixed(2);
+          return `translate3d(${tx}%, 0px, 0px) rotateY(${deg}deg)`;
+        }
+        if (p < -0.0005 && effectiveStyle === 'slide') {
+          const clamped = Math.max(-1, p); // -1 -> 0
+          return `translate3d(${((-clamped) * 100).toFixed(2)}%, 0px, 0px)`;
+        }
+        return 'translate3d(0px, 0px, 0px) rotateY(0deg)';
+      }
+
+      if (role === 'next') {
+        if (p <= 0.0005) return 'translate3d(0px, 0px, 0px)';
+        const clamped = Math.min(1, p);
+        if (effectiveStyle === 'slide') {
+          return `translate3d(${((1 - clamped) * 100).toFixed(2)}%, 0px, 0px)`;
+        }
+        // Subtle parallax as the next page is revealed underneath
+        const offsetPx = (1 - clamped) * 12;
+        return `translate3d(${offsetPx.toFixed(1)}px, 0px, 0px)`;
+      }
+
+      // role === 'prev' (returning from -1 -> 0)
+      if (p >= -0.0005) {
+        return effectiveStyle === 'slide'
+          ? 'translate3d(-100%, 0px, 0px)'
+          : 'translate3d(-8%, 0px, 0px) rotateY(-100deg)';
+      }
+      const clamped = Math.max(-1, p); // -1 -> 0
+      const t = 1 + clamped; // 0 at complete prev (-1), 1 at start (0)
+      if (effectiveStyle === 'slide') {
+        return `translate3d(${(-t * 100).toFixed(2)}%, 0px, 0px)`;
+      }
+      const deg = (-t * 100).toFixed(2);
+      const tx = (-t * 8).toFixed(2);
+      return `translate3d(${tx}%, 0px, 0px) rotateY(${deg}deg)`;
+    });
+
+    return (
+      <motion.div
+        style={{
+          visibility,
+          zIndex,
+          transform,
+          transformOrigin: 'left center',
+        }}
+        className="absolute inset-0 flex min-h-0 bg-[#FFFDF7] rounded-2xl overflow-hidden"
+      >
+        <BookPage
+          page={page}
+          pageNumber={pageNumber}
+          totalPages={totalPages}
+          side="single"
+          isMobile={isMobile}
+          isActiveSlot={role === 'current'}
+          onEdgeTapPrev={role === 'current' ? onEdgeTapPrev : undefined}
+          onEdgeTapNext={role === 'current' ? onEdgeTapNext : undefined}
+        />
+      </motion.div>
+    );
+  }
+);
+
+SingleDeckPageItem.displayName = 'SingleDeckPageItem';
 
 export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
   (
@@ -119,7 +236,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       }
     }, [isSpread]);
 
-    // Effective turn style respecting prefers-reduced-motion (§7)
     const effectiveStyle: PageTurnStyle = reducedMotion
       ? 'instant'
       : pageTurnStyle;
@@ -137,7 +253,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
     const turnCountRef = useRef<number>(0);
     const fallbackTriggeredRef = useRef<boolean>(false);
 
-    // Check low-end hardware concurrency + deviceMemory on mount (§7)
     useEffect(() => {
       if (effectiveStyle !== '3d' || fallbackTriggeredRef.current) return;
       try {
@@ -153,7 +268,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       }
     }, [effectiveStyle, onAutoFallbackToSlide]);
 
-    // Dynamic GPU layer promotion helper (add on pointerdown/turn start, remove 100ms after settle — §3 & §6)
     const setLayersWillChange = useCallback((active: boolean) => {
       if (willChangeTimerRef.current !== null) {
         window.clearTimeout(willChangeTimerRef.current);
@@ -193,7 +307,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
     const stepSize = isSpread ? 2 : 1;
     const totalPages = pages.length;
 
-    // Refs to keep latest props accessible inside animation completion callbacks without re-binding
     const stateRef = useRef({
       currentIndex,
       stepSize,
@@ -215,8 +328,9 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       onAutoFallbackToSlide,
     };
 
-    // Reset progress to 0 whenever currentIndex commits
-    useEffect(() => {
+    // CRITICAL FIX FOR BLINK: Reset progress to 0 synchronously inside useLayoutEffect
+    // AFTER React has updated the DOM with the new currentIndex and BEFORE the browser paints!
+    useLayoutEffect(() => {
       progress.jump(0);
     }, [currentIndex, progress]);
 
@@ -244,7 +358,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                 ? Math.min(total - 1, curIdx + step)
                 : Math.max(0, curIdx - step);
           customJumpTargetRef.current = null;
-          progress.jump(0);
           setLayersWillChange(false);
           commit(destIdx);
           return;
@@ -253,7 +366,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         activeAnimRef.current?.stop();
         setLayersWillChange(true);
 
-        // Measure frame times during the first 3 turns in 3D mode (§7)
         let rafId: number | null = null;
         const frameDeltas: number[] = [];
         let lastFrameTime = performance.now();
@@ -326,11 +438,15 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                     : Math.max(0, latest.currentIndex - latest.stepSize);
               customJumpTargetRef.current = null;
 
-              // Commit index once at animation end and reset progress in same frame (§1)
-              progress.jump(0);
-              commit(nextIdx);
+              // Do NOT call progress.jump(0) before commit(nextIdx)!
+              // useLayoutEffect resets progress.jump(0) synchronously once React commits nextIdx,
+              // preventing any 1-frame flash of the previous page!
+              if (nextIdx !== latest.currentIndex) {
+                commit(nextIdx);
+              } else {
+                progress.jump(0);
+              }
 
-              // Check if a rapid tap was queued while the turn was running (§5)
               const queued = pendingTurnRef.current;
               pendingTurnRef.current = null;
               if (queued) {
@@ -349,6 +465,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
               }
             } else {
               customJumpTargetRef.current = null;
+              progress.jump(0);
               setLayersWillChange(false);
             }
           },
@@ -357,7 +474,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       [progress, setLayersWillChange]
     );
 
-    // Imperative handle for buttons, dots, and arrow keys (§5)
     useImperativeHandle(
       ref,
       () => ({
@@ -366,7 +482,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
             stateRef.current;
           if (!canNext) return;
           if (activeAnimRef.current) {
-            // Queue rapid tap (§5)
             pendingTurnRef.current = 'next';
             return;
           }
@@ -400,16 +515,12 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
           pendingTurnRef.current = null;
           customJumpTargetRef.current = clamped;
           const dir: 1 | -1 = clamped > curIdx ? 1 : -1;
-          // Single quick animated jump across pages (max 0.35s — §5)
           animateToTarget(dir, 0, true);
         },
       }),
       [animateToTarget]
     );
 
-    // ========================================================================
-    // POINTER & TOUCH GESTURE HANDLERS (0 React re-renders during drag — §1 & §5)
-    // ========================================================================
     const startGesture = (
       clientX: number,
       clientY: number,
@@ -421,7 +532,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         return;
       }
 
-      // Interrupt running animation smoothly from current progress without a jump (§5)
       if (activeAnimRef.current) {
         activeAnimRef.current.stop();
         activeAnimRef.current = null;
@@ -462,7 +572,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         const absY = Math.abs(dy);
         if (absX < 10 && absY < 10) return;
 
-        // Lock to horizontal when horizontal movement > 10px and > 1.3x vertical movement (§5)
         if (absX > 10 && absX > absY * 1.3) {
           g.lockedHorizontal = true;
           suppressClickRef.current = true;
@@ -471,7 +580,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
             try {
               containerRef.current.setPointerCapture(g.pointerId);
             } catch {
-              // Ignore synthetic pointer capture error
+              // Ignore
             }
           }
         } else if (absY > 12 && absY > absX * 1.3) {
@@ -489,12 +598,9 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         220,
         isSpread ? widthRef.current / 2 : widthRef.current
       );
-      // Dragging left (dx < 0) increases progress toward +1 (next page)
-      // Dragging right (dx > 0) decreases progress toward -1 (prev page)
       const rawDelta = -dx / singlePageWidth;
       let nextProg = g.startProgress + rawDelta;
 
-      // Rubber-band resistance at first and last page (30% of finger distance — §5)
       if (nextProg > 0 && !stateRef.current.canTurnNext) {
         nextProg = Math.min(0.28, nextProg * 0.3);
       } else if (nextProg < 0 && !stateRef.current.canTurnPrev) {
@@ -526,19 +632,17 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
 
       const endX = finalClientX !== undefined ? finalClientX : g.lastX;
       const dx = endX - g.startX;
-      const vx = g.velocityPxPerMs; // px/ms (negative = left/next, positive = right/prev)
+      const vx = g.velocityPxPerMs;
       const curProg = progress.get();
 
       const singlePageWidth = Math.max(
         220,
         isSpread ? widthRef.current / 2 : widthRef.current
       );
-      // Convert px/ms velocity into progress units/second for Framer Motion spring
       const releaseVelocity = (-vx * 1000) / singlePageWidth;
 
       const { canTurnNext: canNext, canTurnPrev: canPrev } = stateRef.current;
 
-      // Decide forward or back using distance > 25% of page width or velocity > 0.35 px/ms (§5)
       let target: -1 | 0 | 1 = 0;
       if (
         (curProg >= 0.25 || (dx < -18 && vx <= -0.35)) &&
@@ -621,58 +725,15 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
     };
 
     // ========================================================================
-    // DERIVED MOTION VALUES (Compositor-Friendly transform & opacity ONLY — §1 & §2)
+    // DERIVED MOTION VALUES FOR SPREAD & OVERLAYS (§1 & §2)
     // ========================================================================
-
-    // Visibility of pre-mounted neighbour & turning layers (hidden when resting at 0 — §3)
     const forwardLayerVisibility = useTransform(progress, (p) =>
-      p > 0.001 ? 'visible' : 'hidden'
+      p > 0.0005 ? 'visible' : 'hidden'
     );
     const backwardLayerVisibility = useTransform(progress, (p) =>
-      p < -0.001 ? 'visible' : 'hidden'
-    );
-    const restingCurrentVisibility = useTransform(progress, (p) =>
-      effectiveStyle === '3d' && !isSpread && p > 0.001 ? 'hidden' : 'visible'
+      p < -0.0005 ? 'visible' : 'hidden'
     );
 
-    // Single-Page 3D Transforms (Mobile & Tablet Portrait — rotates up to -100deg around left spine — §6)
-    const singleForwardTransform = useTransform(progress, (p) => {
-      if (p <= 0) return 'translate3d(0px, 0px, 0px) rotateY(0deg)';
-      const clamped = Math.min(1, p);
-      if (effectiveStyle === 'slide') {
-        return `translate3d(${(-clamped * 100).toFixed(2)}%, 0px, 0px)`;
-      }
-      const deg = (-clamped * 100).toFixed(2);
-      const tx = (-clamped * 8).toFixed(2);
-      return `translate3d(${tx}%, 0px, 0px) rotateY(${deg}deg)`;
-    });
-
-    const singleBackwardTransform = useTransform(progress, (p) => {
-      if (p >= 0) return 'translate3d(-8%, 0px, 0px) rotateY(-100deg)';
-      const clamped = Math.max(-1, p); // -1 -> 0
-      const t = 1 + clamped; // 0 at start, 1 at end
-      if (effectiveStyle === 'slide') {
-        return `translate3d(${(-t * 100).toFixed(2)}%, 0px, 0px)`;
-      }
-      const deg = (-t * 100).toFixed(2);
-      const tx = (-t * 8).toFixed(2);
-      return `translate3d(${tx}%, 0px, 0px) rotateY(${deg}deg)`;
-    });
-
-    // Underneath Next-Page Parallax (§1 & §6)
-    const underneathTransform = useTransform(progress, (p) => {
-      if (Math.abs(p) <= 0.001) return 'translate3d(0px, 0px, 0px)';
-      if (effectiveStyle === 'slide') {
-        if (p > 0) {
-          return `translate3d(${((1 - Math.min(1, p)) * 100).toFixed(2)}%, 0px, 0px)`;
-        }
-        return `translate3d(${((-1 - Math.max(-1, p)) * 100).toFixed(2)}%, 0px, 0px)`;
-      }
-      const offsetPx = p > 0 ? (1 - Math.min(1, p)) * 14 : 0;
-      return `translate3d(${offsetPx.toFixed(1)}px, 0px, 0px)`;
-    });
-
-    // Tablet Landscape Spread 3D Transforms (Right page rotates 0 -> -180deg around center spine — §6)
     const spreadForwardTransform = useTransform(progress, (p) => {
       if (p <= 0) return 'rotateY(0deg)';
       const clamped = Math.min(1, p);
@@ -692,14 +753,12 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       return `rotateY(${(-t * 180).toFixed(2)}deg)`;
     });
 
-    // Static Gradient Shadow Overlay Opacity (no animated box-shadow or background gradients — §2)
     const shadowOverlayOpacity = useTransform(
       progress,
       [-1, -0.5, 0, 0.5, 1],
-      effectiveStyle === 'slide' ? [0, 0, 0, 0, 0] : [0.02, 0.34, 0, 0.34, 0.02]
+      effectiveStyle === 'slide' ? [0, 0, 0, 0, 0] : [0, 0.34, 0, 0.34, 0]
     );
 
-    // Page-Curl Corner Hint Opacity (appears only while dragging/turning, never at rest — §E)
     const curlHintOpacity = useTransform(
       progress,
       [-0.85, -0.03, 0, 0.03, 0.85],
@@ -734,6 +793,25 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       }
     }, [animateToTarget]);
 
+    // Build the 1 to 3 active indices for the persistent Single-Page keyed deck
+    const singleDeckItems: Array<{
+      idx: number;
+      role: 'prev' | 'current' | 'next';
+    }> = [];
+    if (!isSpread) {
+      if (canTurnPrev && prevTargetIdx !== currentIndex) {
+        singleDeckItems.push({ idx: prevTargetIdx, role: 'prev' });
+      }
+      singleDeckItems.push({ idx: currentIndex, role: 'current' });
+      if (
+        canTurnNext &&
+        nextTargetIdx !== currentIndex &&
+        nextTargetIdx !== prevTargetIdx
+      ) {
+        singleDeckItems.push({ idx: nextTargetIdx, role: 'next' });
+      }
+    }
+
     return (
       <div
         ref={containerRef}
@@ -747,7 +825,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         onClickCapture={handleClickCapture}
         className="book-outer-frame flex-1 min-h-0 w-full relative overflow-hidden flex"
       >
-        {/* Static Ring-Binder Left Spine in Single-Page Mode (never repainted during turns — §6) */}
+        {/* Static Ring-Binder Left Spine in Single-Page Mode */}
         {!isSpread && (
           <div className="book-single-spine">
             <span className="book-spine-hole" />
@@ -759,107 +837,30 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
           </div>
         )}
 
-        {/* ====================================================================
-            SINGLE-PAGE MODE (Mobile & Tablet Portrait): Pre-mounted Current, Next, Prev
-            ==================================================================== */}
         {!isSpread ? (
-          <>
-            {/* 1. Pre-mounted Underneath Neighbour (Next Page when p > 0; Current Page when p < 0) */}
-            {canTurnNext && (
-              <motion.div
-                ref={underneathRef}
-                style={{
-                  visibility: forwardLayerVisibility,
-                  transform: underneathTransform,
-                }}
-                className="
-                  absolute inset-0 z-10 flex min-h-0
-                "
-              >
-                <BookPage
-                  page={getPageAt(nextTargetIdx)}
-                  pageNumber={nextTargetIdx + 1}
+          /* Persistent Keyed Single-Page Deck (`key={page.id}`) — Never unmounts on page turn! */
+          <div className="relative w-full h-full flex min-h-0">
+            {singleDeckItems.map(({ idx, role }) => {
+              const p = getPageAt(idx);
+              return (
+                <SingleDeckPageItem
+                  key={p.id}
+                  page={p}
+                  pageNumber={idx + 1}
                   totalPages={totalPages}
-                  side="single"
+                  role={role}
+                  progress={progress}
+                  effectiveStyle={effectiveStyle}
                   isMobile={isMobile}
-                  isActiveSlot={false}
+                  onEdgeTapPrev={canTurnPrev ? triggerPrev : undefined}
+                  onEdgeTapNext={canTurnNext ? triggerNext : undefined}
                 />
-              </motion.div>
-            )}
-
-            {/* 2. Resting Current Page (Visible at rest and underneath backward turns) */}
-            <motion.div
-              style={{ visibility: restingCurrentVisibility }}
-              className="relative w-full h-full z-20 flex min-h-0"
-            >
-              <BookPage
-                page={getPageAt(currentIndex)}
-                pageNumber={currentIndex + 1}
-                totalPages={totalPages}
-                side="single"
-                isMobile={isMobile}
-                isActiveSlot={true}
-                onEdgeTapPrev={canTurnPrev ? triggerPrev : undefined}
-                onEdgeTapNext={canTurnNext ? triggerNext : undefined}
-              />
-            </motion.div>
-
-            {/* 3. Turning Forward Leaf (Current Page Rotating Around Left Spine 0 -> -100deg) */}
-            {canTurnNext && (
-              <motion.div
-                ref={turningForwardRef}
-                style={{
-                  visibility: forwardLayerVisibility,
-                  transform: singleForwardTransform,
-                  transformOrigin: 'left center',
-                }}
-                className="absolute inset-0 z-30 book-turning-leaf flex min-h-0"
-              >
-                <div className="w-full h-full bg-[#FFFDF7] rounded-2xl border-r-2 border-[#8B5E3C] overflow-hidden flex book-turning-face-front">
-                  <BookPage
-                    page={getPageAt(currentIndex)}
-                    pageNumber={currentIndex + 1}
-                    totalPages={totalPages}
-                    side="single"
-                    isMobile={isMobile}
-                    isActiveSlot={false}
-                  />
-                </div>
-                <div className="book-turning-face-back" />
-              </motion.div>
-            )}
-
-            {/* 4. Turning Backward Leaf (Previous Page Rotating Back -100deg -> 0deg) */}
-            {canTurnPrev && (
-              <motion.div
-                ref={turningBackwardRef}
-                style={{
-                  visibility: backwardLayerVisibility,
-                  transform: singleBackwardTransform,
-                  transformOrigin: 'left center',
-                }}
-                className="absolute inset-0 z-30 book-turning-leaf flex min-h-0"
-              >
-                <div className="w-full h-full bg-[#FFFDF7] rounded-2xl border-r-2 border-[#8B5E3C] overflow-hidden flex book-turning-face-front">
-                  <BookPage
-                    page={getPageAt(prevTargetIdx)}
-                    pageNumber={prevTargetIdx + 1}
-                    totalPages={totalPages}
-                    side="single"
-                    isMobile={isMobile}
-                    isActiveSlot={false}
-                  />
-                </div>
-                <div className="book-turning-face-back" />
-              </motion.div>
-            )}
-          </>
+              );
+            })}
+          </div>
         ) : (
-          /* ==================================================================
-             TWO-PAGE SPREAD MODE (Tablet Landscape): Pre-mounted Current, Next, Prev
-             ================================================================== */
+          /* Two-Page Spread Mode (Tablet Landscape) */
           <>
-            {/* 1. Resting Current Spread */}
             <div className="relative w-full h-full z-10 flex items-stretch min-h-0">
               <BookPage
                 page={getPageAt(currentIndex)}
@@ -890,10 +891,8 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
               />
             </div>
 
-            {/* 2. Forward Turn Layers (Underneath Next Right Page + 3D Rotating Right Leaf) */}
             {canTurnNext && (
               <>
-                {/* Revealed Next Right Page Underneath */}
                 <motion.div
                   ref={underneathRef}
                   style={{
@@ -913,7 +912,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                   />
                 </motion.div>
 
-                {/* 3D Turning Right Leaf Pivoting on Center Spine (0 -> -180deg) */}
                 <motion.div
                   ref={turningForwardRef}
                   style={{
@@ -925,7 +923,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                   }}
                   className="absolute top-0 bottom-0 z-30 book-turning-leaf"
                 >
-                  {/* Front Face: Current Right Page */}
                   <div className="w-full h-full bg-[#FFFDF7] rounded-r-2xl border-l border-[#8B5E3C] overflow-hidden flex book-turning-face-front">
                     <BookPage
                       page={getPageAt(currentIndex + 1)}
@@ -937,7 +934,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                     />
                   </div>
 
-                  {/* Back Face: Next Left Page (Visible past -90deg) */}
                   <div
                     style={{
                       transform: 'rotateY(180deg) translate3d(0, 0, 0)',
@@ -959,7 +955,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
               </>
             )}
 
-            {/* 3. Backward Turn Layers (Underneath Prev Left Page + 3D Returning Leaf -180deg -> 0deg) */}
             {canTurnPrev && (
               <>
                 <motion.div
@@ -991,7 +986,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                   }}
                   className="absolute top-0 bottom-0 z-30 book-turning-leaf"
                 >
-                  {/* Front Face: Prev Right Page */}
                   <div className="w-full h-full bg-[#FFFDF7] rounded-r-2xl border-l border-[#8B5E3C] overflow-hidden flex book-turning-face-front">
                     <BookPage
                       page={getPageAt(prevTargetIdx + 1)}
@@ -1003,7 +997,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                     />
                   </div>
 
-                  {/* Back Face: Current Left Page */}
                   <div
                     style={{
                       transform: 'rotateY(180deg) translate3d(0, 0, 0)',
@@ -1027,7 +1020,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
           </>
         )}
 
-        {/* Static Gradient Spine / Flip Shadow Overlay — ONLY opacity is animated (§2) */}
+        {/* Static Gradient Spine / Flip Shadow Overlay — ONLY opacity is animated */}
         <motion.div
           style={{
             opacity: shadowOverlayOpacity,
@@ -1037,7 +1030,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
           className="absolute inset-0 pointer-events-none z-35"
         />
 
-        {/* Subtle Corner Curl Hint — ONLY opacity is animated while dragging/turning (§2 & §E) */}
+        {/* Subtle Corner Curl Hint — ONLY opacity is animated while dragging/turning */}
         <motion.div
           style={{
             opacity: curlHintOpacity,

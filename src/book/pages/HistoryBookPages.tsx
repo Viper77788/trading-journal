@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
 import { DayRecord } from '../../types/day';
 import { AccountSettings } from '../../types/settings';
@@ -370,28 +370,36 @@ export function useBookCalendarState(
   const [viewMonth, setViewMonth] = useState<number>((initMonth || 11) - 1);
   const [selectedCalDate, setSelectedCalDate] = useState<string>(todayIso);
 
-  const handleStepMonth = (delta: number) => {
-    const dt = new Date(Date.UTC(viewYear, viewMonth + delta, 1));
-    setViewYear(dt.getUTCFullYear());
-    setViewMonth(dt.getUTCMonth());
-  };
+  const handleStepMonth = useCallback((delta: number) => {
+    setViewMonth((prevMonth) => {
+      const dt = new Date(Date.UTC(viewYear, prevMonth + delta, 1));
+      setViewYear(dt.getUTCFullYear());
+      return dt.getUTCMonth();
+    });
+  }, [viewYear]);
 
-  // §B: Tapping a day selects it, and a second tap jumps to TODAY on that date
-  const handleTapDayCell = (dateIso: string) => {
-    if (selectedCalDate === dateIso) {
-      onSelectDayToEdit(dateIso);
-    } else {
-      setSelectedCalDate(dateIso);
-    }
-  };
+  const handleTapDayCell = useCallback(
+    (dateIso: string) => {
+      setSelectedCalDate((prevSelected) => {
+        if (prevSelected === dateIso) {
+          onSelectDayToEdit(dateIso);
+        }
+        return dateIso;
+      });
+    },
+    [onSelectDayToEdit]
+  );
 
-  return {
-    viewYear,
-    viewMonth,
-    selectedCalDate,
-    handleStepMonth,
-    handleTapDayCell,
-  };
+  return useMemo(
+    () => ({
+      viewYear,
+      viewMonth,
+      selectedCalDate,
+      handleStepMonth,
+      handleTapDayCell,
+    }),
+    [viewYear, viewMonth, selectedCalDate, handleStepMonth, handleTapDayCell]
+  );
 }
 
 export function buildHistoryBookPages({

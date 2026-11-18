@@ -10,20 +10,36 @@ interface DeferredBookChartProps {
 export const DeferredBookChart: React.FC<DeferredBookChartProps> = React.memo(
   ({ children, placeholderLabel = 'Loading chart...' }) => {
     const isPageActive = useContext(BookPageActiveContext);
-    const [isReady, setIsReady] = useState(false);
+    // If the page is already the active page on initial mount, render immediately with no placeholder blink.
+    // If pre-mounted as an adjacent neighbor page, wait until browser idle (when no turn is running) to mount.
+    const [hasMountedOnce, setHasMountedOnce] = useState<boolean>(() => {
+      if (
+        typeof document !== 'undefined' &&
+        document.body.dataset.bookTurning === 'true'
+      ) {
+        return false;
+      }
+      return isPageActive;
+    });
 
     useEffect(() => {
-      if (!isPageActive) {
-        setIsReady(false);
-        return;
-      }
+      if (hasMountedOnce) return;
 
       let cancelled = false;
       let timerId: number | null = null;
       let idleId: number | null = null;
 
-      // Wait 120ms after the page becomes the active resting page, then mount on idle callback (§4)
-      timerId = window.setTimeout(() => {
+      const scheduleMountWhenIdle = () => {
+        if (cancelled) return;
+        if (
+          typeof document !== 'undefined' &&
+          document.body.dataset.bookTurning === 'true'
+        ) {
+          // Wait until active turn finishes before mounting chart
+          timerId = window.setTimeout(scheduleMountWhenIdle, 100);
+          return;
+        }
+
         const ric = (
           window as unknown as {
             requestIdleCallback?: (
@@ -36,14 +52,19 @@ export const DeferredBookChart: React.FC<DeferredBookChartProps> = React.memo(
         if (typeof ric === 'function') {
           idleId = ric(
             () => {
-              if (!cancelled) setIsReady(true);
+              if (!cancelled) setHasMountedOnce(true);
             },
             { timeout: 150 }
           );
         } else {
-          if (!cancelled) setIsReady(true);
+          if (!cancelled) setHasMountedOnce(true);
         }
-      }, 120);
+      };
+
+      timerId = window.setTimeout(
+        scheduleMountWhenIdle,
+        isPageActive ? 20 : 140
+      );
 
       return () => {
         cancelled = true;
@@ -57,9 +78,9 @@ export const DeferredBookChart: React.FC<DeferredBookChartProps> = React.memo(
           cic(idleId);
         }
       };
-    }, [isPageActive]);
+    }, [isPageActive, hasMountedOnce]);
 
-    if (!isPageActive || !isReady) {
+    if (!hasMountedOnce) {
       return (
         <div className="flex-1 w-full min-h-[160px] h-full rounded-xl bg-[#FFFDF7] border border-dashed border-[#8B5E3C]/35 flex items-center justify-center text-[15px] font-bold text-[#8B5E3C]/70">
           {placeholderLabel}

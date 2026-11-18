@@ -75,9 +75,9 @@ export const DisciplineGauge: React.FC<DisciplineGaugeProps> = ({
         {/* Full-width 12px progress bar */}
         <div className="w-full h-3 rounded-full bg-[#FFFBF2] border border-[#8B5E3C] overflow-hidden">
           <motion.div
-            initial={{ width: 0 }}
+            initial={false}
             animate={{ width: isEmpty ? '0%' : `${clampedScore}%` }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
             style={{ backgroundColor: barBgColor }}
             className="h-full rounded-full"
           />
