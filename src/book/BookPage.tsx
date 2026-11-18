@@ -109,8 +109,10 @@ export const BookPage: React.FC<BookPageProps> = ({
 
       {/* ZONE 2: BODY (flex: 1, min-height: 0, overflow-y: auto, overscroll-behavior: contain) (§A) */}
       <div
-        className={`book-page-body flex flex-col px-3 sm:px-4 py-2 ${
-          page.disableBodyScroll ? '!overflow-hidden' : ''
+        className={`book-page-body flex flex-col px-3 sm:px-4 ${
+          page.disableBodyScroll
+            ? 'py-1 !overflow-hidden'
+            : 'pt-2 pb-3 sm:pb-[40px]'
         }`}
       >
         {page.content}

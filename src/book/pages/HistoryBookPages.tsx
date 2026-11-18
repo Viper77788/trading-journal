@@ -99,42 +99,32 @@ const BookCalendarPageItem: React.FC<{
 
   if (renderZone === 'header') {
     return (
-      <div className="space-y-1.5">
-        {/* Compact 1-line summary sentence (§B) */}
-        <div className="px-2.5 py-1 rounded-lg bg-[#F0DED4] border border-[#8B5E3C] text-[15px] font-bold text-[#5C3D2E] truncate">
-          {totalTradingDays === 0 ? (
-            <span>Your progress will show up after your first day.</span>
-          ) : (
-            <span>
-              Followed all rules on{' '}
-              <strong className="text-[#2F6B3A]">
-                {cleanDays} of {totalTradingDays}
-              </strong>{' '}
-              trading {totalTradingDays === 1 ? 'day' : 'days'}.
-            </span>
-          )}
-        </div>
-
-        {/* Month Prev / Title / Next Bar */}
-        <div className="px-2.5 py-1 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
+      <div className="space-y-1">
+        {/* Month Prev / Title + Compact Clean Summary / Next Bar */}
+        <div className="px-2 py-1 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-1.5">
           <button
             type="button"
             onClick={() => onStepMonth(-1)}
             aria-label="Previous month"
-            className="w-8 h-8 rounded-lg bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
+            className="w-7 h-7 rounded-lg bg-[#FFFDF7] hover:bg-[#FFFBF2] border border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer shrink-0"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="font-heading text-[17px] font-bold uppercase text-[#8B5E3C] text-center">
-            {MONTH_NAMES[viewMonth]} {viewYear}
-          </span>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0 text-center leading-tight">
+            <span className="font-heading text-[15px] sm:text-[17px] font-bold uppercase text-[#8B5E3C]">
+              {MONTH_NAMES[viewMonth]} {viewYear}
+            </span>
+            <span className="text-[13px] font-bold text-[#5C3D2E]">
+              • Clean: <strong className="text-[#2F6B3A]">{cleanDays}/{totalTradingDays}</strong>d
+            </span>
+          </div>
 
           <button
             type="button"
             onClick={() => onStepMonth(1)}
             aria-label="Next month"
-            className="w-8 h-8 rounded-lg bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
+            className="w-7 h-7 rounded-lg bg-[#FFFDF7] hover:bg-[#FFFBF2] border border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer shrink-0"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -196,22 +186,23 @@ const BookCalendarPageItem: React.FC<{
         </div>
 
         {/* Pinned 2x2 Legend Grid (§B) */}
-        <div className="px-2.5 py-1 rounded-xl bg-[#FFFBF2] border border-[#8B5E3C]/60 grid grid-cols-2 gap-x-2 gap-y-1 text-[13px] sm:text-[14px] font-bold text-[#5C3D2E]">
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="w-3.5 h-3.5 rounded-full bg-[#BFE3C0] border border-[#8B5E3C] shrink-0" />
-            <span className="truncate">Disciplined</span>
+        <div className="px-2.5 py-1 rounded-xl bg-[#FFFBF2] border border-[#8B5E3C]/60 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[13px] sm:text-[14px] font-bold text-[#5C3D2E]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-[#BFE3C0] border border-[#8B5E3C] shrink-0" />
+            <span>Disciplined</span>
           </div>
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="w-3.5 h-3.5 rounded-full bg-[#F7E2A0] border border-[#8B5E3C] shrink-0" />
-            <span className="truncate">Almost / small mistake</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-[#F7E2A0] border border-[#8B5E3C] shrink-0" />
+            <span className="sm:hidden">Almost (minor)</span>
+            <span className="hidden sm:inline">Almost / small mistake</span>
           </div>
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="w-3.5 h-3.5 rounded-full bg-[#F5B8B0] border border-[#8B5E3C] shrink-0" />
-            <span className="truncate">Rule broken</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-[#F5B8B0] border border-[#8B5E3C] shrink-0" />
+            <span>Rule broken</span>
           </div>
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="w-3.5 h-3.5 rounded-full bg-[#FFFDF7] border border-[#8B5E3C] shrink-0" />
-            <span className="truncate">No trades</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-[#FFFDF7] border border-[#8B5E3C] shrink-0" />
+            <span>No trades</span>
           </div>
         </div>
       </div>
@@ -262,13 +253,13 @@ const BookCalendarPageItem: React.FC<{
   });
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 h-full p-2 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 h-full p-1.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
       {/* Weekday Header Row */}
-      <div className="grid grid-cols-7 gap-1 text-center pb-1 border-b border-dotted border-[#8B5E3C]/40 shrink-0">
+      <div className="grid grid-cols-7 gap-0.5 text-center pb-0.5 border-b border-dotted border-[#8B5E3C]/40 shrink-0">
         {WEEKDAYS.map((dayName) => (
           <div
             key={dayName}
-            className="font-heading text-[13px] sm:text-[14px] font-bold text-[#8B5E3C] leading-none"
+            className="font-heading text-[12px] sm:text-[14px] font-bold text-[#8B5E3C] leading-none"
           >
             {dayName}
           </div>
@@ -281,10 +272,10 @@ const BookCalendarPageItem: React.FC<{
           gridTemplateRows: 'repeat(6, minmax(0, 1fr))',
           gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
         }}
-        className="flex-1 grid gap-1 pt-1 min-h-0 overflow-hidden"
+        className="flex-1 grid gap-0.5 pt-0.5 min-h-0 overflow-hidden"
       >
         {leadingBlanks.map((b) => (
-          <div key={`lead-${b}`} className="min-h-0 rounded-lg bg-transparent" />
+          <div key={`lead-${b}`} className="min-h-0 rounded-md bg-transparent" />
         ))}
 
         {monthCells.map((cell) => {
@@ -300,7 +291,7 @@ const BookCalendarPageItem: React.FC<{
               type="button"
               onClick={() => onTapDayCell(cell.date)}
               title={`Select ${cell.date}`}
-              className={`min-h-0 w-full h-full px-0.5 py-0.5 rounded-lg flex flex-col items-center justify-between overflow-hidden transition-colors cursor-pointer ${
+              className={`min-h-0 w-full h-full px-0.5 py-0.5 rounded-md flex flex-col items-center justify-between overflow-hidden transition-colors cursor-pointer ${
                 isToday
                   ? 'border-[2.5px] border-[#8B5E3C]'
                   : 'border border-[#8B5E3C]/40'
@@ -310,22 +301,18 @@ const BookCalendarPageItem: React.FC<{
                   : 'bg-[#FFFDF7] hover:bg-[#F0DED4]/45'
               }`}
             >
-              {/* Top: Day Number (14px bold — §B) */}
+              {/* Top: Day Number (12-14px bold — §B) */}
               <span
-                className={`text-[13px] sm:text-[14px] font-bold leading-none ${
+                className={`text-[12px] sm:text-[13px] font-bold leading-none ${
                   isToday ? 'font-extrabold text-[#5C3D2E]' : 'text-[#8B5E3C]'
                 }`}
               >
                 {cell.dayNum}
               </span>
 
-              {/* Middle: Status Circle sized min(100%, 24px) centered (§B) */}
+              {/* Middle: Status Circle centered (§B) */}
               <div
-                style={{
-                  width: 'min(100%, 22px)',
-                  height: 'min(100%, 22px)',
-                }}
-                className={`rounded-full border-[1.5px] border-[#8B5E3C] flex items-center justify-center shrink-0 ${
+                className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#8B5E3C] flex items-center justify-center shrink-0 ${
                   isGreen
                     ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                     : isYellow
@@ -335,27 +322,27 @@ const BookCalendarPageItem: React.FC<{
                         : 'bg-[#FFFDF7]'
                 }`}
               >
-                {isGreen && <Check className="w-3 h-3 stroke-[3]" />}
+                {isGreen && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                 {isYellow && (
-                  <span className="text-[13px] font-extrabold leading-none">
+                  <span className="text-[11px] font-extrabold leading-none">
                     ~
                   </span>
                 )}
-                {isRed && <X className="w-3 h-3 stroke-[3]" />}
+                {isRed && <X className="w-2.5 h-2.5 stroke-[3]" />}
               </div>
 
               {/* Bottom: Compact P&L label (12px bold, no decimals, no $, k over 999, clip — §B) */}
               {cell.hasTrades ? (
                 <span
                   style={{ textOverflow: 'clip' }}
-                  className={`w-full text-center text-[12px] font-bold leading-none overflow-hidden whitespace-nowrap ${
+                  className={`w-full text-center text-[11px] sm:text-[12px] font-bold leading-none overflow-hidden whitespace-nowrap ${
                     cell.pnl >= 0 ? 'text-[#2F6B3A]' : 'text-[#9B2C20]'
                   }`}
                 >
                   {formatBookCellCompactPnl(cell.pnl)}
                 </span>
               ) : (
-                <span className="h-[12px] leading-none" />
+                <span className="h-[11px] leading-none" />
               )}
             </button>
           );
