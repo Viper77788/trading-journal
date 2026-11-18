@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { BookPageActiveContext } from '../DeferredBookChart';
 import {
   DayRecord,
   SessionChecklistState,
@@ -71,6 +72,9 @@ interface TodayBookPagesProps {
     title: string,
     type: 'success' | 'warning' | 'error' | 'info'
   ) => void;
+  onJumpToPage?: (targetPageIdx: number) => void;
+  openAddTradeSignal?: number;
+  onRequestAddTrade?: () => void;
 }
 
 const EMOTION_CHIP_META: Array<{
@@ -152,6 +156,7 @@ const BookTradesSection: React.FC<{
   onUpdateTrade: TodayBookPagesProps['onUpdateTrade'];
   onDeleteTrade: TodayBookPagesProps['onDeleteTrade'];
   onNotify: TodayBookPagesProps['onNotify'];
+  openAddTradeSignal?: number;
 }> = ({
   isMobile,
   includeInlineTotalBar = false,
@@ -163,7 +168,9 @@ const BookTradesSection: React.FC<{
   onUpdateTrade,
   onDeleteTrade,
   onNotify,
+  openAddTradeSignal = 0,
 }) => {
+  const isActivePageSlot = useContext(BookPageActiveContext);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingTradeId, setEditingTradeId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -237,6 +244,16 @@ const BookTradesSection: React.FC<{
     setShowMoreDetails(false);
     setIsSheetOpen(true);
   };
+
+  const lastHandledSignalRef = useRef<number>(openAddTradeSignal);
+  useEffect(() => {
+    if (!isActivePageSlot) return;
+    if (openAddTradeSignal > 0 && openAddTradeSignal !== lastHandledSignalRef.current) {
+      lastHandledSignalRef.current = openAddTradeSignal;
+      openNewTradeSheet();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAddTradeSignal, isActivePageSlot]);
 
   const openEditTradeSheet = (t: TradeEntry) => {
     setEditingTradeId(t.id);
@@ -318,7 +335,7 @@ const BookTradesSection: React.FC<{
       : '0.0';
 
   const sheetOrModalPortal =
-    typeof document !== 'undefined'
+    typeof document !== 'undefined' && isActivePageSlot
       ? createPortal(
           <AnimatePresence>
             {isSheetOpen && (
@@ -654,7 +671,7 @@ const BookTradesSection: React.FC<{
 
   return (
     <div className="flex-1 flex flex-col gap-2">
-      {/* Top Rule Summary + Header ADD TRADE Button ONLY when trades.length > 0 (§G) */}
+      {/* Top Rule Summary + Header ADD TRADE Button */}
       <div className="px-3 py-2 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="text-[16px] sm:text-[17px] font-bold text-[#5C3D2E]">
           Max <strong>{settings.maxTradesPerDay}</strong> trades • Limit{' '}
@@ -663,21 +680,20 @@ const BookTradesSection: React.FC<{
           </strong>
         </div>
 
-        {trades.length > 0 && (
-          <button
-            type="button"
-            disabled={isAtLimit}
-            onClick={openNewTradeSheet}
-            className={`min-h-[48px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 transition-transform ${
-              isAtLimit
-                ? 'bg-[#F0DED4] text-[#8B5E3C]/60 cursor-not-allowed'
-                : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer'
-            }`}
-          >
-            <Plus className="w-4 h-4 stroke-[2.8]" />
-            <span>ADD TRADE</span>
-          </button>
-        )}
+        <button
+          type="button"
+          data-no-page-swipe="true"
+          disabled={isAtLimit}
+          onClick={openNewTradeSheet}
+          className={`min-h-[48px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 transition-transform ${
+            isAtLimit
+              ? 'bg-[#F0DED4] text-[#8B5E3C]/60 cursor-not-allowed'
+              : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer'
+          }`}
+        >
+          <Plus className="w-4 h-4 stroke-[2.8]" />
+          <span>ADD TRADE</span>
+        </button>
       </div>
 
       {isAtLimit && (
@@ -686,7 +702,7 @@ const BookTradesSection: React.FC<{
         </div>
       )}
 
-      {/* Trade Cards or Empty State (with single ADD TRADE button when empty — §G) */}
+      {/* Trade Cards or Empty State */}
       <div className="flex-1 flex flex-col gap-2">
         {trades.length === 0 ? (
           <div className="flex-1 p-4 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center gap-2.5 min-h-[140px]">
@@ -695,6 +711,7 @@ const BookTradesSection: React.FC<{
             </div>
             <button
               type="button"
+              data-no-page-swipe="true"
               onClick={openNewTradeSheet}
               className="min-h-[52px] px-5 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[17px] font-bold uppercase text-[#2F6B3A] inline-flex items-center gap-2 cursor-pointer"
             >
@@ -758,6 +775,7 @@ const BookTradesSection: React.FC<{
 
                       <button
                         type="button"
+                        data-no-page-swipe="true"
                         onClick={() => openEditTradeSheet(trade)}
                         aria-label="Edit trade"
                         className="w-[38px] h-[38px] rounded-xl bg-[#FFFBF2] hover:bg-[#F2D29B] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
@@ -766,6 +784,7 @@ const BookTradesSection: React.FC<{
                       </button>
                       <button
                         type="button"
+                        data-no-page-swipe="true"
                         onClick={() =>
                           setConfirmDeleteId((prev) =>
                             prev === trade.id ? null : trade.id
@@ -897,6 +916,9 @@ export function buildTodayBookPages({
   onDeleteTrade,
   onUpdateAudit,
   onNotify,
+  onJumpToPage,
+  openAddTradeSignal = 0,
+  onRequestAddTrade,
 }: TodayBookPagesProps): BookPageData[] {
   const todayIso = getTodayDateISO();
   const dayEval = evaluateDayDiscipline(day, settings);
@@ -904,6 +926,15 @@ export function buildTodayBookPages({
   const weekDays = getWeekDatesMondayToSunday(selectedDate);
   const effectiveAudit = getEffectiveAuditAnswers(day, settings);
   const maxRiskDollar = getMaxRiskDollar(settings);
+
+  const tradesPageIndex =
+    layoutMode === 'mobile'
+      ? 3
+      : layoutMode === 'tablet-portrait'
+        ? 1
+        : 2;
+  const checklistPageIndex = layoutMode === 'mobile' ? 2 : 1;
+  const dailySheetPageIndex = 0;
 
   const checklistItems: Array<{
     key: keyof SessionChecklistState;
@@ -1190,6 +1221,7 @@ export function buildTodayBookPages({
           </span>
           <button
             type="button"
+            data-no-page-swipe="true"
             onClick={() =>
               onUpdateChecklist({
                 checkedEconomicCalendar: true,
@@ -1203,8 +1235,20 @@ export function buildTodayBookPages({
           </button>
         </div>
       ) : (
-        <div className="p-3 rounded-2xl bg-[#BFE3C0] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#2F6B3A] text-center">
-          You&apos;re ready to trade! ✓
+        <div className="p-3 rounded-2xl bg-[#BFE3C0] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[17px] font-extrabold text-[#2F6B3A]">
+            You&apos;re ready to trade! ✓
+          </span>
+          {layoutMode !== 'tablet-portrait' && onJumpToPage && (
+            <button
+              type="button"
+              data-no-page-swipe="true"
+              onClick={() => onJumpToPage(tradesPageIndex)}
+              className="min-h-[42px] px-3.5 rounded-xl bg-[#FFFDF7] hover:bg-[#F2D29B] border-2 border-[#8B5E3C] font-heading text-[15px] font-bold uppercase text-[#5C3D2E] cursor-pointer shrink-0"
+            >
+              Open My Trades →
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1265,29 +1309,66 @@ export function buildTodayBookPages({
     </div>
   );
 
-  // Shared Day Recap Block
+  // Shared Day Recap Block (with interactive pills that jump to Checklist / My Trades / Daily Sheet)
   const dayRecapCard = (
-    <div className="p-2.5 sm:p-3 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-1.5 shrink-0">
-      <div className="font-heading text-[15px] sm:text-[16px] font-bold uppercase text-[#8B5E3C]">
-        DAY RECAP SUMMARY
+    <div className="p-2.5 sm:p-3 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-2 shrink-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-heading text-[15px] sm:text-[16px] font-bold uppercase text-[#8B5E3C]">
+          DAY RECAP SUMMARY
+        </div>
+        <button
+          type="button"
+          data-no-page-swipe="true"
+          onClick={() => {
+            if (onRequestAddTrade) {
+              onRequestAddTrade();
+            } else {
+              onJumpToPage?.(tradesPageIndex);
+            }
+          }}
+          className="min-h-[36px] px-3 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[14px] font-bold uppercase text-[#2F6B3A] inline-flex items-center gap-1 cursor-pointer shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
+          <span>ADD TRADE</span>
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-1.5 text-[15px] sm:text-[16px] font-bold text-[#5C3D2E]">
-        <div className="p-2 rounded-lg bg-[#DCEEF2]/70 border border-[#8B5E3C]">
+        <button
+          type="button"
+          data-no-page-swipe="true"
+          onClick={() => onJumpToPage?.(checklistPageIndex)}
+          className="p-2 rounded-lg bg-[#DCEEF2]/70 hover:bg-[#DCEEF2] border border-[#8B5E3C] text-left cursor-pointer transition-colors"
+        >
           Checklist: <strong>{checkedCount}/3</strong>
-        </div>
-        <div className="p-2 rounded-lg bg-[#F2D29B]/70 border border-[#8B5E3C]">
+        </button>
+        <button
+          type="button"
+          data-no-page-swipe="true"
+          onClick={() => onJumpToPage?.(tradesPageIndex)}
+          className="p-2 rounded-lg bg-[#F2D29B]/70 hover:bg-[#F2D29B] border border-[#8B5E3C] text-left cursor-pointer transition-colors"
+        >
           Trades:{' '}
           <strong>
             {day.trades.length}/{settings.maxTradesPerDay}
           </strong>
-        </div>
-        <div className="p-2 rounded-lg bg-[#BFE3C0]/70 border border-[#8B5E3C]">
+        </button>
+        <button
+          type="button"
+          data-no-page-swipe="true"
+          onClick={() => onJumpToPage?.(dailySheetPageIndex)}
+          className="p-2 rounded-lg bg-[#BFE3C0]/70 hover:bg-[#BFE3C0] border border-[#8B5E3C] text-left cursor-pointer transition-colors"
+        >
           Score:{' '}
           <strong>{dayEval.isEmpty ? '-' : `${dayEval.score}/100`}</strong>
-        </div>
-        <div className="p-2 rounded-lg bg-[#E2DCEB]/70 border border-[#8B5E3C]">
+        </button>
+        <button
+          type="button"
+          data-no-page-swipe="true"
+          onClick={() => onJumpToPage?.(tradesPageIndex)}
+          className="p-2 rounded-lg bg-[#E2DCEB]/70 hover:bg-[#E2DCEB] border border-[#8B5E3C] text-left cursor-pointer transition-colors"
+        >
           Net P&amp;L: <strong>{formatCurrency(totalPnl, true)}</strong>
-        </div>
+        </button>
       </div>
     </div>
   );
@@ -1355,6 +1436,7 @@ export function buildTodayBookPages({
             onUpdateTrade={onUpdateTrade}
             onDeleteTrade={onDeleteTrade}
             onNotify={onNotify}
+            openAddTradeSignal={openAddTradeSignal}
           />
         ),
         pinnedFooter: (
@@ -1435,6 +1517,7 @@ export function buildTodayBookPages({
               onUpdateTrade={onUpdateTrade}
               onDeleteTrade={onDeleteTrade}
               onNotify={onNotify}
+              openAddTradeSignal={openAddTradeSignal}
             />
           </div>
         ),
@@ -1529,6 +1612,7 @@ export function buildTodayBookPages({
           onUpdateTrade={onUpdateTrade}
           onDeleteTrade={onDeleteTrade}
           onNotify={onNotify}
+          openAddTradeSignal={openAddTradeSignal}
         />
       ),
       pinnedFooter: (

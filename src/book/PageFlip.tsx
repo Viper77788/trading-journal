@@ -1,4 +1,5 @@
 import React, {
+  useState,
   useRef,
   useEffect,
   useLayoutEffect,
@@ -70,10 +71,6 @@ function shouldIgnoreSwipeTarget(target: EventTarget | null): boolean {
   ) {
     return true;
   }
-  const inputOrTextarea = el.closest('input, textarea');
-  if (inputOrTextarea && document.activeElement === inputOrTextarea) {
-    return true;
-  }
   return false;
 }
 
@@ -128,13 +125,17 @@ const SingleDeckPageItem: React.FC<SingleDeckPageItemProps> = React.memo(
           if (effectiveStyle === 'slide') {
             return `translate3d(${(-clamped * 100).toFixed(2)}%, 0px, 0px)`;
           }
-          const deg = (-clamped * 100).toFixed(2);
-          const tx = (-clamped * 8).toFixed(2);
+          const deg = (-clamped * 88).toFixed(2);
+          const tx = (-clamped * 6).toFixed(2);
           return `translate3d(${tx}%, 0px, 0px) rotateY(${deg}deg)`;
         }
-        if (p < -0.0005 && effectiveStyle === 'slide') {
+        if (p < -0.0005) {
           const clamped = Math.max(-1, p); // -1 -> 0
-          return `translate3d(${((-clamped) * 100).toFixed(2)}%, 0px, 0px)`;
+          if (effectiveStyle === 'slide') {
+            return `translate3d(${(-clamped * 100).toFixed(2)}%, 0px, 0px)`;
+          }
+          const offsetPx = -clamped * 14;
+          return `translate3d(${offsetPx.toFixed(1)}px, 0px, 0px) rotateY(0deg)`;
         }
         return 'translate3d(0px, 0px, 0px) rotateY(0deg)';
       }
@@ -150,19 +151,19 @@ const SingleDeckPageItem: React.FC<SingleDeckPageItemProps> = React.memo(
         return `translate3d(${offsetPx.toFixed(1)}px, 0px, 0px)`;
       }
 
-      // role === 'prev' (returning from -1 -> 0)
+      // role === 'prev' (returning from -1 -> 0, strictly between -88deg and 0deg so never culled!)
       if (p >= -0.0005) {
         return effectiveStyle === 'slide'
           ? 'translate3d(-100%, 0px, 0px)'
-          : 'translate3d(-8%, 0px, 0px) rotateY(-100deg)';
+          : 'translate3d(-6%, 0px, 0px) rotateY(-88deg)';
       }
       const clamped = Math.max(-1, p); // -1 -> 0
       const t = 1 + clamped; // 0 at complete prev (-1), 1 at start (0)
       if (effectiveStyle === 'slide') {
         return `translate3d(${(-t * 100).toFixed(2)}%, 0px, 0px)`;
       }
-      const deg = (-t * 100).toFixed(2);
-      const tx = (-t * 8).toFixed(2);
+      const deg = (-t * 88).toFixed(2);
+      const tx = (-t * 6).toFixed(2);
       return `translate3d(${tx}%, 0px, 0px) rotateY(${deg}deg)`;
     });
 
@@ -245,28 +246,10 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
     const activeAnimRef = useRef<AnimationPlaybackControls | null>(null);
     const pendingTurnRef = useRef<'next' | 'prev' | null>(null);
     const customJumpTargetRef = useRef<number | null>(null);
+    const [jumpTargetState, setJumpTargetState] = useState<number | null>(null);
 
     const gestureRef = useRef<GestureState | null>(null);
     const suppressClickRef = useRef<boolean>(false);
-
-    // Frame-time monitor for auto-fallback on slow devices (§7)
-    const turnCountRef = useRef<number>(0);
-    const fallbackTriggeredRef = useRef<boolean>(false);
-
-    useEffect(() => {
-      if (effectiveStyle !== '3d' || fallbackTriggeredRef.current) return;
-      try {
-        const cores = navigator.hardwareConcurrency || 8;
-        const mem = (navigator as unknown as { deviceMemory?: number })
-          .deviceMemory;
-        if (cores <= 4 && mem !== undefined && mem <= 4) {
-          fallbackTriggeredRef.current = true;
-          onAutoFallbackToSlide?.();
-        }
-      } catch {
-        // Ignore
-      }
-    }, [effectiveStyle, onAutoFallbackToSlide]);
 
     const setLayersWillChange = useCallback((active: boolean) => {
       if (willChangeTimerRef.current !== null) {
@@ -332,6 +315,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
     // AFTER React has updated the DOM with the new currentIndex and BEFORE the browser paints!
     useLayoutEffect(() => {
       progress.jump(0);
+      setJumpTargetState(null);
     }, [currentIndex, progress]);
 
     // Animate progress to target (-1, 0, or +1) using velocity-aware spring (§5)
@@ -347,7 +331,6 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
           totalPages: total,
           effectiveStyle: style,
           onCommitIndex: commit,
-          onAutoFallbackToSlide: triggerFallback,
         } = stateRef.current;
 
         if (style === 'instant' && targetProgress !== 0) {
@@ -358,6 +341,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                 ? Math.min(total - 1, curIdx + step)
                 : Math.max(0, curIdx - step);
           customJumpTargetRef.current = null;
+          setJumpTargetState(null);
           setLayersWillChange(false);
           commit(destIdx);
           return;
@@ -366,66 +350,28 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         activeAnimRef.current?.stop();
         setLayersWillChange(true);
 
-        let rafId: number | null = null;
-        const frameDeltas: number[] = [];
-        let lastFrameTime = performance.now();
-
-        if (
-          style === '3d' &&
-          targetProgress !== 0 &&
-          turnCountRef.current < 3 &&
-          !fallbackTriggeredRef.current
-        ) {
-          const measureLoop = (now: number) => {
-            const dt = now - lastFrameTime;
-            lastFrameTime = now;
-            if (dt > 0 && dt < 250) {
-              frameDeltas.push(dt);
-            }
-            rafId = window.requestAnimationFrame(measureLoop);
-          };
-          rafId = window.requestAnimationFrame(measureLoop);
-        }
-
         const transitionConfig = useCrossSlideDuration
           ? {
               type: 'tween' as const,
-              duration: 0.32,
+              duration: 0.28,
               ease: [0.22, 0.61, 0.36, 1] as [number, number, number, number],
             }
           : {
               type: 'spring' as const,
-              stiffness: 260,
+              stiffness: 280,
               damping: 32,
-              mass: 0.9,
+              mass: 0.85,
               velocity: releaseVelocity,
-              restDelta: 0.004,
-              restSpeed: 0.02,
+              restDelta: 0.002,
+              restSpeed: 0.01,
             };
 
         activeAnimRef.current = animate(progress, targetProgress, {
           ...transitionConfig,
           onComplete: () => {
-            if (rafId !== null) {
-              window.cancelAnimationFrame(rafId);
-            }
             activeAnimRef.current = null;
 
             if (targetProgress !== 0) {
-              turnCountRef.current += 1;
-              if (
-                style === '3d' &&
-                !fallbackTriggeredRef.current &&
-                frameDeltas.length >= 6
-              ) {
-                const avgFrameMs =
-                  frameDeltas.reduce((a, b) => a + b, 0) / frameDeltas.length;
-                if (avgFrameMs > 28) {
-                  fallbackTriggeredRef.current = true;
-                  triggerFallback?.();
-                }
-              }
-
               const latest = stateRef.current;
               const nextIdx =
                 customJumpTargetRef.current !== null
@@ -445,6 +391,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                 commit(nextIdx);
               } else {
                 progress.jump(0);
+                setJumpTargetState(null);
               }
 
               const queued = pendingTurnRef.current;
@@ -465,6 +412,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
               }
             } else {
               customJumpTargetRef.current = null;
+              setJumpTargetState(null);
               progress.jump(0);
               setLayersWillChange(false);
             }
@@ -486,6 +434,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
             return;
           }
           customJumpTargetRef.current = null;
+          setJumpTargetState(null);
           if (style === 'instant') {
             animateToTarget(1, 0, false);
             return;
@@ -501,6 +450,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
             return;
           }
           customJumpTargetRef.current = null;
+          setJumpTargetState(null);
           if (style === 'instant') {
             animateToTarget(-1, 0, false);
             return;
@@ -514,6 +464,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
           activeAnimRef.current?.stop();
           pendingTurnRef.current = null;
           customJumpTargetRef.current = clamped;
+          setJumpTargetState(clamped);
           const dir: 1 | -1 = clamped > curIdx ? 1 : -1;
           animateToTarget(dir, 0, true);
         },
@@ -532,12 +483,9 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         return;
       }
 
-      if (activeAnimRef.current) {
-        activeAnimRef.current.stop();
-        activeAnimRef.current = null;
-        pendingTurnRef.current = null;
-      }
-
+      // Note: Do NOT stop activeAnimRef here on pointerdown!
+      // Only stop activeAnimRef in moveGesture once a horizontal swipe is actually locked,
+      // so normal clicks/taps never abort an in-flight turn animation.
       gestureRef.current = {
         active: true,
         lockedHorizontal: null,
@@ -546,7 +494,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         lastX: clientX,
         lastTime: performance.now(),
         velocityPxPerMs: 0,
-        startProgress: progress.get(),
+        startProgress: activeAnimRef.current ? 0 : progress.get(),
         pointerId,
       };
     };
@@ -570,11 +518,29 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       if (g.lockedHorizontal === null) {
         const absX = Math.abs(dx);
         const absY = Math.abs(dy);
-        if (absX < 10 && absY < 10) return;
+        if (absX < 8 && absY < 8) return;
 
-        if (absX > 10 && absX > absY * 1.3) {
+        if (absX > 8 && absX > absY * 1.15) {
           g.lockedHorizontal = true;
           suppressClickRef.current = true;
+          if (activeAnimRef.current) {
+            activeAnimRef.current.stop();
+            activeAnimRef.current = null;
+            pendingTurnRef.current = null;
+            g.startProgress = progress.get();
+          }
+          // Clear any text selection / focus inside <textarea> so dragging across Page 5's notepad slides cleanly
+          try {
+            window.getSelection?.()?.removeAllRanges();
+            if (
+              document.activeElement instanceof HTMLTextAreaElement ||
+              document.activeElement instanceof HTMLInputElement
+            ) {
+              document.activeElement.blur();
+            }
+          } catch {
+            // Ignore
+          }
           setLayersWillChange(true);
           if (g.pointerId !== null && containerRef.current) {
             try {
@@ -583,7 +549,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
               // Ignore
             }
           }
-        } else if (absY > 12 && absY > absX * 1.3) {
+        } else if (absY > 12 && absY > absX * 1.2) {
           g.lockedHorizontal = false;
           g.active = false;
           return;
@@ -602,9 +568,9 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       let nextProg = g.startProgress + rawDelta;
 
       if (nextProg > 0 && !stateRef.current.canTurnNext) {
-        nextProg = Math.min(0.28, nextProg * 0.3);
+        nextProg = Math.min(0.25, nextProg * 0.25);
       } else if (nextProg < 0 && !stateRef.current.canTurnPrev) {
-        nextProg = Math.max(-0.28, nextProg * 0.3);
+        nextProg = Math.max(-0.25, nextProg * 0.25);
       } else {
         nextProg = Math.max(-0.98, Math.min(0.98, nextProg));
       }
@@ -617,6 +583,9 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       gestureRef.current = null;
 
       if (!g || !g.active || !g.lockedHorizontal) {
+        if (!activeAnimRef.current && Math.abs(progress.get()) > 0.0005) {
+          animateToTarget(0, 0, false);
+        }
         return;
       }
 
@@ -645,15 +614,15 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
 
       let target: -1 | 0 | 1 = 0;
       if (
-        (curProg >= 0.25 || (dx < -18 && vx <= -0.35)) &&
+        (curProg >= 0.12 || dx <= -42 || (dx <= -14 && vx <= -0.15)) &&
         canNext &&
-        curProg > -0.05
+        curProg > -0.02
       ) {
         target = 1;
       } else if (
-        (curProg <= -0.25 || (dx > 18 && vx >= 0.35)) &&
+        (curProg <= -0.12 || dx >= 42 || (dx >= 14 && vx >= 0.15)) &&
         canPrev &&
-        curProg < 0.05
+        curProg < 0.02
       ) {
         target = -1;
       }
@@ -662,7 +631,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
 
       window.setTimeout(() => {
         suppressClickRef.current = false;
-      }, 90);
+      }, 80);
     };
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -684,9 +653,9 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
 
     const handlePointerCancel = () => {
       gestureRef.current = null;
-      if (Math.abs(progress.get()) > 0.001) {
+      if (!activeAnimRef.current && Math.abs(progress.get()) > 0.001) {
         animateToTarget(0, 0, false);
-      } else {
+      } else if (!activeAnimRef.current) {
         setLayersWillChange(false);
       }
       window.setTimeout(() => {
@@ -734,23 +703,66 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       p < -0.0005 ? 'visible' : 'hidden'
     );
 
-    const spreadForwardTransform = useTransform(progress, (p) => {
+    // In 3D spread mode, split the 180deg flip cleanly at the 90deg vertical spine midpoint
+    // so neither leaf EVER exceeds 90deg or gets culled by backface-visibility!
+    const spreadForwardRightLeafVisibility = useTransform(progress, (p) =>
+      effectiveStyle !== 'slide' && p > 0.0005 && p < 0.5 ? 'visible' : 'hidden'
+    );
+    const spreadForwardRightLeafTransform = useTransform(progress, (p) => {
       if (p <= 0) return 'rotateY(0deg)';
-      const clamped = Math.min(1, p);
-      if (effectiveStyle === 'slide') {
-        return `translate3d(${(-clamped * 100).toFixed(2)}%, 0px, 0px)`;
-      }
-      return `rotateY(${(-clamped * 180).toFixed(2)}deg)`;
+      const t = Math.min(1, p * 2); // 0 -> 1 as p goes 0 -> 0.5
+      return `rotateY(${(-t * 90).toFixed(2)}deg)`;
     });
 
-    const spreadBackwardTransform = useTransform(progress, (p) => {
-      if (p >= 0) return 'rotateY(-180deg)';
-      const clamped = Math.max(-1, p); // -1 -> 0
-      const t = 1 + clamped; // 0 -> 1
-      if (effectiveStyle === 'slide') {
-        return `translate3d(${((1 - t) * 100).toFixed(2)}%, 0px, 0px)`;
+    const spreadForwardLeftLeafVisibility = useTransform(progress, (p) =>
+      effectiveStyle !== 'slide' && p >= 0.5 ? 'visible' : 'hidden'
+    );
+    const spreadForwardLeftLeafTransform = useTransform(progress, (p) => {
+      if (p < 0.5) return 'rotateY(90deg)';
+      const t = Math.min(1, (p - 0.5) * 2); // 0 -> 1 as p goes 0.5 -> 1.0
+      return `rotateY(${((1 - t) * 90).toFixed(2)}deg)`;
+    });
+
+    const spreadBackwardLeftLeafVisibility = useTransform(progress, (p) =>
+      effectiveStyle !== 'slide' && p < -0.0005 && p > -0.5
+        ? 'visible'
+        : 'hidden'
+    );
+    const spreadBackwardLeftLeafTransform = useTransform(progress, (p) => {
+      if (p >= 0) return 'rotateY(0deg)';
+      const t = Math.min(1, -p * 2); // 0 -> 1 as p goes 0 -> -0.5
+      return `rotateY(${(t * 90).toFixed(2)}deg)`;
+    });
+
+    const spreadBackwardRightLeafVisibility = useTransform(progress, (p) =>
+      effectiveStyle !== 'slide' && p <= -0.5 ? 'visible' : 'hidden'
+    );
+    const spreadBackwardRightLeafTransform = useTransform(progress, (p) => {
+      if (p > -0.5) return 'rotateY(-90deg)';
+      const t = Math.min(1, (-p - 0.5) * 2); // 0 -> 1 as p goes -0.5 -> -1.0
+      return `rotateY(${(-(1 - t) * 90).toFixed(2)}deg)`;
+    });
+
+    // In 'slide' spread mode, smoothly slide the entire 2-page spread horizontally
+    const spreadRestingSlideTransform = useTransform(progress, (p) => {
+      if (effectiveStyle !== 'slide' || Math.abs(p) <= 0.0005) {
+        return 'translate3d(0%, 0px, 0px)';
       }
-      return `rotateY(${(-t * 180).toFixed(2)}deg)`;
+      return `translate3d(${(-p * 100).toFixed(2)}%, 0px, 0px)`;
+    });
+    const spreadForwardSlideVisibility = useTransform(progress, (p) =>
+      effectiveStyle === 'slide' && p > 0.0005 ? 'visible' : 'hidden'
+    );
+    const spreadForwardSlideTransform = useTransform(progress, (p) => {
+      const clamped = Math.min(1, Math.max(0, p));
+      return `translate3d(${((1 - clamped) * 100).toFixed(2)}%, 0px, 0px)`;
+    });
+    const spreadBackwardSlideVisibility = useTransform(progress, (p) =>
+      effectiveStyle === 'slide' && p < -0.0005 ? 'visible' : 'hidden'
+    );
+    const spreadBackwardSlideTransform = useTransform(progress, (p) => {
+      const clamped = Math.max(-1, Math.min(0, p)); // -1 -> 0
+      return `translate3d(${((-1 - clamped) * 100).toFixed(2)}%, 0px, 0px)`;
     });
 
     const shadowOverlayOpacity = useTransform(
@@ -772,13 +784,16 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
       return BLANK_RIGHT_LEAF;
     };
 
+    const activeJumpIdx =
+      jumpTargetState !== null ? jumpTargetState : customJumpTargetRef.current;
+
     const nextTargetIdx =
-      customJumpTargetRef.current !== null
-        ? customJumpTargetRef.current
+      activeJumpIdx !== null && activeJumpIdx > currentIndex
+        ? activeJumpIdx
         : Math.min(totalPages - 1, currentIndex + stepSize);
     const prevTargetIdx =
-      customJumpTargetRef.current !== null
-        ? customJumpTargetRef.current
+      activeJumpIdx !== null && activeJumpIdx < currentIndex
+        ? activeJumpIdx
         : Math.max(0, currentIndex - stepSize);
 
     const triggerPrev = useCallback(() => {
@@ -861,7 +876,10 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
         ) : (
           /* Two-Page Spread Mode (Tablet Landscape) */
           <>
-            <div className="relative w-full h-full z-10 flex items-stretch min-h-0">
+            <motion.div
+              style={{ transform: spreadRestingSlideTransform }}
+              className="relative w-full h-full z-10 flex items-stretch min-h-0"
+            >
               <BookPage
                 page={getPageAt(currentIndex)}
                 pageNumber={currentIndex + 1}
@@ -889,58 +907,18 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                 isActiveSlot={true}
                 onEdgeTapNext={canTurnNext ? triggerNext : undefined}
               />
-            </div>
+            </motion.div>
 
+            {/* Forward Turn Layers (3D & Slide) */}
             {canTurnNext && (
               <>
-                <motion.div
-                  ref={underneathRef}
-                  style={{
-                    visibility: forwardLayerVisibility,
-                    left: 'calc(50% + 14px)',
-                    width: 'calc(50% - 14px)',
-                  }}
-                  className="absolute top-0 bottom-0 z-20 flex min-h-0 pointer-events-none"
-                >
-                  <BookPage
-                    page={getPageAt(nextTargetIdx + 1)}
-                    pageNumber={nextTargetIdx + 2}
-                    totalPages={totalPages}
-                    side="right"
-                    isMobile={false}
-                    isActiveSlot={false}
-                  />
-                </motion.div>
-
-                <motion.div
-                  ref={turningForwardRef}
-                  style={{
-                    visibility: forwardLayerVisibility,
-                    transform: spreadForwardTransform,
-                    transformOrigin: 'left center',
-                    left: 'calc(50% + 14px)',
-                    width: 'calc(50% - 14px)',
-                  }}
-                  className="absolute top-0 bottom-0 z-30 book-turning-leaf"
-                >
-                  <div className="w-full h-full bg-[#FFFDF7] rounded-r-2xl border-l border-[#8B5E3C] overflow-hidden flex book-turning-face-front">
-                    <BookPage
-                      page={getPageAt(currentIndex + 1)}
-                      pageNumber={currentIndex + 2}
-                      totalPages={totalPages}
-                      side="right"
-                      isMobile={false}
-                      isActiveSlot={false}
-                    />
-                  </div>
-
-                  <div
+                {effectiveStyle === 'slide' ? (
+                  <motion.div
                     style={{
-                      transform: 'rotateY(180deg) translate3d(0, 0, 0)',
-                      backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden',
+                      visibility: spreadForwardSlideVisibility,
+                      transform: spreadForwardSlideTransform,
                     }}
-                    className="absolute inset-0 w-full h-full bg-[#FFFDF7] rounded-l-2xl border-r border-[#8B5E3C] overflow-hidden flex"
+                    className="absolute inset-0 z-25 flex items-stretch min-h-0 bg-[#FFFDF7] pointer-events-none"
                   >
                     <BookPage
                       page={getPageAt(nextTargetIdx)}
@@ -950,43 +928,117 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                       isMobile={false}
                       isActiveSlot={false}
                     />
-                  </div>
-                </motion.div>
+                    <div className="book-center-spine">
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                    </div>
+                    <BookPage
+                      page={getPageAt(nextTargetIdx + 1)}
+                      pageNumber={nextTargetIdx + 2}
+                      totalPages={totalPages}
+                      side="right"
+                      isMobile={false}
+                      isActiveSlot={false}
+                    />
+                  </motion.div>
+                ) : (
+                  <>
+                    {/* Underneath Right Page revealed during forward turn */}
+                    <motion.div
+                      ref={underneathRef}
+                      style={{
+                        visibility: forwardLayerVisibility,
+                        left: 'calc(50% + 14px)',
+                        width: 'calc(50% - 14px)',
+                      }}
+                      className="absolute top-0 bottom-0 z-20 flex min-h-0 pointer-events-none"
+                    >
+                      <BookPage
+                        page={getPageAt(nextTargetIdx + 1)}
+                        pageNumber={nextTargetIdx + 2}
+                        totalPages={totalPages}
+                        side="right"
+                        isMobile={false}
+                        isActiveSlot={false}
+                      />
+                    </motion.div>
+
+                    {/* First Half of Forward Turn (0 -> 0.5): Right page lifts 0deg -> -90deg */}
+                    <motion.div
+                      ref={turningForwardRef}
+                      style={{
+                        visibility: spreadForwardRightLeafVisibility,
+                        transform: spreadForwardRightLeafTransform,
+                        transformOrigin: 'left center',
+                        left: 'calc(50% + 14px)',
+                        width: 'calc(50% - 14px)',
+                      }}
+                      className="absolute top-0 bottom-0 z-30 bg-[#FFFDF7] rounded-r-2xl border-l border-[#8B5E3C] overflow-hidden flex pointer-events-none"
+                    >
+                      <BookPage
+                        page={getPageAt(currentIndex + 1)}
+                        pageNumber={currentIndex + 2}
+                        totalPages={totalPages}
+                        side="right"
+                        isMobile={false}
+                        isActiveSlot={false}
+                      />
+                    </motion.div>
+
+                    {/* Second Half of Forward Turn (0.5 -> 1.0): New left page folds +90deg -> 0deg */}
+                    <motion.div
+                      style={{
+                        visibility: spreadForwardLeftLeafVisibility,
+                        transform: spreadForwardLeftLeafTransform,
+                        transformOrigin: 'right center',
+                        left: 0,
+                        width: 'calc(50% - 14px)',
+                      }}
+                      className="absolute top-0 bottom-0 z-30 bg-[#FFFDF7] rounded-l-2xl border-r border-[#8B5E3C] overflow-hidden flex pointer-events-none"
+                    >
+                      <BookPage
+                        page={getPageAt(nextTargetIdx)}
+                        pageNumber={nextTargetIdx + 1}
+                        totalPages={totalPages}
+                        side="left"
+                        isMobile={false}
+                        isActiveSlot={false}
+                      />
+                    </motion.div>
+                  </>
+                )}
               </>
             )}
 
+            {/* Backward Turn Layers (3D & Slide) */}
             {canTurnPrev && (
               <>
-                <motion.div
-                  style={{
-                    visibility: backwardLayerVisibility,
-                    left: 0,
-                    width: 'calc(50% - 14px)',
-                  }}
-                  className="absolute top-0 bottom-0 z-20 flex min-h-0 pointer-events-none"
-                >
-                  <BookPage
-                    page={getPageAt(prevTargetIdx)}
-                    pageNumber={prevTargetIdx + 1}
-                    totalPages={totalPages}
-                    side="left"
-                    isMobile={false}
-                    isActiveSlot={false}
-                  />
-                </motion.div>
-
-                <motion.div
-                  ref={turningBackwardRef}
-                  style={{
-                    visibility: backwardLayerVisibility,
-                    transform: spreadBackwardTransform,
-                    transformOrigin: 'left center',
-                    left: 'calc(50% + 14px)',
-                    width: 'calc(50% - 14px)',
-                  }}
-                  className="absolute top-0 bottom-0 z-30 book-turning-leaf"
-                >
-                  <div className="w-full h-full bg-[#FFFDF7] rounded-r-2xl border-l border-[#8B5E3C] overflow-hidden flex book-turning-face-front">
+                {effectiveStyle === 'slide' ? (
+                  <motion.div
+                    style={{
+                      visibility: spreadBackwardSlideVisibility,
+                      transform: spreadBackwardSlideTransform,
+                    }}
+                    className="absolute inset-0 z-25 flex items-stretch min-h-0 bg-[#FFFDF7] pointer-events-none"
+                  >
+                    <BookPage
+                      page={getPageAt(prevTargetIdx)}
+                      pageNumber={prevTargetIdx + 1}
+                      totalPages={totalPages}
+                      side="left"
+                      isMobile={false}
+                      isActiveSlot={false}
+                    />
+                    <div className="book-center-spine">
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                      <span className="book-center-stitch" />
+                    </div>
                     <BookPage
                       page={getPageAt(prevTargetIdx + 1)}
                       pageNumber={prevTargetIdx + 2}
@@ -995,26 +1047,72 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                       isMobile={false}
                       isActiveSlot={false}
                     />
-                  </div>
+                  </motion.div>
+                ) : (
+                  <>
+                    {/* Underneath Left Page (e.g. Page 3 MY TRADES TODAY) revealed immediately as Page 5 lifts */}
+                    <motion.div
+                      style={{
+                        visibility: backwardLayerVisibility,
+                        left: 0,
+                        width: 'calc(50% - 14px)',
+                      }}
+                      className="absolute top-0 bottom-0 z-20 flex min-h-0 pointer-events-none"
+                    >
+                      <BookPage
+                        page={getPageAt(prevTargetIdx)}
+                        pageNumber={prevTargetIdx + 1}
+                        totalPages={totalPages}
+                        side="left"
+                        isMobile={false}
+                        isActiveSlot={false}
+                      />
+                    </motion.div>
 
-                  <div
-                    style={{
-                      transform: 'rotateY(180deg) translate3d(0, 0, 0)',
-                      backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden',
-                    }}
-                    className="absolute inset-0 w-full h-full bg-[#FFFDF7] rounded-l-2xl border-r border-[#8B5E3C] overflow-hidden flex"
-                  >
-                    <BookPage
-                      page={getPageAt(currentIndex)}
-                      pageNumber={currentIndex + 1}
-                      totalPages={totalPages}
-                      side="left"
-                      isMobile={false}
-                      isActiveSlot={false}
-                    />
-                  </div>
-                </motion.div>
+                    {/* First Half of Backward Turn (0 -> -0.5): Current Left Page (e.g. Page 5) lifts 0deg -> +90deg */}
+                    <motion.div
+                      ref={turningBackwardRef}
+                      style={{
+                        visibility: spreadBackwardLeftLeafVisibility,
+                        transform: spreadBackwardLeftLeafTransform,
+                        transformOrigin: 'right center',
+                        left: 0,
+                        width: 'calc(50% - 14px)',
+                      }}
+                      className="absolute top-0 bottom-0 z-30 bg-[#FFFDF7] rounded-l-2xl border-r border-[#8B5E3C] overflow-hidden flex pointer-events-none"
+                    >
+                      <BookPage
+                        page={getPageAt(currentIndex)}
+                        pageNumber={currentIndex + 1}
+                        totalPages={totalPages}
+                        side="left"
+                        isMobile={false}
+                        isActiveSlot={false}
+                      />
+                    </motion.div>
+
+                    {/* Second Half of Backward Turn (-0.5 -> -1.0): Previous Right Page (e.g. Page 4) folds -90deg -> 0deg */}
+                    <motion.div
+                      style={{
+                        visibility: spreadBackwardRightLeafVisibility,
+                        transform: spreadBackwardRightLeafTransform,
+                        transformOrigin: 'left center',
+                        left: 'calc(50% + 14px)',
+                        width: 'calc(50% - 14px)',
+                      }}
+                      className="absolute top-0 bottom-0 z-30 bg-[#FFFDF7] rounded-r-2xl border-l border-[#8B5E3C] overflow-hidden flex pointer-events-none"
+                    >
+                      <BookPage
+                        page={getPageAt(prevTargetIdx + 1)}
+                        pageNumber={prevTargetIdx + 2}
+                        totalPages={totalPages}
+                        side="right"
+                        isMobile={false}
+                        isActiveSlot={false}
+                      />
+                    </motion.div>
+                  </>
+                )}
               </>
             )}
           </>

@@ -262,6 +262,44 @@ export const BookShell: React.FC<BookShellProps> = ({
 
   const calendarState = useBookCalendarState(handleSelectDayFromHistory);
 
+  const [openAddTradeSignal, setOpenAddTradeSignal] = useState<number>(0);
+
+  const handleJumpToTodayPage = useCallback(
+    (targetIdx: number) => {
+      const aligned = isSpread ? Math.floor(targetIdx / 2) * 2 : targetIdx;
+      const curRaw = pageBySection.tracker || 0;
+      const curAligned = isSpread ? Math.floor(curRaw / 2) * 2 : curRaw;
+      if (aligned === curAligned) return;
+      if (pageFlipRef.current) {
+        pageFlipRef.current.jumpToIndex(aligned);
+      } else {
+        setPageBySection((prev) => {
+          const next = { ...prev, tracker: aligned };
+          try {
+            window.localStorage.setItem(LAST_BOOK_PAGES_KEY, JSON.stringify(next));
+          } catch {
+            // Ignore
+          }
+          return next;
+        });
+      }
+    },
+    [isSpread, pageBySection.tracker]
+  );
+
+  const handleRequestAddTradeFromToday = useCallback(() => {
+    const tradesIdx =
+      todayLayoutMode === 'mobile'
+        ? 3
+        : todayLayoutMode === 'tablet-portrait'
+          ? 1
+          : 2;
+    handleJumpToTodayPage(tradesIdx);
+    window.setTimeout(() => {
+      setOpenAddTradeSignal((prev) => prev + 1);
+    }, 320);
+  }, [todayLayoutMode, handleJumpToTodayPage]);
+
   // Build pages for the active section
   const pages = useMemo(() => {
     if (activePage === 'tracker') {
@@ -278,6 +316,9 @@ export const BookShell: React.FC<BookShellProps> = ({
         onDeleteTrade,
         onUpdateAudit,
         onNotify,
+        onJumpToPage: handleJumpToTodayPage,
+        openAddTradeSignal,
+        onRequestAddTrade: handleRequestAddTradeFromToday,
       });
     }
     if (activePage === 'dashboard') {
@@ -334,6 +375,9 @@ export const BookShell: React.FC<BookShellProps> = ({
     onDeleteTrade,
     onUpdateAudit,
     onNotify,
+    handleJumpToTodayPage,
+    openAddTradeSignal,
+    handleRequestAddTradeFromToday,
     dashboardAnalytics,
     handleSelectDayFromHistory,
     calendarState,
@@ -627,12 +671,13 @@ export const BookShell: React.FC<BookShellProps> = ({
                   <button
                     key={p.id}
                     type="button"
+                    data-no-page-swipe="true"
                     onClick={() => handleDotClick(idx)}
                     aria-label={`Go to page ${idx + 1}`}
-                    className={`h-2.5 rounded-full border border-[#8B5E3C] transition-all cursor-pointer ${
+                    className={`h-3 rounded-full border border-[#8B5E3C] transition-all cursor-pointer ${
                       isActiveDot
-                        ? 'w-5 bg-[#8B5E3C]'
-                        : 'w-2.5 bg-[#F0DED4] hover:bg-[#F2D29B]'
+                        ? 'w-6 bg-[#8B5E3C]'
+                        : 'w-3 bg-[#F0DED4] hover:bg-[#F2D29B]'
                     }`}
                   />
                 );

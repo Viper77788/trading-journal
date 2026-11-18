@@ -193,12 +193,12 @@
   left: 14px;
 }
 
-/* Turning Leaf Element: transform-style: preserve-3d ONLY on the single turning element (§3) */
+/* Turning Leaf Element: transform-style: preserve-3d ONLY on the single turning element (§3)
+   IMPORTANT: Never set backface-visibility: hidden on this parent preserve-3d wrapper,
+   or the browser will cull the entire wrapper (including its back face) between -90deg and -180deg! */
 .book-turning-leaf {
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
   pointer-events: none;
 }
 
