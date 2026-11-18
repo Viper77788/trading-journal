@@ -61,7 +61,16 @@ function shouldIgnoreSwipeTarget(target: EventTarget | null): boolean {
   if (document.querySelector('[data-trade-sheet-open="true"]')) {
     return true;
   }
-  if (el.closest('input, textarea, select, [data-no-page-swipe="true"]')) {
+  if (
+    el.closest(
+      'input[type="range"], input[type="date"], select, [data-no-page-swipe="true"]'
+    )
+  ) {
+    return true;
+  }
+  // Only block swipe on text/number inputs or textareas when they are actively focused
+  const inputOrTextarea = el.closest('input, textarea');
+  if (inputOrTextarea && document.activeElement === inputOrTextarea) {
     return true;
   }
   return false;
@@ -773,6 +782,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                   totalPages={totalPages}
                   side="single"
                   isMobile={isMobile}
+                  isActiveSlot={false}
                 />
               </motion.div>
             )}
@@ -788,6 +798,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                 totalPages={totalPages}
                 side="single"
                 isMobile={isMobile}
+                isActiveSlot={true}
                 onEdgeTapPrev={canTurnPrev ? triggerPrev : undefined}
                 onEdgeTapNext={canTurnNext ? triggerNext : undefined}
               />
@@ -811,6 +822,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                     totalPages={totalPages}
                     side="single"
                     isMobile={isMobile}
+                    isActiveSlot={false}
                   />
                 </div>
                 <div className="book-turning-face-back" />
@@ -835,6 +847,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                     totalPages={totalPages}
                     side="single"
                     isMobile={isMobile}
+                    isActiveSlot={false}
                   />
                 </div>
                 <div className="book-turning-face-back" />
@@ -854,6 +867,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                 totalPages={totalPages}
                 side="left"
                 isMobile={false}
+                isActiveSlot={true}
                 onEdgeTapPrev={canTurnPrev ? triggerPrev : undefined}
               />
 
@@ -871,6 +885,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                 totalPages={totalPages}
                 side="right"
                 isMobile={false}
+                isActiveSlot={true}
                 onEdgeTapNext={canTurnNext ? triggerNext : undefined}
               />
             </div>
@@ -894,6 +909,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                     totalPages={totalPages}
                     side="right"
                     isMobile={false}
+                    isActiveSlot={false}
                   />
                 </motion.div>
 
@@ -917,6 +933,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                       totalPages={totalPages}
                       side="right"
                       isMobile={false}
+                      isActiveSlot={false}
                     />
                   </div>
 
@@ -935,6 +952,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                       totalPages={totalPages}
                       side="left"
                       isMobile={false}
+                      isActiveSlot={false}
                     />
                   </div>
                 </motion.div>
@@ -958,6 +976,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                     totalPages={totalPages}
                     side="left"
                     isMobile={false}
+                    isActiveSlot={false}
                   />
                 </motion.div>
 
@@ -980,6 +999,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                       totalPages={totalPages}
                       side="right"
                       isMobile={false}
+                      isActiveSlot={false}
                     />
                   </div>
 
@@ -998,6 +1018,7 @@ export const PageFlip = forwardRef<PageFlipHandle, PageFlipProps>(
                       totalPages={totalPages}
                       side="left"
                       isMobile={false}
+                      isActiveSlot={false}
                     />
                   </div>
                 </motion.div>

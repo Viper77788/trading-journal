@@ -576,7 +576,10 @@ export function buildHistoryBookPages({
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
               <DeferredBookChart placeholderLabel="Loading profit chart...">
-                <EquityCurveChart data={analytics.equityCurve} />
+                <EquityCurveChart
+                  data={analytics.equityCurve}
+                  isAnimationActive={false}
+                />
               </DeferredBookChart>
             </div>
           </section>
@@ -589,7 +592,11 @@ export function buildHistoryBookPages({
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
               <DeferredBookChart placeholderLabel="Loading win/loss chart...">
-                <WinLossChart wins={analytics.wins} losses={analytics.losses} />
+                <WinLossChart
+                  wins={analytics.wins}
+                  losses={analytics.losses}
+                  isAnimationActive={false}
+                />
               </DeferredBookChart>
             </div>
           </section>
@@ -614,7 +621,10 @@ export function buildHistoryBookPages({
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
               <DeferredBookChart placeholderLabel="Loading mistakes chart...">
-                <MistakeBarChart data={analytics.mistakeChartData} />
+                <MistakeBarChart
+                  data={analytics.mistakeChartData}
+                  isAnimationActive={false}
+                />
               </DeferredBookChart>
             </div>
           </section>
@@ -627,7 +637,10 @@ export function buildHistoryBookPages({
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
               <DeferredBookChart placeholderLabel="Loading feelings chart...">
-                <EmotionDonutChart data={analytics.emotionChartData} />
+                <EmotionDonutChart
+                  data={analytics.emotionChartData}
+                  isAnimationActive={false}
+                />
               </DeferredBookChart>
             </div>
           </section>

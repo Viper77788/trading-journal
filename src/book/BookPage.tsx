@@ -1,4 +1,5 @@
 import React from 'react';
+import { BookPageActiveContext } from './DeferredBookChart';
 
 export interface BookPageData {
   id: string;
@@ -19,6 +20,7 @@ interface BookPageProps {
   totalPages: number;
   side: 'left' | 'right' | 'single';
   isMobile?: boolean;
+  isActiveSlot?: boolean;
   onEdgeTapPrev?: () => void;
   onEdgeTapNext?: () => void;
 }
@@ -30,6 +32,7 @@ export const BookPage: React.FC<BookPageProps> = React.memo(
     totalPages,
     side,
     isMobile = false,
+    isActiveSlot = true,
     onEdgeTapPrev,
     onEdgeTapNext,
   }) => {
@@ -105,15 +108,17 @@ export const BookPage: React.FC<BookPageProps> = React.memo(
         </div>
 
         {/* ZONE 2: BODY (flex: 1, min-height: 0, overflow-y: auto, overscroll-behavior: contain) */}
-        <div
-          className={`book-page-body flex flex-col px-3 sm:px-4 ${
-            page.disableBodyScroll
-              ? 'py-1 !overflow-hidden'
-              : 'pt-2 pb-3 sm:pb-[40px]'
-          }`}
-        >
-          {page.content}
-        </div>
+        <BookPageActiveContext.Provider value={isActiveSlot}>
+          <div
+            className={`book-page-body flex flex-col px-3 sm:px-4 ${
+              page.disableBodyScroll
+                ? 'py-1 !overflow-hidden'
+                : 'pt-2 pb-3 sm:pb-[40px]'
+            }`}
+          >
+            {page.content}
+          </div>
+        </BookPageActiveContext.Provider>
 
         {/* ZONE 3: PAGE FOOTER (flex: none) */}
         <div className="book-page-footer px-3 sm:px-4 pt-1.5 pb-1.5 border-t-2 border-dotted border-[#8B5E3C]/45 bg-[#FFFDF7]">

@@ -273,6 +273,7 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
 
 interface EquityCurveChartProps {
   data: DashboardAnalytics['equityCurve'];
+  isAnimationActive?: boolean;
 }
 
 function formatAxisDollars(val: number): string {
@@ -283,7 +284,10 @@ function formatAxisDollars(val: number): string {
   return `$${num.toLocaleString('en-US')}`;
 }
 
-export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ data }) => {
+export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
+  data,
+  isAnimationActive = true,
+}) => {
   if (data.length === 0) {
     return (
       <div className="flex-1 min-h-[190px] flex items-center justify-center text-[16px] font-bold text-[#8B5E3C] text-center px-3">
@@ -349,6 +353,7 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ data }) => {
               strokeWidth={2}
               barSize={72}
               radius={[10, 10, 0, 0]}
+              isAnimationActive={isAnimationActive}
               animationDuration={450}
             >
               <LabelList
@@ -423,6 +428,7 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ data }) => {
             stroke="#2F6B3A"
             strokeWidth={3.5}
             dot={{ r: 5, fill: '#BFE3C0', stroke: '#8B5E3C', strokeWidth: 2 }}
+            isAnimationActive={isAnimationActive}
             animationDuration={450}
           />
         </LineChart>
@@ -433,9 +439,13 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ data }) => {
 
 interface MistakeBarChartProps {
   data: DashboardAnalytics['mistakeChartData'];
+  isAnimationActive?: boolean;
 }
 
-export const MistakeBarChart: React.FC<MistakeBarChartProps> = ({ data }) => {
+export const MistakeBarChart: React.FC<MistakeBarChartProps> = ({
+  data,
+  isAnimationActive = true,
+}) => {
   if (data.length === 0) {
     return (
       <div className="flex-1 min-h-[190px] flex items-center justify-center text-[16px] font-bold text-[#8B5E3C] text-center px-3">
@@ -487,6 +497,7 @@ export const MistakeBarChart: React.FC<MistakeBarChartProps> = ({ data }) => {
             stroke="#8B5E3C"
             strokeWidth={2}
             radius={[0, 8, 8, 0]}
+            isAnimationActive={isAnimationActive}
             animationDuration={450}
           >
             {data.map((entry) => (
@@ -513,10 +524,12 @@ const PASTEL_PIE_COLORS = [
 
 interface EmotionDonutChartProps {
   data: DashboardAnalytics['emotionChartData'];
+  isAnimationActive?: boolean;
 }
 
 export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
   data,
+  isAnimationActive = true,
 }) => {
   if (data.length === 0) {
     return (
@@ -543,6 +556,7 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
                 outerRadius={58}
                 paddingAngle={data.length > 1 ? 4 : 0}
                 stroke="none"
+                isAnimationActive={isAnimationActive}
                 animationDuration={450}
               >
                 {data.map((entry, idx) => (
@@ -601,9 +615,14 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = ({
 interface WinLossChartProps {
   wins: number;
   losses: number;
+  isAnimationActive?: boolean;
 }
 
-export const WinLossChart: React.FC<WinLossChartProps> = ({ wins, losses }) => {
+export const WinLossChart: React.FC<WinLossChartProps> = ({
+  wins,
+  losses,
+  isAnimationActive = true,
+}) => {
   if (wins === 0 && losses === 0) {
     return (
       <div className="flex-1 min-h-[190px] flex items-center justify-center text-[16px] font-bold text-[#8B5E3C] text-center px-3">
@@ -660,6 +679,7 @@ export const WinLossChart: React.FC<WinLossChartProps> = ({ wins, losses }) => {
             strokeWidth={2}
             barSize={64}
             radius={[8, 8, 0, 0]}
+            isAnimationActive={isAnimationActive}
             animationDuration={450}
           >
             {data.map((entry) => (

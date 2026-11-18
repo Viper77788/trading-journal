@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+
+export const BookPageActiveContext = React.createContext<boolean>(true);
 
 interface DeferredBookChartProps {
   children: React.ReactNode;
@@ -7,18 +9,27 @@ interface DeferredBookChartProps {
 
 export const DeferredBookChart: React.FC<DeferredBookChartProps> = React.memo(
   ({ children, placeholderLabel = 'Loading chart...' }) => {
+    const isPageActive = useContext(BookPageActiveContext);
     const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
+      if (!isPageActive) {
+        setIsReady(false);
+        return;
+      }
+
       let cancelled = false;
       let timerId: number | null = null;
       let idleId: number | null = null;
 
-      // Wait 120ms for any active page turn to settle, then mount on idle callback (§4)
+      // Wait 120ms after the page becomes the active resting page, then mount on idle callback (§4)
       timerId = window.setTimeout(() => {
         const ric = (
           window as unknown as {
-            requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+            requestIdleCallback?: (
+              cb: () => void,
+              opts?: { timeout: number }
+            ) => number;
           }
         ).requestIdleCallback;
 
@@ -46,9 +57,9 @@ export const DeferredBookChart: React.FC<DeferredBookChartProps> = React.memo(
           cic(idleId);
         }
       };
-    }, []);
+    }, [isPageActive]);
 
-    if (!isReady) {
+    if (!isPageActive || !isReady) {
       return (
         <div className="flex-1 w-full min-h-[160px] h-full rounded-xl bg-[#FFFDF7] border border-dashed border-[#8B5E3C]/35 flex items-center justify-center text-[15px] font-bold text-[#8B5E3C]/70">
           {placeholderLabel}
@@ -56,7 +67,11 @@ export const DeferredBookChart: React.FC<DeferredBookChartProps> = React.memo(
       );
     }
 
-    return <div className="flex-1 w-full h-full min-h-0 flex flex-col">{children}</div>;
+    return (
+      <div className="flex-1 w-full h-full min-h-0 flex flex-col">
+        {children}
+      </div>
+    );
   }
 );
 
