@@ -33,7 +33,7 @@
   background-color: #FFFDF7;
   border: 2.5px solid #8B5E3C;
   border-radius: 20px;
-  /* Stacked paper thickness edges (right & bottom) + warm shadow below book */
+  touch-action: pan-y;
   box-shadow:
     3px 3px 0px #FFFBF2,
     5px 5px 0px #8B5E3C,
@@ -48,7 +48,7 @@
   top: 0;
   bottom: 0;
   left: 0;
-  width: 24px;
+  width: 22px;
   background: linear-gradient(
     to right,
     rgba(139, 94, 60, 0.22) 0%,
@@ -67,12 +67,13 @@
 
 /* Ring-binder holes / stitch marks along the spine */
 .book-spine-hole {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
   background-color: #FFFBF2;
   border: 2px solid rgba(139, 94, 60, 0.65);
   box-shadow: inset 0 1px 2px rgba(92, 61, 46, 0.25);
+  pointer-events: none;
 }
 
 /* Center spine for Two-Page Spread (Tablet Landscape) */
@@ -105,9 +106,10 @@
   border-top: 2px solid rgba(139, 94, 60, 0.6);
   border-bottom: 2px solid rgba(139, 94, 60, 0.6);
   border-radius: 3px;
+  pointer-events: none;
 }
 
-/* Individual Notebook Page Sheet */
+/* Individual Notebook Page Sheet: Strict 3-Zone Flex Column (§A) */
 .book-page-sheet {
   position: relative;
   background-color: #FFFDF7;
@@ -116,6 +118,7 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .book-page-sheet--left {
@@ -134,10 +137,40 @@
 
 .book-page-sheet--single {
   border-radius: 18px;
-  padding-left: 24px; /* space for left spine */
+  padding-left: 22px; /* space for left spine */
   box-shadow:
-    inset 22px 0 26px -14px rgba(139, 94, 60, 0.16),
+    inset 20px 0 24px -14px rgba(139, 94, 60, 0.16),
     inset -4px 0 10px -4px rgba(139, 94, 60, 0.08);
+}
+
+/* Zone 1: HEADER (flex: none) */
+.book-page-header {
+  flex: none;
+  position: relative;
+  z-index: 10;
+  background-color: #FFFDF7;
+}
+
+/* Zone 2: BODY (flex: 1, min-height: 0, overflow-y: auto, overscroll-behavior: contain, touch-action: pan-y) */
+.book-page-body {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  position: relative;
+  z-index: 10;
+  font-size: 17px;
+  line-height: 1.42;
+}
+
+/* Zone 3: PAGE FOOTER (flex: none, normal flex child, never overlaps body) */
+.book-page-footer {
+  flex: none;
+  position: relative;
+  z-index: 10;
+  background-color: #FFFDF7;
 }
 
 /* Thin vertical dotted brown notebook margin line */
@@ -145,19 +178,16 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 34px;
+  left: 32px;
   width: 0;
-  border-left: 1.5px dotted rgba(139, 94, 60, 0.28);
+  border-left: 1.5px dotted rgba(139, 94, 60, 0.25);
   pointer-events: none;
   z-index: 1;
 }
 
-.book-page-sheet--left .book-margin-line {
-  left: 16px;
-}
-
+.book-page-sheet--left .book-margin-line,
 .book-page-sheet--right .book-margin-line {
-  left: 16px;
+  left: 14px;
 }
 
 /* 3D Perspective Stage for Page Flips */
@@ -172,7 +202,8 @@
   -webkit-transform-style: preserve-3d;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: transform, opacity;
+  will-change: transform;
+  pointer-events: none;
 }
 
 .book-turning-leaf-back {
@@ -192,10 +223,4 @@
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   pointer-events: none;
-}
-
-/* Enforce finger-friendly >=17px body text & >=52px controls inside Book Mode */
-.book-page-content {
-  font-size: 17px;
-  line-height: 1.45;
 }

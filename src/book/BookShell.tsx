@@ -27,7 +27,10 @@ import {
   buildTodayBookPages,
   TodayBookLayoutMode,
 } from './pages/TodayBookPages';
-import { buildHistoryBookPages } from './pages/HistoryBookPages';
+import {
+  buildHistoryBookPages,
+  useBookCalendarState,
+} from './pages/HistoryBookPages';
 import { buildFutureBookPages } from './pages/FutureBookPages';
 import { buildSettingsBookPages } from './pages/SettingsBookPages';
 
@@ -246,6 +249,8 @@ export const BookShell: React.FC<BookShellProps> = ({
     [onSelectDate, onSelectPage, onNotify]
   );
 
+  const calendarState = useBookCalendarState(handleSelectDayFromHistory);
+
   // Build pages for the active section
   const pages = useMemo(() => {
     if (activePage === 'tracker') {
@@ -270,6 +275,7 @@ export const BookShell: React.FC<BookShellProps> = ({
         settings,
         analytics: dashboardAnalytics,
         onSelectDayToEdit: handleSelectDayFromHistory,
+        calendarState,
       });
     }
     if (activePage === 'calculator') {
@@ -317,6 +323,7 @@ export const BookShell: React.FC<BookShellProps> = ({
     onNotify,
     dashboardAnalytics,
     handleSelectDayFromHistory,
+    calendarState,
     calcSettings,
     onUpdateCalc,
     onResetCalc,

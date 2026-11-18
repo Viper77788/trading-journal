@@ -105,9 +105,45 @@ function getWeekDatesMondayToSunday(selectedDateIso: string) {
   });
 }
 
-// Trade List + Keyboard-Safe Portal Bottom Sheet (Mobile) / Centered Modal (Tablet) (§1 & §6)
+// Total Today / R Total Pinned Footer Bar (§A)
+const TotalTodayFooterBar: React.FC<{
+  dailyPnl: number;
+  dailyR: number;
+}> = ({ dailyPnl, dailyR }) => (
+  <div className="px-3.5 py-2 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
+    <div className="text-[17px] font-extrabold text-[#5C3D2E]">
+      Total today:{' '}
+      <span
+        className={
+          dailyPnl > 0
+            ? 'text-[#2F6B3A]'
+            : dailyPnl < 0
+              ? 'text-[#9B2C20]'
+              : 'text-[#5C3D2E]'
+        }
+      >
+        <AnimatedNumber
+          value={dailyPnl}
+          formatter={(v) => formatCurrency(v, true)}
+        />
+      </span>
+    </div>
+    <div className="text-[17px] font-bold text-[#5C3D2E]">
+      R total:{' '}
+      <strong>
+        <AnimatedNumber
+          value={dailyR}
+          formatter={(v) => formatRMultiple(v)}
+        />
+      </strong>
+    </div>
+  </div>
+);
+
+// Trade List + Keyboard-Safe Portal Bottom Sheet (Mobile) / Centered Modal (Tablet) (§A, §D & §G)
 const BookTradesSection: React.FC<{
   isMobile: boolean;
+  includeInlineTotalBar?: boolean;
   trades: TradeEntry[];
   settings: AccountSettings;
   dailyPnl: number;
@@ -118,6 +154,7 @@ const BookTradesSection: React.FC<{
   onNotify: TodayBookPagesProps['onNotify'];
 }> = ({
   isMobile,
+  includeInlineTotalBar = false,
   trades,
   settings,
   dailyPnl,
@@ -142,7 +179,7 @@ const BookTradesSection: React.FC<{
   const [disciplineScore, setDisciplineScore] = useState<number>(5);
   const [mistakes, setMistakes] = useState<MistakeTag[]>(['None']);
 
-  // Track visualViewport height & offset for mobile virtual keyboard safety (§1)
+  // Track visualViewport height & offset for mobile virtual keyboard safety (§D)
   const [vvStyle, setVvStyle] = useState<{
     maxHeight: string;
     bottomOffset: number;
@@ -286,6 +323,7 @@ const BookTradesSection: React.FC<{
           <AnimatePresence>
             {isSheetOpen && (
               <div
+                data-trade-sheet-open="true"
                 onClick={() => setIsSheetOpen(false)}
                 className={`fixed inset-0 z-[9999] bg-[#5C3D2E]/50 backdrop-blur-[2px] flex ${
                   isMobile
@@ -583,7 +621,7 @@ const BookTradesSection: React.FC<{
                       </div>
                     </div>
 
-                    {/* Sticky Footer Always Visible with Safe-Area Padding (§1) */}
+                    {/* Sticky Footer Always Visible with Safe-Area Padding (§D) */}
                     <div
                       style={{
                         paddingBottom:
@@ -615,8 +653,8 @@ const BookTradesSection: React.FC<{
       : null;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 gap-2">
-      {/* Top Rule Summary + Header ADD TRADE Button ONLY when trades.length > 0 (§6) */}
+    <div className="flex-1 flex flex-col gap-2">
+      {/* Top Rule Summary + Header ADD TRADE Button ONLY when trades.length > 0 (§G) */}
       <div className="px-3 py-2 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="text-[16px] sm:text-[17px] font-bold text-[#5C3D2E]">
           Max <strong>{settings.maxTradesPerDay}</strong> trades • Limit{' '}
@@ -630,13 +668,13 @@ const BookTradesSection: React.FC<{
             type="button"
             disabled={isAtLimit}
             onClick={openNewTradeSheet}
-            className={`min-h-[52px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[17px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 transition-transform ${
+            className={`min-h-[48px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 transition-transform ${
               isAtLimit
                 ? 'bg-[#F0DED4] text-[#8B5E3C]/60 cursor-not-allowed'
                 : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer'
             }`}
           >
-            <Plus className="w-5 h-5 stroke-[2.8]" />
+            <Plus className="w-4 h-4 stroke-[2.8]" />
             <span>ADD TRADE</span>
           </button>
         )}
@@ -648,10 +686,10 @@ const BookTradesSection: React.FC<{
         </div>
       )}
 
-      {/* Trade Cards or Empty State (with single ADD TRADE button when empty — §6) */}
-      <div className="flex-1 flex flex-col gap-2 min-h-0">
+      {/* Trade Cards or Empty State (with single ADD TRADE button when empty — §G) */}
+      <div className="flex-1 flex flex-col gap-2">
         {trades.length === 0 ? (
-          <div className="flex-1 p-4 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center gap-2.5">
+          <div className="flex-1 p-4 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center gap-2.5 min-h-[140px]">
             <div className="text-[17px] font-bold text-[#8B5E3C]">
               No trades yet today. Tap ADD TRADE to start.
             </div>
@@ -722,7 +760,7 @@ const BookTradesSection: React.FC<{
                         type="button"
                         onClick={() => openEditTradeSheet(trade)}
                         aria-label="Edit trade"
-                        className="w-[42px] h-[42px] rounded-xl bg-[#FFFBF2] hover:bg-[#F2D29B] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
+                        className="w-[38px] h-[38px] rounded-xl bg-[#FFFBF2] hover:bg-[#F2D29B] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
@@ -734,7 +772,7 @@ const BookTradesSection: React.FC<{
                           )
                         }
                         aria-label="Delete trade"
-                        className="w-[42px] h-[42px] rounded-xl bg-[#FFFBF2] hover:bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[#9B2C20] flex items-center justify-center cursor-pointer"
+                        className="w-[38px] h-[38px] rounded-xl bg-[#FFFBF2] hover:bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[#9B2C20] flex items-center justify-center cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -754,14 +792,14 @@ const BookTradesSection: React.FC<{
                             setConfirmDeleteId(null);
                             onNotify('Trade deleted.', 'info');
                           }}
-                          className="min-h-[42px] px-3 rounded-xl bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[16px] font-extrabold text-[#9B2C20] cursor-pointer"
+                          className="min-h-[40px] px-3 rounded-xl bg-[#F5B8B0] border-2 border-[#8B5E3C] text-[16px] font-extrabold text-[#9B2C20] cursor-pointer"
                         >
                           Yes
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(null)}
-                          className="min-h-[42px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
+                          className="min-h-[40px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -773,7 +811,7 @@ const BookTradesSection: React.FC<{
                     <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-dotted border-[#8B5E3C]/40">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {violated && (
-                          <span className="px-2 py-0.5 rounded-lg bg-[#F5B8B0] border border-[#8B5E3C] text-[15px] font-extrabold text-[#9B2C20]">
+                          <span className="px-2 py-0.5 rounded-lg bg-[#F5B8B0] border border-[#8B5E3C] text-[14px] font-extrabold text-[#9B2C20]">
                             Over your risk limit!
                           </span>
                         )}
@@ -808,42 +846,16 @@ const BookTradesSection: React.FC<{
         )}
       </div>
 
-      {/* Bottom Total Bar */}
-      <div className="px-3.5 py-2 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-between gap-2 shrink-0 mt-auto">
-        <div className="text-[17px] font-extrabold text-[#5C3D2E]">
-          Total today:{' '}
-          <span
-            className={
-              dailyPnl > 0
-                ? 'text-[#2F6B3A]'
-                : dailyPnl < 0
-                  ? 'text-[#9B2C20]'
-                  : 'text-[#5C3D2E]'
-            }
-          >
-            <AnimatedNumber
-              value={dailyPnl}
-              formatter={(v) => formatCurrency(v, true)}
-            />
-          </span>
-        </div>
-        <div className="text-[17px] font-bold text-[#5C3D2E]">
-          R total:{' '}
-          <strong>
-            <AnimatedNumber
-              value={dailyR}
-              formatter={(v) => formatRMultiple(v)}
-            />
-          </strong>
-        </div>
-      </div>
+      {includeInlineTotalBar && (
+        <TotalTodayFooterBar dailyPnl={dailyPnl} dailyR={dailyR} />
+      )}
 
       {sheetOrModalPortal}
     </div>
   );
 };
 
-// Save Today Button Component with Saved✓ feedback
+// Save Today Button Component with Saved✓ feedback (used in Pinned Page Footer — §A)
 const SaveTodayActionBtn: React.FC<{
   onUpdateAudit: TodayBookPagesProps['onUpdateAudit'];
   onNotify: TodayBookPagesProps['onNotify'];
@@ -861,7 +873,7 @@ const SaveTodayActionBtn: React.FC<{
     <button
       type="button"
       onClick={handleSaveToday}
-      className={`w-full min-h-[52px] rounded-xl border-2 border-[#8B5E3C] font-heading text-[19px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
+      className={`w-full min-h-[50px] rounded-xl border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
         savedBanner
           ? 'bg-[#BFE3C0] text-[#2F6B3A]'
           : 'bg-[#F2D29B] hover:bg-[#ecc482] text-[#5C3D2E]'
@@ -886,7 +898,6 @@ export function buildTodayBookPages({
   onUpdateAudit,
   onNotify,
 }: TodayBookPagesProps): BookPageData[] {
-  const isMobile = layoutMode === 'mobile';
   const todayIso = getTodayDateISO();
   const dayEval = evaluateDayDiscipline(day, settings);
   const { totalPnl, totalR } = calculateDayTotals(day);
@@ -960,11 +971,11 @@ export function buildTodayBookPages({
     onUpdateAudit({ emotions: next });
   };
 
-  // Shared Date Row: Prev arrow, date field (flex-1) and Next arrow on ONE line (§2)
+  // Shared Date Row: Prev arrow, date field (flex-1) and Next arrow on ONE line (§E)
   const dateRowBlock = (
-    <div className="p-2.5 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] space-y-2 shrink-0">
+    <div className="p-2.5 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] space-y-1.5 shrink-0">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[17px] font-extrabold text-[#5C3D2E] truncate">
+        <span className="text-[16px] sm:text-[17px] font-extrabold text-[#5C3D2E] truncate">
           {formatReadableDate(selectedDate)}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -972,7 +983,7 @@ export function buildTodayBookPages({
             <button
               type="button"
               onClick={() => onSelectDate(todayIso)}
-              className="h-[36px] px-2.5 rounded-lg bg-[#F2D29B] border border-[#8B5E3C] text-[15px] font-extrabold text-[#5C3D2E] cursor-pointer"
+              className="h-[34px] px-2.5 rounded-lg bg-[#F2D29B] border border-[#8B5E3C] text-[14px] font-extrabold text-[#5C3D2E] cursor-pointer"
             >
               Today
             </button>
@@ -981,7 +992,7 @@ export function buildTodayBookPages({
             <button
               type="button"
               onClick={() => window.print()}
-              className="no-print h-[36px] px-2.5 rounded-lg bg-[#DCEEF2] border border-[#8B5E3C] text-[15px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
+              className="no-print h-[34px] px-2.5 rounded-lg bg-[#DCEEF2] border border-[#8B5E3C] text-[14px] font-bold text-[#5C3D2E] flex items-center gap-1 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>Print</span>
@@ -990,13 +1001,13 @@ export function buildTodayBookPages({
         </div>
       </div>
 
-      {/* Prev + Date Field (flex: 1) + Next on ONE single line (§2) */}
+      {/* Prev + Date Field (flex: 1) + Next on ONE single line (§E) */}
       <div className="flex items-center gap-1.5 w-full">
         <button
           type="button"
           onClick={() => onSelectDate(shiftDateISO(selectedDate, -1))}
           aria-label="Previous day"
-          className="h-[48px] w-[48px] shrink-0 rounded-xl bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
+          className="h-[46px] w-[46px] shrink-0 rounded-xl bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -1008,14 +1019,14 @@ export function buildTodayBookPages({
             if (e.target.value) onSelectDate(e.target.value);
           }}
           aria-label="Choose date"
-          className="flex-1 min-w-0 h-[48px] px-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] outline-none cursor-pointer"
+          className="flex-1 min-w-0 h-[46px] px-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] outline-none cursor-pointer"
         />
 
         <button
           type="button"
           onClick={() => onSelectDate(shiftDateISO(selectedDate, 1))}
           aria-label="Next day"
-          className="h-[48px] w-[48px] shrink-0 rounded-xl bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
+          className="h-[46px] w-[46px] shrink-0 rounded-xl bg-[#FFFDF7] hover:bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -1023,14 +1034,14 @@ export function buildTodayBookPages({
     </div>
   );
 
-  // Shared Week Row (M T W T F S S): 7-column grid, 36-40px circles, thin outline ring for selected/today (§2 & §4)
+  // Shared Week Row (M T W T F S S): 7-column grid, 36-40px circles, thin outline ring for selected/today (§E & §F)
   const weekRowBlock = (
-    <div className="p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-2 shrink-0">
+    <div className="p-2.5 sm:p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1.5 shrink-0">
       <div className="flex flex-wrap items-center justify-between gap-1">
-        <span className="font-heading text-[16px] font-bold uppercase text-[#8B5E3C]">
+        <span className="font-heading text-[15px] sm:text-[16px] font-bold uppercase text-[#8B5E3C]">
           THIS WEEK&apos;S HABIT ROW
         </span>
-        <div className="flex items-center gap-2 text-[14px] font-bold text-[#5C3D2E]">
+        <div className="flex items-center gap-2 text-[13px] sm:text-[14px] font-bold text-[#5C3D2E]">
           <span className="inline-flex items-center gap-1">
             <span className="w-3 h-3 rounded-full bg-[#BFE3C0] border border-[#8B5E3C]" />
             Clean
@@ -1057,9 +1068,9 @@ export function buildTodayBookPages({
               key={wd.dateIso}
               type="button"
               onClick={() => onSelectDate(wd.dateIso)}
-              className="flex flex-col items-center py-1 rounded-xl cursor-pointer"
+              className="flex flex-col items-center py-0.5 rounded-xl cursor-pointer"
             >
-              <span className="font-heading text-[15px] font-bold text-[#8B5E3C] leading-none">
+              <span className="font-heading text-[14px] sm:text-[15px] font-bold text-[#8B5E3C] leading-none">
                 {wd.letter}
               </span>
               <div
@@ -1093,7 +1104,7 @@ export function buildTodayBookPages({
     </div>
   );
 
-  // Shared 3 Stat Cards Block (shows "-" on empty day — §4)
+  // Shared 3 Stat Cards Block (shows "-" on empty day — §F)
   const statCardsBlock = (
     <div className="shrink-0">
       <DisciplineGauge
@@ -1215,7 +1226,7 @@ export function buildTodayBookPages({
             <button
               type="button"
               onClick={() => onUpdateAudit({ [q.key]: true })}
-              className={`min-h-[46px] min-w-[68px] px-3.5 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+              className={`min-h-[46px] min-w-[68px] px-3.5 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold transition-colors cursor-pointer ${
                 q.value
                   ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                   : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -1226,7 +1237,7 @@ export function buildTodayBookPages({
             <button
               type="button"
               onClick={() => onUpdateAudit({ [q.key]: false })}
-              className={`min-h-[46px] min-w-[68px] px-3.5 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+              className={`min-h-[46px] min-w-[68px] px-3.5 rounded-full border-2 border-[#8B5E3C] text-[16px] font-extrabold transition-colors cursor-pointer ${
                 !q.value
                   ? 'bg-[#F5B8B0] text-[#9B2C20]'
                   : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -1240,9 +1251,9 @@ export function buildTodayBookPages({
     </div>
   );
 
-  // Shared Lesson Notepad Block (Single Heading Only — no duplicate inner bar! §6)
+  // Shared Lesson Notepad Block (Single Heading Only — no duplicate inner bar! §G)
   const lessonNotepadBlock = (rows = 4) => (
-    <div className="flex-1 flex flex-col min-h-[110px] rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-[100px] rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
       <textarea
         aria-label="Lesson for Tomorrow"
         rows={rows}
@@ -1256,11 +1267,11 @@ export function buildTodayBookPages({
 
   // Shared Day Recap Block
   const dayRecapCard = (
-    <div className="p-3 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-2 shrink-0">
-      <div className="font-heading text-[16px] font-bold uppercase text-[#8B5E3C]">
+    <div className="p-2.5 sm:p-3 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] space-y-1.5 shrink-0">
+      <div className="font-heading text-[15px] sm:text-[16px] font-bold uppercase text-[#8B5E3C]">
         DAY RECAP SUMMARY
       </div>
-      <div className="grid grid-cols-2 gap-2 text-[16px] font-bold text-[#5C3D2E]">
+      <div className="grid grid-cols-2 gap-1.5 text-[15px] sm:text-[16px] font-bold text-[#5C3D2E]">
         <div className="p-2 rounded-lg bg-[#DCEEF2]/70 border border-[#8B5E3C]">
           Checklist: <strong>{checkedCount}/3</strong>
         </div>
@@ -1282,7 +1293,7 @@ export function buildTodayBookPages({
   );
 
   // ==========================================================================
-  // 1. MOBILE BOOK LAYOUT (6 Pages — §2, fits 360x740 & 390x844 with zero inner scroll)
+  // 1. MOBILE BOOK LAYOUT (6 Pages — §A & §E, pinned footers, fits 360x740 & 390x844)
   // ==========================================================================
   if (layoutMode === 'mobile') {
     return [
@@ -1292,9 +1303,9 @@ export function buildTodayBookPages({
         pageTitle: 'DAILY SHEET',
         mobileTitle: 'DAILY SHEET',
         pastelHeaderBg: '#F2D29B',
+        headerExtra: dateRowBlock,
         content: (
           <div className="flex-1 flex flex-col justify-between gap-2.5">
-            {dateRowBlock}
             {weekRowBlock}
             <div className="lined-notepad flex-1 min-h-[24px] rounded-xl border border-dashed border-[#8B5E3C]/35" />
           </div>
@@ -1335,6 +1346,7 @@ export function buildTodayBookPages({
         content: (
           <BookTradesSection
             isMobile={true}
+            includeInlineTotalBar={false}
             trades={day.trades}
             settings={settings}
             dailyPnl={totalPnl}
@@ -1344,6 +1356,9 @@ export function buildTodayBookPages({
             onDeleteTrade={onDeleteTrade}
             onNotify={onNotify}
           />
+        ),
+        pinnedFooter: (
+          <TotalTodayFooterBar dailyPnl={totalPnl} dailyR={totalR} />
         ),
       },
       {
@@ -1366,21 +1381,23 @@ export function buildTodayBookPages({
         mobileTitle: 'LESSON & RECAP',
         pastelHeaderBg: '#E8E0A9',
         content: (
-          <div className="flex-1 flex flex-col justify-between gap-2.5">
+          <div className="flex-1 flex flex-col justify-between gap-2">
             {lessonNotepadBlock(3)}
             {dayRecapCard}
-            <SaveTodayActionBtn
-              onUpdateAudit={onUpdateAudit}
-              onNotify={onNotify}
-            />
           </div>
+        ),
+        pinnedFooter: (
+          <SaveTodayActionBtn
+            onUpdateAudit={onUpdateAudit}
+            onNotify={onNotify}
+          />
         ),
       },
     ];
   }
 
   // ==========================================================================
-  // 2. TABLET PORTRAIT LAYOUT (4 Pages — §8: Use empty space with flex)
+  // 2. TABLET PORTRAIT LAYOUT (4 Pages — §I: Use empty space with flex)
   // ==========================================================================
   if (layoutMode === 'tablet-portrait') {
     return [
@@ -1389,9 +1406,9 @@ export function buildTodayBookPages({
         sectionLabel: 'TODAY • DAILY OVERVIEW',
         pageTitle: 'DAILY SHEET & MOOD',
         pastelHeaderBg: '#F2D29B',
+        headerExtra: dateRowBlock,
         content: (
           <div className="flex-1 flex flex-col justify-between gap-3">
-            {dateRowBlock}
             {weekRowBlock}
             {statCardsBlock}
             {feelingsBlock}
@@ -1409,6 +1426,7 @@ export function buildTodayBookPages({
             {checklistBlock}
             <BookTradesSection
               isMobile={false}
+              includeInlineTotalBar={false}
               trades={day.trades}
               settings={settings}
               dailyPnl={totalPnl}
@@ -1419,6 +1437,9 @@ export function buildTodayBookPages({
               onNotify={onNotify}
             />
           </div>
+        ),
+        pinnedFooter: (
+          <TotalTodayFooterBar dailyPnl={totalPnl} dailyR={totalR} />
         ),
       },
       {
@@ -1450,18 +1471,20 @@ export function buildTodayBookPages({
               Review your discipline score and trades above, then tap SAVE TODAY
               to lock in your daily habit record.
             </div>
-            <SaveTodayActionBtn
-              onUpdateAudit={onUpdateAudit}
-              onNotify={onNotify}
-            />
           </div>
+        ),
+        pinnedFooter: (
+          <SaveTodayActionBtn
+            onUpdateAudit={onUpdateAudit}
+            onNotify={onNotify}
+          />
         ),
       },
     ];
   }
 
   // ==========================================================================
-  // 3. TABLET LANDSCAPE LAYOUT (6 Real Pages — §5: 3 Two-Page Spreads, No Filler)
+  // 3. TABLET LANDSCAPE LAYOUT (6 Real Pages — §G: 3 Two-Page Spreads, No Filler)
   // ==========================================================================
   return [
     {
@@ -1469,9 +1492,9 @@ export function buildTodayBookPages({
       sectionLabel: 'TODAY • DAILY SHEET',
       pageTitle: 'DAILY SHEET',
       pastelHeaderBg: '#F2D29B',
+      headerExtra: dateRowBlock,
       content: (
         <div className="flex-1 flex flex-col justify-between gap-2.5">
-          {dateRowBlock}
           {weekRowBlock}
           {statCardsBlock}
         </div>
@@ -1497,6 +1520,7 @@ export function buildTodayBookPages({
       content: (
         <BookTradesSection
           isMobile={false}
+          includeInlineTotalBar={false}
           trades={day.trades}
           settings={settings}
           dailyPnl={totalPnl}
@@ -1506,6 +1530,9 @@ export function buildTodayBookPages({
           onDeleteTrade={onDeleteTrade}
           onNotify={onNotify}
         />
+      ),
+      pinnedFooter: (
+        <TotalTodayFooterBar dailyPnl={totalPnl} dailyR={totalR} />
       ),
     },
     {
@@ -1546,11 +1573,13 @@ export function buildTodayBookPages({
             All rules, trades, and notes are automatically synced to your
             private cloud journal.
           </div>
-          <SaveTodayActionBtn
-            onUpdateAudit={onUpdateAudit}
-            onNotify={onNotify}
-          />
         </div>
+      ),
+      pinnedFooter: (
+        <SaveTodayActionBtn
+          onUpdateAudit={onUpdateAudit}
+          onNotify={onNotify}
+        />
       ),
     },
   ];

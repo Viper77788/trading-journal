@@ -23,6 +23,16 @@ interface ActiveFlipState {
   speed: 'normal' | 'fast';
 }
 
+interface GestureState {
+  active: boolean;
+  lockedHorizontal: boolean | null;
+  startX: number;
+  startY: number;
+  lastX: number;
+  startTime: number;
+  pointerId: number | null;
+}
+
 const BLANK_RIGHT_LEAF: BookPageData = {
   id: 'blank-right-leaf',
   sectionLabel: '',
@@ -31,6 +41,22 @@ const BLANK_RIGHT_LEAF: BookPageData = {
   content: null,
   isBlankLeaf: true,
 };
+
+function shouldIgnoreSwipeTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  if (document.querySelector('[data-trade-sheet-open="true"]')) {
+    return true;
+  }
+  if (
+    el.closest(
+      'input, textarea, select, [data-no-page-swipe="true"]'
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
 
 export const PageFlip: React.FC<PageFlipProps> = ({
   pages,
@@ -44,18 +70,15 @@ export const PageFlip: React.FC<PageFlipProps> = ({
   canTurnPrev,
   canTurnNext,
 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const prevIndexRef = useRef<number>(currentIndex);
   const flipCounterRef = useRef<number>(0);
   const [activeFlip, setActiveFlip] = useState<ActiveFlipState | null>(null);
 
   // Interactive finger-follow drag state
   const [dragDeltaX, setDragDeltaX] = useState<number>(0);
-  const pointerStartRef = useRef<{
-    x: number;
-    y: number;
-    pointerId: number;
-    isHorizontal: boolean | null;
-  } | null>(null);
+  const gestureRef = useRef<GestureState | null>(null);
+  const suppressClickRef = useRef<boolean>(false);
 
   // Detect index changes to trigger the 3D turning leaf animation
   useEffect(() => {
@@ -89,71 +112,178 @@ export const PageFlip: React.FC<PageFlipProps> = ({
     }
   }, [currentIndex, flipSpeed, reducedMotion]);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement | null;
-    if (
-      target?.closest(
-        'input, textarea, select, button, a, [role="button"], .recharts-wrapper'
-      )
-    ) {
+  const startGesture = (
+    clientX: number,
+    clientY: number,
+    pointerId: number | null,
+    target: EventTarget | null
+  ) => {
+    if (shouldIgnoreSwipeTarget(target)) {
+      gestureRef.current = null;
       return;
     }
-    pointerStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      pointerId: e.pointerId,
-      isHorizontal: null,
+    gestureRef.current = {
+      active: true,
+      lockedHorizontal: null,
+      startX: clientX,
+      startY: clientY,
+      lastX: clientX,
+      startTime: performance.now(),
+      pointerId,
     };
     setDragDeltaX(0);
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const start = pointerStartRef.current;
-    if (!start || start.pointerId !== e.pointerId) return;
+  const moveGesture = (clientX: number, clientY: number) => {
+    const g = gestureRef.current;
+    if (!g || !g.active) return;
 
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
+    const dx = clientX - g.startX;
+    const dy = clientY - g.startY;
+    g.lastX = clientX;
 
-    if (start.isHorizontal === null) {
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      start.isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.15;
+    if (g.lockedHorizontal === null) {
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+      if (absX < 10 && absY < 10) return;
+
+      // §C: Lock to horizontal when horizontal movement is over 10px and larger than 1.3x vertical movement
+      if (absX > 10 && absX > absY * 1.3) {
+        g.lockedHorizontal = true;
+        suppressClickRef.current = true;
+        if (g.pointerId !== null && containerRef.current) {
+          try {
+            containerRef.current.setPointerCapture(g.pointerId);
+          } catch {
+            // Ignore if pointer capture is unsupported for synthetic events
+          }
+        }
+      } else if (absY > 12 && absY > absX * 1.3) {
+        g.lockedHorizontal = false;
+        g.active = false;
+        setDragDeltaX(0);
+        return;
+      } else {
+        return;
+      }
     }
 
-    if (!start.isHorizontal) {
-      pointerStartRef.current = null;
-      setDragDeltaX(0);
-      return;
-    }
+    if (!g.lockedHorizontal) return;
 
     if (dx < 0 && !canTurnNext) {
-      setDragDeltaX(Math.max(-20, dx * 0.15));
+      setDragDeltaX(Math.max(-24, dx * 0.18));
       return;
     }
     if (dx > 0 && !canTurnPrev) {
-      setDragDeltaX(Math.min(20, dx * 0.15));
+      setDragDeltaX(Math.min(24, dx * 0.18));
       return;
     }
 
     setDragDeltaX(dx);
   };
 
-  const handlePointerEnd = () => {
-    const start = pointerStartRef.current;
-    pointerStartRef.current = null;
-    if (!start || !start.isHorizontal) {
+  const endGesture = (finalClientX?: number) => {
+    const g = gestureRef.current;
+    gestureRef.current = null;
+
+    if (!g || !g.active || !g.lockedHorizontal) {
       setDragDeltaX(0);
       return;
     }
 
-    const threshold = 48;
-    if (dragDeltaX <= -threshold && canTurnNext) {
-      setDragDeltaX(0);
-      onTurnNext();
-    } else if (dragDeltaX >= threshold && canTurnPrev) {
-      setDragDeltaX(0);
-      onTurnPrev();
-    } else {
-      setDragDeltaX(0);
+    if (g.pointerId !== null && containerRef.current) {
+      try {
+        if (containerRef.current.hasPointerCapture(g.pointerId)) {
+          containerRef.current.releasePointerCapture(g.pointerId);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    const endX = finalClientX !== undefined ? finalClientX : g.lastX;
+    const dx = endX - g.startX;
+    const elapsedMs = Math.max(1, performance.now() - g.startTime);
+    const speedPxPerMs = Math.abs(dx) / elapsedMs;
+
+    const containerWidth = containerRef.current?.clientWidth || 360;
+    const singlePageWidth = isSpread ? containerWidth / 2 : containerWidth;
+    // §C: Turn page if drag was over 25% of page width or speed was over 0.35 px/ms
+    const distanceThreshold = singlePageWidth * 0.25;
+    const shouldTurn =
+      Math.abs(dx) >= distanceThreshold ||
+      (Math.abs(dx) >= 18 && speedPxPerMs >= 0.35);
+
+    setDragDeltaX(0);
+
+    if (shouldTurn) {
+      if (dx < 0 && canTurnNext) {
+        onTurnNext();
+      } else if (dx > 0 && canTurnPrev) {
+        onTurnPrev();
+      }
+    }
+
+    // Keep click suppression active briefly so the button under the finger does not fire a click
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 90);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    startGesture(e.clientX, e.clientY, e.pointerId, e.target);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (!g || (g.pointerId !== null && g.pointerId !== e.pointerId)) return;
+    moveGesture(e.clientX, e.clientY);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (!g || (g.pointerId !== null && g.pointerId !== e.pointerId)) return;
+    endGesture(e.clientX);
+  };
+
+  const handlePointerCancel = () => {
+    gestureRef.current = null;
+    setDragDeltaX(0);
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 60);
+  };
+
+  // Fallback TouchEvent handlers for touch emulators that dispatch raw touch events without pointer events
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (gestureRef.current?.active) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    startGesture(touch.clientX, touch.clientY, null, e.target);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (!g || g.pointerId !== null) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    moveGesture(touch.clientX, touch.clientY);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (!g || g.pointerId !== null) return;
+    const touch = e.changedTouches[0];
+    endGesture(touch ? touch.clientX : undefined);
+  };
+
+  // §C: Suppress the click that follows a horizontal swipe drag so buttons are not triggered
+  const handleClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (suppressClickRef.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      suppressClickRef.current = false;
     }
   };
 
@@ -169,7 +299,6 @@ export const PageFlip: React.FC<PageFlipProps> = ({
   // Render static underlying view
   const renderUnderneathView = () => {
     if (!isSpread) {
-      // In single-page mode, while flipping forward, the destination page is already underneath!
       const underIdx = activeFlip
         ? activeFlip.direction === 'next'
           ? activeFlip.toIndex
@@ -200,9 +329,7 @@ export const PageFlip: React.FC<PageFlipProps> = ({
       );
     }
 
-    // Two-page spread (Tablet Landscape):
-    // When flipping forward (fromIndex -> toIndex), the left page underneath is still fromIndex
-    // until the leaf covers it, and the right page underneath is already the new toIndex + 1!
+    // Two-page spread (Tablet Landscape)
     const leftIdx = activeFlip
       ? activeFlip.direction === 'next'
         ? activeFlip.fromIndex
@@ -245,12 +372,12 @@ export const PageFlip: React.FC<PageFlipProps> = ({
     );
   };
 
-  // Interactive finger drag angle (only while dragging)
+  // Interactive finger drag angle (only while dragging — §C & §J)
   const liveDragAngle =
     !reducedMotion && dragDeltaX < 0
-      ? Math.max(-95, (dragDeltaX / 240) * 95)
+      ? Math.max(-100, (dragDeltaX / 220) * 100)
       : !reducedMotion && dragDeltaX > 0
-        ? Math.min(30, (dragDeltaX / 240) * 35)
+        ? Math.min(35, (dragDeltaX / 220) * 40)
         : 0;
 
   const flipDuration = reducedMotion
@@ -261,28 +388,35 @@ export const PageFlip: React.FC<PageFlipProps> = ({
 
   return (
     <div
+      ref={containerRef}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerCancel={handlePointerEnd}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onClickCapture={handleClickCapture}
       className="book-outer-frame book-perspective-stage flex-1 min-h-0 w-full relative overflow-hidden flex"
     >
-      {/* Underneath Page / Spread */}
+      {/* Underneath Page / Spread Following Finger During Active Drag */}
       <div
         style={{
           transform:
             liveDragAngle !== 0 && !activeFlip
-              ? `perspective(1800px) rotateY(${liveDragAngle * 0.35}deg)`
+              ? `perspective(1800px) rotateY(${liveDragAngle * 0.45}deg) translateX(${
+                  dragDeltaX * 0.08
+                }px)`
               : undefined,
           transformOrigin: isSpread ? 'center center' : 'left center',
-          transition: dragDeltaX === 0 ? 'transform 0.25s ease-out' : 'none',
+          transition: dragDeltaX === 0 ? 'transform 0.24s ease-out' : 'none',
         }}
         className="w-full h-full flex min-h-0"
       >
         {renderUnderneathView()}
       </div>
 
-      {/* Live Finger-Drag Shadow & Corner Curl Hint (ONLY shown while actively dragging — §2) */}
+      {/* Live Finger-Drag Shadow & Corner Curl Hint (ONLY shown while actively dragging, never covers page numbers — §E) */}
       {dragDeltaX !== 0 && !activeFlip && (
         <>
           <div
@@ -290,22 +424,22 @@ export const PageFlip: React.FC<PageFlipProps> = ({
               opacity: Math.min(0.55, Math.abs(dragDeltaX) / 180),
               background:
                 dragDeltaX < 0
-                  ? 'linear-gradient(to left, rgba(92, 61, 46, 0.32) 0%, rgba(139, 94, 60, 0.1) 40%, transparent 100%)'
-                  : 'linear-gradient(to right, rgba(92, 61, 46, 0.32) 0%, rgba(139, 94, 60, 0.1) 40%, transparent 100%)',
+                  ? 'linear-gradient(to left, rgba(92, 61, 46, 0.34) 0%, rgba(139, 94, 60, 0.12) 45%, transparent 100%)'
+                  : 'linear-gradient(to right, rgba(92, 61, 46, 0.34) 0%, rgba(139, 94, 60, 0.12) 45%, transparent 100%)',
             }}
             className="absolute inset-0 pointer-events-none z-30"
           />
           <div
             style={{
               background:
-                'linear-gradient(135deg, transparent 48%, #F0DED4 50%, #FFFDF7 75%, rgba(139, 94, 60, 0.3) 100%)',
+                'linear-gradient(135deg, transparent 48%, #F0DED4 50%, #FFFDF7 75%, rgba(139, 94, 60, 0.32) 100%)',
             }}
-            className="absolute bottom-8 right-0 w-9 h-9 rounded-tl-xl border-t border-l border-[#8B5E3C]/50 pointer-events-none z-30"
+            className="absolute bottom-10 right-0 w-8 h-8 rounded-tl-xl border-t border-l border-[#8B5E3C]/50 pointer-events-none z-30"
           />
         </>
       )}
 
-      {/* 3D Turning Page Leaf Overlay (Solid 100% Opaque Paper — No Opacity Fade — §9) */}
+      {/* 3D Turning Page Leaf Overlay (Solid 100% Opaque Paper — No Opacity Fade — §J) */}
       {activeFlip && (() => {
         const isNext = activeFlip.direction === 'next';
 

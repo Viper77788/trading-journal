@@ -6,7 +6,10 @@ export interface BookPageData {
   pageTitle: string;
   mobileTitle?: string;
   pastelHeaderBg: string;
+  headerExtra?: React.ReactNode;
   content: React.ReactNode;
+  pinnedFooter?: React.ReactNode;
+  disableBodyScroll?: boolean;
   isBlankLeaf?: boolean;
 }
 
@@ -32,6 +35,7 @@ export const BookPage: React.FC<BookPageProps> = ({
   const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
     if (!target) return;
+    // Never trigger edge tap on buttons, inputs, or interactive elements (§C)
     if (
       target.closest(
         'button, input, textarea, select, label, a, [role="button"], .recharts-wrapper'
@@ -41,11 +45,13 @@ export const BookPage: React.FC<BookPageProps> = ({
     }
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / Math.max(1, rect.width);
+    const offsetLeft = e.clientX - rect.left;
+    const offsetRight = rect.right - e.clientX;
 
-    if (relX <= 0.15 && onEdgeTapPrev) {
+    // Only the outer 24px of the page acts as an edge-tap zone (§C)
+    if (offsetLeft <= 24 && onEdgeTapPrev) {
       onEdgeTapPrev();
-    } else if (relX >= 0.85 && onEdgeTapNext) {
+    } else if (offsetRight <= 24 && onEdgeTapNext) {
       onEdgeTapNext();
     }
   };
@@ -57,7 +63,7 @@ export const BookPage: React.FC<BookPageProps> = ({
         ? 'book-page-sheet--right'
         : 'book-page-sheet--single';
 
-  // Blank paper-coloured right page if a section ever has an odd page count in landscape spread (§5)
+  // Blank paper-coloured right page if a section ever has an odd page count in landscape spread (§G)
   if (page.isBlankLeaf) {
     return (
       <div
@@ -75,11 +81,11 @@ export const BookPage: React.FC<BookPageProps> = ({
       onClick={handleSurfaceClick}
       className={`book-page-sheet ${sideClass} flex-1 min-w-0`}
     >
-      {/* Dotted vertical brown notebook margin line */}
+      {/* Dotted vertical brown notebook margin line (pointer-events: none) */}
       <div className="book-margin-line" />
 
-      {/* Page Header: Top-Corner Section Label + Pastel Title Bar with Dotted Underline (never truncated with "...") */}
-      <div className="px-3.5 sm:px-5 pt-2 pb-1.5 border-b-2 border-dotted border-[#8B5E3C]/50 shrink-0 relative z-10">
+      {/* ZONE 1: HEADER (flex: none) — page label, title bar, and optional header controls (§A) */}
+      <div className="book-page-header px-3 sm:px-4 pt-2 pb-1.5 border-b-2 border-dotted border-[#8B5E3C]/50">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-[12px] sm:text-[13px] font-extrabold uppercase tracking-wide text-[#8B5E3C]">
             {page.sectionLabel}
@@ -97,18 +103,27 @@ export const BookPage: React.FC<BookPageProps> = ({
             {displayTitle}
           </h2>
         </div>
+
+        {page.headerExtra && <div className="mt-1.5">{page.headerExtra}</div>}
       </div>
 
-      {/* Inner Page Body with flex layout and bottom breathing space before footer (§2 & §8) */}
-      <div className="book-page-content flex-1 flex flex-col min-h-0 panel-scroll px-3.5 sm:px-5 pt-2 pb-4 sm:pb-[40px] relative z-10">
+      {/* ZONE 2: BODY (flex: 1, min-height: 0, overflow-y: auto, overscroll-behavior: contain) (§A) */}
+      <div
+        className={`book-page-body flex flex-col px-3 sm:px-4 py-2 ${
+          page.disableBodyScroll ? '!overflow-hidden' : ''
+        }`}
+      >
         {page.content}
       </div>
 
-      {/* Single-Line Page Number Footer (§2 & §5: "Page 1 of 6", never wrapping) */}
-      <div className="px-4 sm:px-5 py-1.5 border-t border-dotted border-[#8B5E3C]/40 flex items-center justify-center text-[14px] sm:text-[15px] font-bold text-[#8B5E3C] shrink-0 relative z-10 bg-[#FFFDF7]">
-        <span className="whitespace-nowrap">
-          Page {pageNumber} of {totalPages}
-        </span>
+      {/* ZONE 3: PAGE FOOTER (flex: none) — Pinned Page Footer Element + Single-Line Page Number (§A) */}
+      <div className="book-page-footer px-3 sm:px-4 pt-1.5 pb-1.5 border-t-2 border-dotted border-[#8B5E3C]/45 bg-[#FFFDF7]">
+        {page.pinnedFooter && <div className="mb-1.5">{page.pinnedFooter}</div>}
+        <div className="min-h-[22px] flex items-center justify-center text-[14px] sm:text-[15px] font-bold text-[#8B5E3C] leading-none">
+          <span className="whitespace-nowrap">
+            Page {pageNumber} of {totalPages}
+          </span>
+        </div>
       </div>
     </div>
   );
