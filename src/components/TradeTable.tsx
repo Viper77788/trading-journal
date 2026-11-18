@@ -184,19 +184,21 @@ export const TradeTable: React.FC<TradeTableProps> = ({
           </span>
         </div>
 
-        <button
-          type="button"
-          disabled={isAtLimit}
-          onClick={openNewTradeModal}
-          className={`no-print h-[42px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 transition-transform ${
-            isAtLimit
-              ? 'bg-[#F0DED4] text-[#8B5E3C]/60 cursor-not-allowed'
-              : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer'
-          }`}
-        >
-          <Plus className="w-4 h-4 stroke-[2.8]" />
-          <span>ADD TRADE</span>
-        </button>
+        {trades.length > 0 && (
+          <button
+            type="button"
+            disabled={isAtLimit}
+            onClick={openNewTradeModal}
+            className={`no-print h-[42px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 transition-transform ${
+              isAtLimit
+                ? 'bg-[#F0DED4] text-[#8B5E3C]/60 cursor-not-allowed'
+                : 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] active:scale-95 cursor-pointer'
+            }`}
+          >
+            <Plus className="w-4 h-4 stroke-[2.8]" />
+            <span>ADD TRADE</span>
+          </button>
+        )}
       </div>
 
       {/* Stop Trading Banner when 3 trades reached */}

@@ -23,7 +23,10 @@ import { DisplayMode } from '../hooks/useDisplayMode';
 import { PageFlip } from './PageFlip';
 import { BookTabs } from './BookTabs';
 import { BookCover } from './BookCover';
-import { buildTodayBookPages } from './pages/TodayBookPages';
+import {
+  buildTodayBookPages,
+  TodayBookLayoutMode,
+} from './pages/TodayBookPages';
 import { buildHistoryBookPages } from './pages/HistoryBookPages';
 import { buildFutureBookPages } from './pages/FutureBookPages';
 import { buildSettingsBookPages } from './pages/SettingsBookPages';
@@ -151,6 +154,9 @@ export const BookShell: React.FC<BookShellProps> = ({
     }
   });
 
+  // One-time touch hint under the book that fades out after first page turn (§2)
+  const [hasTurnedPageOnce, setHasTurnedPageOnce] = useState<boolean>(false);
+
   // Page index per section (0-based)
   const [pageBySection, setPageBySection] = useState<Record<NavPageId, number>>(
     () => readSavedPageMap()
@@ -203,14 +209,20 @@ export const BookShell: React.FC<BookShellProps> = ({
     };
   }, []);
 
+  const isMobileLayout = displayMode === 'mobile' || viewport.width < 700;
+
   // Tablet Book Mode in Landscape (>= 700px wide & width > height) uses Two-Page Spread
   const isSpread =
+    !isMobileLayout &&
     displayMode === 'tablet' &&
     viewport.width >= 700 &&
     viewport.width > viewport.height;
 
-  const isCompactMobileWidth =
-    displayMode === 'mobile' || viewport.width < 700;
+  const todayLayoutMode: TodayBookLayoutMode = isMobileLayout
+    ? 'mobile'
+    : isSpread
+      ? 'tablet-landscape'
+      : 'tablet-portrait';
 
   const isWideDesktop = viewport.width > 1100;
 
@@ -238,6 +250,7 @@ export const BookShell: React.FC<BookShellProps> = ({
   const pages = useMemo(() => {
     if (activePage === 'tracker') {
       return buildTodayBookPages({
+        layoutMode: todayLayoutMode,
         selectedDate,
         onSelectDate,
         day,
@@ -275,6 +288,7 @@ export const BookShell: React.FC<BookShellProps> = ({
       });
     }
     return buildSettingsBookPages({
+      isMobile: isMobileLayout,
       settings,
       userEmail,
       displayMode,
@@ -288,6 +302,8 @@ export const BookShell: React.FC<BookShellProps> = ({
     });
   }, [
     activePage,
+    todayLayoutMode,
+    isMobileLayout,
     selectedDate,
     onSelectDate,
     day,
@@ -333,6 +349,7 @@ export const BookShell: React.FC<BookShellProps> = ({
     (nextIdx: number, speed: 'normal' | 'fast' = 'normal') => {
       const clamped = Math.max(0, Math.min(totalPages - 1, nextIdx));
       setFlipSpeed(speed);
+      setHasTurnedPageOnce(true);
       setPageBySection((prev) => {
         const next = { ...prev, [activePage]: clamped };
         try {
@@ -404,7 +421,7 @@ export const BookShell: React.FC<BookShellProps> = ({
     setShowCover(false);
   };
 
-  // Page label for bottom bar ("Page 2 of 5" or "Pages 1–2 of 5")
+  // Page label for bottom bar ("Page 2 of 6" or "Pages 1–2 of 6")
   const pageStatusLabel = isSpread
     ? currentIndex + 2 <= totalPages
       ? `Pages ${currentIndex + 1}–${currentIndex + 2} of ${totalPages}`
@@ -421,18 +438,18 @@ export const BookShell: React.FC<BookShellProps> = ({
         />
       )}
 
-      {/* Slim Top Status & Logout Ribbon Outside the Book Pages (§6) */}
-      <header className="no-print w-full px-3 pt-2 pb-1 shrink-0">
-        <div className="w-full max-w-[1200px] mx-auto px-3.5 py-1.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
+      {/* Slim 44px Top Header Row (§3: book icon, "TRADING TRACKER", small Saved dot, compact Log out icon button; no email on mobile) */}
+      <header className="no-print w-full px-2.5 pt-1.5 pb-0.5 shrink-0">
+        <div className="w-full max-w-[1200px] mx-auto h-[44px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <BookOpen className="w-4 h-4 text-[#8B5E3C] shrink-0" />
-            <span className="font-heading text-[16px] sm:text-[18px] font-bold uppercase text-[#8B5E3C] truncate">
-              DAILY TRADING TRACKER
+            <span className="font-heading text-[16px] sm:text-[18px] font-bold uppercase text-[#8B5E3C] whitespace-nowrap">
+              TRADING TRACKER
             </span>
 
-            {/* Cloud Sync Status Pill */}
+            {/* Small Saved Dot / Status Pill */}
             <span
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-[#8B5E3C] text-[13px] font-extrabold shrink-0 ${
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#8B5E3C] text-[12px] sm:text-[13px] font-extrabold shrink-0 ${
                 syncStatus === 'saved'
                   ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                   : syncStatus === 'saving'
@@ -440,62 +457,69 @@ export const BookShell: React.FC<BookShellProps> = ({
                     : 'bg-[#F5B8B0] text-[#9B2C20]'
               }`}
             >
-              {syncStatus === 'saved' && (
-                <>
-                  <Check className="w-3.5 h-3.5 stroke-[2.6]" />
-                  <span>Saved</span>
-                </>
-              )}
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  syncStatus === 'saved'
+                    ? 'bg-[#2F6B3A]'
+                    : syncStatus === 'saving'
+                      ? 'bg-[#7A5A10] animate-pulse'
+                      : 'bg-[#9B2C20]'
+                }`}
+              />
+              {syncStatus === 'saved' && <span>Saved</span>}
               {syncStatus === 'saving' && (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin stroke-[2.4]" />
+                  <RefreshCw className="w-3 h-3 animate-spin" />
                   <span>Saving...</span>
                 </>
               )}
               {syncStatus === 'offline' && (
                 <>
-                  <WifiOff className="w-3.5 h-3.5 stroke-[2.4]" />
-                  <span>Offline - retrying</span>
+                  <WifiOff className="w-3 h-3" />
+                  <span>Offline</span>
                 </>
               )}
             </span>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {userEmail && (
-              <span className="hidden md:inline-block max-w-[180px] truncate text-[14px] font-bold text-[#5C3D2E] px-2 py-0.5 rounded-lg bg-[#FFFBF2] border border-[#8B5E3C]/40">
+            {!isMobileLayout && userEmail && (
+              <span className="hidden md:inline-block max-w-[180px] truncate text-[13px] font-bold text-[#5C3D2E] px-2 py-0.5 rounded-lg bg-[#FFFBF2] border border-[#8B5E3C]/40">
                 {userEmail}
               </span>
             )}
             <button
               type="button"
               onClick={onLogout}
-              className="min-h-[38px] px-3 rounded-lg bg-[#F8D0CC] hover:bg-[#f5b8b0] border border-[#8B5E3C] text-[#5C3D2E] flex items-center gap-1.5 font-heading text-[15px] font-bold cursor-pointer"
+              aria-label="Log out"
+              title="Log out"
+              className="h-[32px] px-2.5 rounded-lg bg-[#F8D0CC] hover:bg-[#f5b8b0] border border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center gap-1 font-heading text-[14px] font-bold cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
-              <span>Log out</span>
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">Log out</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Bookmark Tabs at Top of Book if Screen Width is Compact (< 700px) */}
-      {isCompactMobileWidth && (
-        <div className="w-full max-w-[1200px] mx-auto px-1">
+      {/* Top Row of 4 Pastel Tabs on Mobile & Tablet Portrait (§3 & §7) */}
+      {!isSpread && (
+        <div className="w-full max-w-[1200px] mx-auto">
           <BookTabs
             activeSection={activePage}
             onSelectSection={handleSelectSection}
-            variant="bottom-bar"
+            variant="top-row"
           />
         </div>
       )}
 
-      {/* Center Book Area (Centered, max-width 1200px) */}
-      <main className="flex-1 min-h-0 w-full max-w-[1200px] mx-auto px-2.5 sm:px-4 py-1.5 flex items-stretch">
+      {/* Center Book Area (Centered, max-width 1200px, right padding for side tabs in Landscape Spread — §7) */}
+      <main className="flex-1 min-h-0 w-full max-w-[1200px] mx-auto px-2.5 sm:px-4 py-1 flex items-stretch">
         <PageFlip
           pages={pages}
           currentIndex={currentIndex}
           isSpread={isSpread}
+          isMobile={isMobileLayout}
           reducedMotion={reducedMotion}
           flipSpeed={flipSpeed}
           onTurnPrev={handleTurnPrev}
@@ -504,8 +528,8 @@ export const BookShell: React.FC<BookShellProps> = ({
           canTurnNext={canTurnNext}
         />
 
-        {/* Right-Edge Bookmark Index Tabs on Tablet / Wide Screens (>= 700px) */}
-        {!isCompactMobileWidth && (
+        {/* Right-Edge Bookmark Index Tabs in Tablet Landscape Spread (§7: fully outside page edge, z-30) */}
+        {isSpread && (
           <BookTabs
             activeSection={activePage}
             onSelectSection={handleSelectSection}
@@ -514,15 +538,22 @@ export const BookShell: React.FC<BookShellProps> = ({
         )}
       </main>
 
-      {/* Bottom Page-Turn Bar (§6: Left Arrow >=52px, "Page X of Y" + dots, Right Arrow >=52px) */}
-      <footer className="no-print w-full px-3 pt-1 pb-2 shrink-0">
-        <div className="w-full max-w-[1200px] mx-auto px-3 py-1.5 rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
+      {/* One-Time Touch Hint Under the Book that Fades Out After First Page Turn (§2) */}
+      {isMobileLayout && !hasTurnedPageOnce && (
+        <div className="text-center text-[13px] font-bold text-[#8B5E3C]/80 leading-none py-0.5 transition-opacity">
+          Tap page edge or swipe to turn
+        </div>
+      )}
+
+      {/* Bottom Page-Turn Bar (§6: Left Arrow, "Page X of Y" + dots, Right Arrow) */}
+      <footer className="no-print w-full px-2.5 pt-0.5 pb-1.5 shrink-0">
+        <div className="w-full max-w-[1200px] mx-auto px-3 py-1 rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
           <button
             type="button"
             disabled={!canTurnPrev}
             onClick={handleTurnPrev}
             aria-label="Previous page"
-            className={`min-h-[52px] min-w-[56px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[17px] font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`min-h-[48px] min-w-[52px] px-3.5 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold flex items-center justify-center gap-1 transition-colors ${
               canTurnPrev
                 ? 'bg-[#F2D29B] hover:bg-[#ecc482] text-[#5C3D2E] cursor-pointer active:scale-95'
                 : 'bg-[#FFFBF2] text-[#8B5E3C]/40 border-[#8B5E3C]/40 cursor-not-allowed'
@@ -533,8 +564,8 @@ export const BookShell: React.FC<BookShellProps> = ({
           </button>
 
           {/* Center Page Number & Dots */}
-          <div className="flex flex-col items-center gap-1">
-            <span className="font-heading text-[17px] sm:text-[18px] font-bold text-[#8B5E3C] leading-none">
+          <div className="flex flex-col items-center gap-1.5">
+            <span className="font-heading text-[16px] sm:text-[17px] font-bold text-[#8B5E3C] leading-none whitespace-nowrap">
               {pageStatusLabel}
             </span>
             <div className="flex items-center gap-1.5">
@@ -555,7 +586,7 @@ export const BookShell: React.FC<BookShellProps> = ({
                     aria-label={`Go to page ${idx + 1}`}
                     className={`h-2.5 rounded-full border border-[#8B5E3C] transition-all cursor-pointer ${
                       isActiveDot
-                        ? 'w-6 bg-[#8B5E3C]'
+                        ? 'w-5 bg-[#8B5E3C]'
                         : 'w-2.5 bg-[#F0DED4] hover:bg-[#F2D29B]'
                     }`}
                   />
@@ -569,7 +600,7 @@ export const BookShell: React.FC<BookShellProps> = ({
             disabled={!canTurnNext}
             onClick={handleTurnNext}
             aria-label="Next page"
-            className={`min-h-[52px] min-w-[56px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[17px] font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`min-h-[48px] min-w-[52px] px-3.5 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold flex items-center justify-center gap-1 transition-colors ${
               canTurnNext
                 ? 'bg-[#BFE3C0] hover:bg-[#a9d8ab] text-[#2F6B3A] cursor-pointer active:scale-95'
                 : 'bg-[#FFFBF2] text-[#8B5E3C]/40 border-[#8B5E3C]/40 cursor-not-allowed'

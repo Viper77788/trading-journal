@@ -192,9 +192,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
         <div className="grid grid-cols-7 gap-1.5">
           {weekDays.map((wd) => {
             const evalRes = evaluateDayDiscipline(daysMap[wd.dateIso], settings);
-            const status: DayDisciplineStatus = evalRes.hasTrades
-              ? evalRes.status
-              : 'empty';
+            const status: DayDisciplineStatus = evalRes.status;
             const isSelected = wd.dateIso === selectedDate;
 
             return (
@@ -248,6 +246,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
         dailyPnl={totalPnl}
         tradesCount={day.trades.length}
         maxTrades={settings.maxTradesPerDay}
+        isEmpty={dayEval.isEmpty}
       />
     </div>
   );

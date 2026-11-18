@@ -88,25 +88,31 @@ export function getEffectiveAuditAnswers(
   };
 }
 
-export function hasDayActivity(day: DayRecord): boolean {
+export function hasDayActivity(day: DayRecord | undefined): boolean {
+  if (!day) return false;
   const checklistCount = [
-    day.checklist.checkedEconomicCalendar,
-    day.checklist.confirmedAllowedWindows,
-    day.checklist.mentalStateCalm,
+    day.checklist?.checkedEconomicCalendar,
+    day.checklist?.confirmedAllowedWindows,
+    day.checklist?.mentalStateCalm,
   ].filter(Boolean).length;
 
   const hasManualAudit =
-    day.audit.stuckToMaxTrades !== null ||
-    day.audit.respectedRiskCap !== null ||
-    day.audit.executedInAllowedWindows !== null ||
-    (day.audit.emotions && day.audit.emotions.length > 0) ||
-    Boolean(day.audit.keyLesson && day.audit.keyLesson.trim().length > 0);
+    day.audit?.stuckToMaxTrades !== null ||
+    day.audit?.respectedRiskCap !== null ||
+    day.audit?.executedInAllowedWindows !== null ||
+    Boolean(day.audit?.emotions && day.audit.emotions.length > 0) ||
+    Boolean(day.audit?.keyLesson && day.audit.keyLesson.trim().length > 0) ||
+    Boolean(day.audit?.savedAt);
 
   return (
     Boolean(day.trades && day.trades.length > 0) ||
     checklistCount > 0 ||
     hasManualAudit
   );
+}
+
+export function isDayEmpty(day: DayRecord | undefined): boolean {
+  return !hasDayActivity(day);
 }
 
 export type DayDisciplineStatus = 'green' | 'yellow' | 'red' | 'empty';
@@ -117,6 +123,7 @@ export interface DayDisciplineEvaluation {
   ruleBreaksCount: number;
   smallMistakesCount: number;
   hasTrades: boolean;
+  isEmpty: boolean;
 }
 
 /**
@@ -131,13 +138,14 @@ export function evaluateDayDiscipline(
   day: DayRecord | undefined,
   settings: AccountSettings
 ): DayDisciplineEvaluation {
-  if (!day || !hasDayActivity(day)) {
+  if (!day || isDayEmpty(day)) {
     return {
       status: 'empty',
       score: 0,
       ruleBreaksCount: 0,
       smallMistakesCount: 0,
       hasTrades: false,
+      isEmpty: true,
     };
   }
 
@@ -172,7 +180,6 @@ export function evaluateDayDiscipline(
       ruleBreaksCount += 1;
     }
     if (!effectiveAudit.respectedRiskCap) {
-      // Check if already counted via trade risk violation below
       const anyRiskViolated = trades.some((t) => isTradeRiskViolated(t, settings));
       if (!anyRiskViolated) ruleBreaksCount += 1;
     }
@@ -194,19 +201,27 @@ export function evaluateDayDiscipline(
     }
   }
 
-  // Base score calculation
+  // Base score calculation when no trades yet, only checklist / manual audit
   if (!hasTrades) {
-    // No trades yet, only checklist / manual audit
     let rawNoTradeScore = Math.round((checklistCount / 3) * 100);
+    if (
+      checklistCount === 0 &&
+      (day.audit.stuckToMaxTrades === true ||
+        day.audit.respectedRiskCap === true ||
+        day.audit.executedInAllowedWindows === true)
+    ) {
+      rawNoTradeScore = 85;
+    }
     if (ruleBreaksCount > 0) {
-      rawNoTradeScore = Math.max(0, Math.min(75, rawNoTradeScore - ruleBreaksCount * 25));
+      rawNoTradeScore = Math.max(0, Math.min(75, (rawNoTradeScore || 100) - ruleBreaksCount * 25));
     }
     return {
-      status: 'empty',
+      status: ruleBreaksCount > 0 ? 'red' : 'empty',
       score: rawNoTradeScore,
       ruleBreaksCount,
       smallMistakesCount,
       hasTrades: false,
+      isEmpty: false,
     };
   }
 
@@ -248,6 +263,7 @@ export function evaluateDayDiscipline(
     ruleBreaksCount,
     smallMistakesCount,
     hasTrades: true,
+    isEmpty: false,
   };
 }
 

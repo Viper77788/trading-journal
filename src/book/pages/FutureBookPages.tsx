@@ -86,36 +86,48 @@ export function buildFutureBookPages({
             : `${projection.monthsCount} months`;
 
   return [
-    // PAGE 1: The 5 Main Inputs
+    // PAGE 1: Main Inputs 1–3 (Start, Risk %, Win Rate %)
     {
       id: 'future-p1',
-      sectionLabel: 'FUTURE • MAIN INPUTS',
-      pageTitle: 'FUTURE CALCULATOR INPUTS',
+      sectionLabel: 'FUTURE • PAGE 1',
+      pageTitle: 'BALANCE, RISK & WIN RATE',
+      mobileTitle: 'BALANCE & WIN RATE',
       pastelHeaderBg: '#E2DCEB',
       content: (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2.5">
+        <div className="flex-1 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={handleUseRealStats}
-              className="flex-1 min-h-[52px] px-4 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[17px] font-bold uppercase text-[#2F6B3A] cursor-pointer"
+              className="flex-1 min-h-[48px] px-3 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase text-[#2F6B3A] cursor-pointer"
             >
               Use my real stats
             </button>
             <button
               type="button"
               onClick={onResetCalc}
-              className="min-h-[52px] px-4 rounded-xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] cursor-pointer"
+              className="min-h-[48px] px-3.5 rounded-xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] cursor-pointer"
             >
               Reset
             </button>
           </div>
 
-          {/* 1. Start ($) */}
-          <div className="p-3 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
-            <label className="text-[17px] font-extrabold text-[#5C3D2E] w-28 shrink-0">
-              Start ($)
-            </label>
+          <div className="p-3 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[17px] font-extrabold text-[#5C3D2E]">
+                Start ($)
+              </label>
+              <input
+                type="number"
+                value={calcSettings.startingBalance}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    startingBalance: Math.max(100, Number(e.target.value) || 0),
+                  })
+                }
+                className="w-32 min-h-[46px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
             <input
               type="range"
               min={1000}
@@ -125,25 +137,29 @@ export function buildFutureBookPages({
               onChange={(e) =>
                 onUpdateCalc({ startingBalance: Number(e.target.value) })
               }
-              className="flex-1 min-w-[80px] cursor-pointer"
-            />
-            <input
-              type="number"
-              value={calcSettings.startingBalance}
-              onChange={(e) =>
-                onUpdateCalc({
-                  startingBalance: Math.max(100, Number(e.target.value) || 0),
-                })
-              }
-              className="w-32 min-h-[52px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              className="w-full cursor-pointer"
             />
           </div>
 
-          {/* 2. Risk % */}
-          <div className="p-3 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
-            <label className="text-[17px] font-extrabold text-[#5C3D2E] w-28 shrink-0">
-              Risk %
-            </label>
+          <div className="p-3 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[17px] font-extrabold text-[#5C3D2E]">
+                Risk % per Trade
+              </label>
+              <input
+                type="number"
+                step={0.25}
+                min={0.1}
+                max={25}
+                value={calcSettings.riskPercent}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    riskPercent: Math.max(0.1, Number(e.target.value) || 1),
+                  })
+                }
+                className="w-28 min-h-[46px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
             <input
               type="range"
               min={0.25}
@@ -153,28 +169,31 @@ export function buildFutureBookPages({
               onChange={(e) =>
                 onUpdateCalc({ riskPercent: Number(e.target.value) })
               }
-              className="flex-1 min-w-[80px] cursor-pointer"
-            />
-            <input
-              type="number"
-              step={0.25}
-              min={0.1}
-              max={25}
-              value={calcSettings.riskPercent}
-              onChange={(e) =>
-                onUpdateCalc({
-                  riskPercent: Math.max(0.1, Number(e.target.value) || 1),
-                })
-              }
-              className="w-32 min-h-[52px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              className="w-full cursor-pointer"
             />
           </div>
 
-          {/* 3. Win Rate % */}
-          <div className="p-3 rounded-xl bg-[#E2DCEB] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
-            <label className="text-[17px] font-extrabold text-[#5C3D2E] w-28 shrink-0">
-              Win Rate %
-            </label>
+          <div className="p-3 rounded-xl bg-[#E2DCEB] border-2 border-[#8B5E3C] space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[17px] font-extrabold text-[#5C3D2E]">
+                Win Rate %
+              </label>
+              <input
+                type="number"
+                min={5}
+                max={95}
+                value={calcSettings.winRate}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    winRate: Math.max(
+                      5,
+                      Math.min(95, Number(e.target.value) || 50)
+                    ),
+                  })
+                }
+                className="w-28 min-h-[46px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
             <input
               type="range"
               min={15}
@@ -184,30 +203,41 @@ export function buildFutureBookPages({
               onChange={(e) =>
                 onUpdateCalc({ winRate: Number(e.target.value) })
               }
-              className="flex-1 min-w-[80px] cursor-pointer"
-            />
-            <input
-              type="number"
-              min={5}
-              max={95}
-              value={calcSettings.winRate}
-              onChange={(e) =>
-                onUpdateCalc({
-                  winRate: Math.max(
-                    5,
-                    Math.min(95, Number(e.target.value) || 50)
-                  ),
-                })
-              }
-              className="w-32 min-h-[52px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              className="w-full cursor-pointer"
             />
           </div>
+        </div>
+      ),
+    },
 
-          {/* 4. Reward (1:X) */}
-          <div className="p-3 rounded-xl bg-[#E8E0A9] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
-            <label className="text-[17px] font-extrabold text-[#5C3D2E] w-28 shrink-0">
-              Reward (1:X)
-            </label>
+    // PAGE 2: Reward Ratio, Time Period & Trade Frequency
+    {
+      id: 'future-p2',
+      sectionLabel: 'FUTURE • PAGE 2',
+      pageTitle: 'REWARD, PERIOD & PACE',
+      mobileTitle: 'REWARD & PERIOD',
+      pastelHeaderBg: '#F2D29B',
+      content: (
+        <div className="flex-1 flex flex-col justify-between gap-2.5">
+          <div className="p-3 rounded-xl bg-[#E8E0A9] border-2 border-[#8B5E3C] space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[17px] font-extrabold text-[#5C3D2E]">
+                Reward (1:X)
+              </label>
+              <input
+                type="number"
+                step={0.1}
+                min={0.1}
+                max={20}
+                value={calcSettings.rewardToRisk}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    rewardToRisk: Math.max(0.1, Number(e.target.value) || 2),
+                  })
+                }
+                className="w-28 min-h-[46px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              />
+            </div>
             <input
               type="range"
               min={0.5}
@@ -217,26 +247,12 @@ export function buildFutureBookPages({
               onChange={(e) =>
                 onUpdateCalc({ rewardToRisk: Number(e.target.value) })
               }
-              className="flex-1 min-w-[80px] cursor-pointer"
-            />
-            <input
-              type="number"
-              step={0.1}
-              min={0.1}
-              max={20}
-              value={calcSettings.rewardToRisk}
-              onChange={(e) =>
-                onUpdateCalc({
-                  rewardToRisk: Math.max(0.1, Number(e.target.value) || 2),
-                })
-              }
-              className="w-32 min-h-[52px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+              className="w-full cursor-pointer"
             />
           </div>
 
-          {/* 5. Time Period */}
-          <div className="p-3 rounded-xl bg-[#F8D0CC] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
-            <label className="text-[17px] font-extrabold text-[#5C3D2E] shrink-0">
+          <div className="p-3 rounded-xl bg-[#F8D0CC] border-2 border-[#8B5E3C] space-y-2">
+            <label className="block text-[17px] font-extrabold text-[#5C3D2E]">
               Time Period
             </label>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -247,7 +263,7 @@ export function buildFutureBookPages({
                     key={p.id}
                     type="button"
                     onClick={() => onUpdateCalc({ period: p.id })}
-                    className={`min-h-[52px] px-3.5 rounded-xl border-2 border-[#8B5E3C] text-[17px] font-bold cursor-pointer ${
+                    className={`min-h-[46px] px-3 rounded-xl border-2 border-[#8B5E3C] text-[16px] font-bold cursor-pointer ${
                       active
                         ? 'bg-[#8B5E3C] text-[#FFFDF7]'
                         : 'bg-[#FFFDF7] text-[#5C3D2E]'
@@ -271,78 +287,71 @@ export function buildFutureBookPages({
                       ),
                     })
                   }
-                  className="w-20 min-h-[52px] px-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E] outline-none"
+                  className="w-20 min-h-[46px] px-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[16px] font-extrabold text-[#5C3D2E] outline-none"
                 />
               )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="p-3 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] space-y-1.5">
+              <label className="block text-[16px] font-extrabold text-[#5C3D2E]">
+                Trades / day
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={15}
+                value={calcSettings.tradesPerDay}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    tradesPerDay: Math.max(1, Number(e.target.value) || 3),
+                  })
+                }
+                className="w-full min-h-[46px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E]"
+              />
+            </div>
+
+            <div className="p-3 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] space-y-1.5">
+              <label className="block text-[16px] font-extrabold text-[#5C3D2E]">
+                Days / week
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={7}
+                value={calcSettings.tradingDaysPerWeek}
+                onChange={(e) =>
+                  onUpdateCalc({
+                    tradingDaysPerWeek: Math.max(
+                      1,
+                      Math.min(7, Number(e.target.value) || 5)
+                    ),
+                  })
+                }
+                className="w-full min-h-[46px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E]"
+              />
             </div>
           </div>
         </div>
       ),
     },
 
-    // PAGE 2: "More options"
+    // PAGE 3: Compounding, Monthly Cashflow & Fees
     {
-      id: 'future-p2',
-      sectionLabel: 'FUTURE • SCHEDULE & COMPOUNDING',
-      pageTitle: 'MORE OPTIONS',
+      id: 'future-p3',
+      sectionLabel: 'FUTURE • PAGE 3',
+      pageTitle: 'COMPOUNDING & FEES',
+      mobileTitle: 'COMPOUNDING & FEES',
       pastelHeaderBg: '#F0DED4',
       content: (
-        <div className="space-y-3.5">
-          <div className="p-4 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
+        <div className="flex-1 flex flex-col justify-between gap-2.5">
+          <div className="p-3.5 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
             <div>
-              <div className="text-[18px] font-extrabold text-[#5C3D2E]">
-                Trades per day
-              </div>
-              <p className="text-[16px] text-[#5C3D2E] m-0">
-                Average setups taken per trading day
-              </p>
-            </div>
-            <input
-              type="number"
-              min={1}
-              max={15}
-              value={calcSettings.tradesPerDay}
-              onChange={(e) =>
-                onUpdateCalc({
-                  tradesPerDay: Math.max(1, Number(e.target.value) || 3),
-                })
-              }
-              className="w-28 min-h-[52px] px-3.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E]"
-            />
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[18px] font-extrabold text-[#5C3D2E]">
-                Trading days per week
-              </div>
-              <p className="text-[16px] text-[#5C3D2E] m-0">
-                Active market days each week (1–7)
-              </p>
-            </div>
-            <input
-              type="number"
-              min={1}
-              max={7}
-              value={calcSettings.tradingDaysPerWeek}
-              onChange={(e) =>
-                onUpdateCalc({
-                  tradingDaysPerWeek: Math.max(
-                    1,
-                    Math.min(7, Number(e.target.value) || 5)
-                  ),
-                })
-              }
-              className="w-28 min-h-[52px] px-3.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E]"
-            />
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[18px] font-extrabold text-[#5C3D2E]">
+              <div className="text-[17px] font-extrabold text-[#5C3D2E]">
                 Compounding
               </div>
-              <p className="text-[16px] text-[#5C3D2E] m-0">
+              <p className="text-[15px] text-[#5C3D2E] m-0">
                 Recalculate risk $ as balance grows
               </p>
             </div>
@@ -351,7 +360,7 @@ export function buildFutureBookPages({
               onClick={() =>
                 onUpdateCalc({ compounding: !calcSettings.compounding })
               }
-              className={`min-h-[52px] min-w-[110px] px-4 rounded-xl border-2 border-[#8B5E3C] text-[18px] font-extrabold cursor-pointer ${
+              className={`min-h-[48px] min-w-[96px] px-4 rounded-xl border-2 border-[#8B5E3C] text-[17px] font-extrabold cursor-pointer ${
                 calcSettings.compounding
                   ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                   : 'bg-[#FFFDF7] text-[#5C3D2E]'
@@ -361,14 +370,9 @@ export function buildFutureBookPages({
             </button>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#E8E0A9] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[18px] font-extrabold text-[#5C3D2E]">
-                Monthly Deposit / Withdrawal ($)
-              </div>
-              <p className="text-[16px] text-[#5C3D2E] m-0">
-                Added (+) or withdrawn (-) every month
-              </p>
+          <div className="p-3.5 rounded-2xl bg-[#E8E0A9] border-2 border-[#8B5E3C] space-y-1.5">
+            <div className="text-[17px] font-extrabold text-[#5C3D2E]">
+              Monthly Deposit / Withdrawal ($)
             </div>
             <input
               type="number"
@@ -379,18 +383,13 @@ export function buildFutureBookPages({
                   monthlyDepositOrWithdrawal: Number(e.target.value) || 0,
                 })
               }
-              className="w-32 min-h-[52px] px-3.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E]"
+              className="w-full min-h-[48px] px-3.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E]"
             />
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#F8D0CC] border-2 border-[#8B5E3C] flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[18px] font-extrabold text-[#5C3D2E]">
-                Fee per trade ($)
-              </div>
-              <p className="text-[16px] text-[#5C3D2E] m-0">
-                Commission / spread cost per trade
-              </p>
+          <div className="p-3.5 rounded-2xl bg-[#F8D0CC] border-2 border-[#8B5E3C] space-y-1.5">
+            <div className="text-[17px] font-extrabold text-[#5C3D2E]">
+              Fee per trade ($)
             </div>
             <input
               type="number"
@@ -402,33 +401,34 @@ export function buildFutureBookPages({
                   commissionPerTrade: Math.max(0, Number(e.target.value) || 0),
                 })
               }
-              className="w-32 min-h-[52px] px-3.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[18px] font-extrabold text-[#5C3D2E]"
+              className="w-full min-h-[48px] px-3.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-extrabold text-[#5C3D2E]"
             />
           </div>
         </div>
       ),
     },
 
-    // PAGE 3: Result Cards and Plain Sentence
+    // PAGE 4: Projected Results & Plain Sentence
     {
-      id: 'future-p3',
-      sectionLabel: 'FUTURE • EXPECTED OUTCOME',
+      id: 'future-p4',
+      sectionLabel: 'FUTURE • PAGE 4',
       pageTitle: 'PROJECTED RESULTS',
+      mobileTitle: 'PROJECTED RESULTS',
       pastelHeaderBg: '#BFE3C0',
       content: (
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-[#BFE3C0] border-2 border-[#8B5E3C] text-[19px] font-extrabold text-[#2F6B3A] leading-relaxed">
+        <div className="flex-1 flex flex-col justify-between gap-2.5">
+          <div className="p-3.5 rounded-2xl bg-[#BFE3C0] border-2 border-[#8B5E3C] text-[17px] sm:text-[18px] font-extrabold text-[#2F6B3A] leading-snug">
             If you keep this up for {periodText}, you could grow from{' '}
             {formatCurrency(calcSettings.startingBalance)} to about{' '}
             {formatCurrency(projection.expectedEndingBalance)}.
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-              <div className="text-[17px] font-bold text-[#8B5E3C]">
-                Balance at the end
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="p-3 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+              <div className="text-[15px] font-bold text-[#8B5E3C]">
+                Balance at end
               </div>
-              <div className="text-[28px] font-extrabold text-[#2F6B3A] leading-tight mt-1">
+              <div className="text-[22px] sm:text-[25px] font-extrabold text-[#2F6B3A] leading-tight mt-0.5">
                 <AnimatedNumber
                   value={projection.expectedEndingBalance}
                   formatter={(v) => formatCurrency(v)}
@@ -436,12 +436,12 @@ export function buildFutureBookPages({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-              <div className="text-[17px] font-bold text-[#8B5E3C]">
+            <div className="p-3 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+              <div className="text-[15px] font-bold text-[#8B5E3C]">
                 Total profit
               </div>
               <div
-                className={`text-[28px] font-extrabold leading-tight mt-1 ${
+                className={`text-[22px] sm:text-[25px] font-extrabold leading-tight mt-0.5 ${
                   projection.totalNetProfitDollar >= 0
                     ? 'text-[#2F6B3A]'
                     : 'text-[#9B2C20]'
@@ -454,21 +454,21 @@ export function buildFutureBookPages({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-              <div className="text-[17px] font-bold text-[#8B5E3C]">
-                Worst losing streak
+            <div className="p-3 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+              <div className="text-[15px] font-bold text-[#8B5E3C]">
+                Worst streak
               </div>
-              <div className="text-[28px] font-extrabold text-[#5C3D2E] leading-tight mt-1">
+              <div className="text-[22px] sm:text-[25px] font-extrabold text-[#5C3D2E] leading-tight mt-0.5">
                 {projection.longestLosingStreak} in a row
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-              <div className="text-[17px] font-bold text-[#8B5E3C]">
+            <div className="p-3 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+              <div className="text-[15px] font-bold text-[#8B5E3C]">
                 Chance of blowing
               </div>
               <div
-                className={`text-[28px] font-extrabold leading-tight mt-1 ${
+                className={`text-[22px] sm:text-[25px] font-extrabold leading-tight mt-0.5 ${
                   projection.riskOfRuinPercent < 2
                     ? 'text-[#2F6B3A]'
                     : 'text-[#9B2C20]'
@@ -478,23 +478,26 @@ export function buildFutureBookPages({
               </div>
             </div>
           </div>
+
+          <div className="lined-notepad flex-1 min-h-[24px] rounded-xl border border-dashed border-[#8B5E3C]/35" />
         </div>
       ),
     },
 
-    // PAGE 4: Growth Chart
+    // PAGE 5: Growth Chart
     {
-      id: 'future-p4',
-      sectionLabel: 'FUTURE • VISUAL PROJECTION',
-      pageTitle: 'GROWTH CHART (BEST / EXPECTED / WORST)',
+      id: 'future-p5',
+      sectionLabel: 'FUTURE • PAGE 5',
+      pageTitle: 'GROWTH CHART',
+      mobileTitle: 'GROWTH CHART',
       pastelHeaderBg: '#DCEEF2',
       content: (
-        <div className="flex flex-col h-full min-h-[280px]">
-          <div className="flex-1 min-h-[260px] p-3 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
+        <div className="flex-1 flex flex-col min-h-[220px]">
+          <div className="flex-1 min-h-[210px] p-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={projection.growthChartData}
-                margin={{ top: 10, right: 20, left: 8, bottom: 6 }}
+                margin={{ top: 8, right: 16, left: 4, bottom: 4 }}
               >
                 <CartesianGrid
                   strokeDasharray="4 4"
@@ -503,12 +506,12 @@ export function buildFutureBookPages({
                 <XAxis
                   dataKey="period"
                   stroke="#5C3D2E"
-                  tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+                  tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
                 />
                 <YAxis
                   tickFormatter={(v) => formatCompactCurrency(v)}
                   stroke="#5C3D2E"
-                  tick={{ fill: '#5C3D2E', fontSize: 16, fontWeight: 700 }}
+                  tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
                 />
                 <Tooltip
                   contentStyle={{
@@ -516,7 +519,7 @@ export function buildFutureBookPages({
                     borderColor: '#8B5E3C',
                     borderWidth: '2px',
                     borderRadius: '14px',
-                    fontSize: '16px',
+                    fontSize: '15px',
                     fontWeight: 700,
                     color: '#5C3D2E',
                   }}
@@ -524,7 +527,7 @@ export function buildFutureBookPages({
                 />
                 <Legend
                   wrapperStyle={{
-                    fontSize: '16px',
+                    fontSize: '14px',
                     fontWeight: 700,
                     paddingTop: '4px',
                   }}
@@ -542,7 +545,7 @@ export function buildFutureBookPages({
                   dataKey="expected"
                   name="Expected"
                   stroke="#2F6B3A"
-                  strokeWidth={4}
+                  strokeWidth={3.5}
                 />
                 <Line
                   type="monotone"
@@ -559,16 +562,17 @@ export function buildFutureBookPages({
       ),
     },
 
-    // PAGE 5: Advanced Details (Milestone, Monte Carlo, Monthly Table)
+    // PAGE 6: Milestones, Monte Carlo & Monthly Table
     {
-      id: 'future-p5',
-      sectionLabel: 'FUTURE • DEEP DIVE',
-      pageTitle: 'MILESTONES, MONTE CARLO & MONTHLY TABLE',
+      id: 'future-p6',
+      sectionLabel: 'FUTURE • PAGE 6',
+      pageTitle: 'MILESTONES & MONTE CARLO',
+      mobileTitle: 'MILESTONES & TABLE',
       pastelHeaderBg: '#F2D29B',
       content: (
-        <div className="space-y-3">
-          <div className="p-3.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[17px] font-extrabold text-[#8B5E3C]">
+        <div className="flex-1 flex flex-col justify-between gap-2.5">
+          <div className="p-3 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[16px] font-extrabold text-[#8B5E3C]">
               Goal ($):
             </span>
             <input
@@ -583,9 +587,9 @@ export function buildFutureBookPages({
                   ),
                 })
               }
-              className="w-36 min-h-[52px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E]"
+              className="w-32 min-h-[44px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E]"
             />
-            <span className="text-[17px] font-bold text-[#2F6B3A]">
+            <span className="text-[15px] font-bold text-[#2F6B3A] w-full">
               {projection.daysToReachMilestone === null
                 ? 'Increase Win% or Reward Ratio to reach this goal.'
                 : projection.daysToReachMilestone === 0
@@ -594,42 +598,36 @@ export function buildFutureBookPages({
             </span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-semibold text-[#5C3D2E]">
-            <strong>1,000-Run Monte Carlo:</strong> Middle result{' '}
+          <div className="p-3 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[15px] font-semibold text-[#5C3D2E]">
+            <strong>1,000-Run Monte Carlo:</strong> Middle{' '}
             <strong>{formatCurrency(monteCarlo.medianEnding)}</strong> • Top 10%{' '}
             <strong>{formatCurrency(monteCarlo.p90Ending)}</strong> • Bottom 10%{' '}
             <strong>{formatCurrency(monteCarlo.p10Ending)}</strong>.
           </div>
 
           <div className="rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
-            <div className="px-4 py-2 bg-[#F2D29B] border-b-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase text-[#8B5E3C]">
+            <div className="px-3 py-1.5 bg-[#F2D29B] border-b-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase text-[#8B5E3C]">
               MONTH-BY-MONTH TABLE
             </div>
-            <div className="overflow-x-auto max-h-56">
-              <table className="w-full text-left border-collapse text-[16px]">
+            <div className="overflow-x-auto max-h-36">
+              <table className="w-full text-left border-collapse text-[14px]">
                 <thead>
                   <tr className="border-b-2 border-[#8B5E3C] bg-[#F0DED4] font-bold text-[#5C3D2E]">
-                    <th className="py-2 px-3">Month</th>
-                    <th className="py-2 px-3">Start</th>
-                    <th className="py-2 px-3">Trades</th>
-                    <th className="py-2 px-3">W / L</th>
-                    <th className="py-2 px-3 text-right">Profit</th>
-                    <th className="py-2 px-3 text-right">End</th>
+                    <th className="py-1.5 px-2">Mo</th>
+                    <th className="py-1.5 px-2">W/L</th>
+                    <th className="py-1.5 px-2 text-right">Profit</th>
+                    <th className="py-1.5 px-2 text-right">End</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#8B5E3C]/30 font-semibold">
                   {projection.monthlyBreakdown.map((row) => (
                     <tr key={row.month}>
-                      <td className="py-2 px-3 font-bold">{row.label}</td>
-                      <td className="py-2 px-3">
-                        {formatCurrency(row.startBalance)}
-                      </td>
-                      <td className="py-2 px-3">{row.tradesCount}</td>
-                      <td className="py-2 px-3">
-                        {row.wins}W / {row.losses}L
+                      <td className="py-1.5 px-2 font-bold">{row.label}</td>
+                      <td className="py-1.5 px-2">
+                        {row.wins}W/{row.losses}L
                       </td>
                       <td
-                        className={`py-2 px-3 text-right font-extrabold ${
+                        className={`py-1.5 px-2 text-right font-extrabold ${
                           row.netProfit >= 0
                             ? 'text-[#2F6B3A]'
                             : 'text-[#9B2C20]'
@@ -637,7 +635,7 @@ export function buildFutureBookPages({
                       >
                         {formatCurrency(row.netProfit, true)}
                       </td>
-                      <td className="py-2 px-3 text-right font-extrabold">
+                      <td className="py-1.5 px-2 text-right font-extrabold">
                         {formatCurrency(row.endBalance)}
                       </td>
                     </tr>

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { BookPage, BookPageData } from './BookPage';
 
 interface PageFlipProps {
   pages: BookPageData[];
   currentIndex: number; // In spread mode, even index (0, 2, 4...); in single mode, 0..N-1
   isSpread: boolean;
+  isMobile: boolean;
   reducedMotion: boolean;
   flipSpeed?: 'normal' | 'fast';
   onTurnPrev: () => void;
@@ -22,10 +23,20 @@ interface ActiveFlipState {
   speed: 'normal' | 'fast';
 }
 
+const BLANK_RIGHT_LEAF: BookPageData = {
+  id: 'blank-right-leaf',
+  sectionLabel: '',
+  pageTitle: '',
+  pastelHeaderBg: '#FFFDF7',
+  content: null,
+  isBlankLeaf: true,
+};
+
 export const PageFlip: React.FC<PageFlipProps> = ({
   pages,
   currentIndex,
   isSpread,
+  isMobile,
   reducedMotion,
   flipSpeed = 'normal',
   onTurnPrev,
@@ -37,7 +48,7 @@ export const PageFlip: React.FC<PageFlipProps> = ({
   const flipCounterRef = useRef<number>(0);
   const [activeFlip, setActiveFlip] = useState<ActiveFlipState | null>(null);
 
-  // Interactive finger-follow drag state (-1 = full left drag/next, +1 = full right drag/prev)
+  // Interactive finger-follow drag state
   const [dragDeltaX, setDragDeltaX] = useState<number>(0);
   const pointerStartRef = useRef<{
     x: number;
@@ -68,11 +79,11 @@ export const PageFlip: React.FC<PageFlipProps> = ({
       const durationMs = reducedMotion
         ? 240
         : flipSpeed === 'fast'
-          ? 280
-          : 580;
+          ? 340
+          : 560;
       const timer = window.setTimeout(() => {
         setActiveFlip((curr) => (curr?.id === flipId ? null : curr));
-      }, durationMs + 40);
+      }, durationMs + 30);
 
       return () => window.clearTimeout(timer);
     }
@@ -114,13 +125,12 @@ export const PageFlip: React.FC<PageFlipProps> = ({
       return;
     }
 
-    // Clamp drag if user cannot turn in that direction
     if (dx < 0 && !canTurnNext) {
-      setDragDeltaX(Math.max(-24, dx * 0.2));
+      setDragDeltaX(Math.max(-20, dx * 0.15));
       return;
     }
     if (dx > 0 && !canTurnPrev) {
-      setDragDeltaX(Math.min(24, dx * 0.2));
+      setDragDeltaX(Math.min(20, dx * 0.15));
       return;
     }
 
@@ -135,7 +145,7 @@ export const PageFlip: React.FC<PageFlipProps> = ({
       return;
     }
 
-    const threshold = 52;
+    const threshold = 48;
     if (dragDeltaX <= -threshold && canTurnNext) {
       setDragDeltaX(0);
       onTurnNext();
@@ -149,30 +159,25 @@ export const PageFlip: React.FC<PageFlipProps> = ({
 
   const totalPages = pages.length;
 
-  // Helper to build a companion lined notebook page when an odd total page count is on the last spread
-  const createCompanionNotesLeaf = (pageNum: number): BookPageData => ({
-    id: `companion-notes-${pageNum}`,
-    sectionLabel: pages[0]?.sectionLabel || 'JOURNAL NOTES',
-    pageTitle: 'QUICK NOTEBOOK LEAF',
-    pastelHeaderBg: '#F0DED4',
-    content: (
-      <div className="h-full flex flex-col justify-between gap-4 py-2">
-        <div className="lined-notepad flex-1 rounded-xl border-2 border-dashed border-[#8B5E3C]/45 p-4 text-[#8B5E3C] font-bold text-[17px]">
-          End of this section — use the bookmark tabs on the right edge or the
-          arrows below to flip to another section of your trading notebook.
-        </div>
-      </div>
-    ),
-  });
+  const getPageAt = (idx: number): BookPageData => {
+    if (idx >= 0 && idx < totalPages) {
+      return pages[idx];
+    }
+    return BLANK_RIGHT_LEAF;
+  };
 
-  // Render either a Single Page or a Two-Page Spread for a given index
-  const renderStaticView = (baseIndex: number) => {
+  // Render static underlying view
+  const renderUnderneathView = () => {
     if (!isSpread) {
-      const safeIdx = Math.max(0, Math.min(totalPages - 1, baseIndex));
-      const page = pages[safeIdx] || pages[0];
+      // In single-page mode, while flipping forward, the destination page is already underneath!
+      const underIdx = activeFlip
+        ? activeFlip.direction === 'next'
+          ? activeFlip.toIndex
+          : activeFlip.fromIndex
+        : currentIndex;
+      const safeIdx = Math.max(0, Math.min(totalPages - 1, underIdx));
       return (
         <div className="relative w-full h-full flex min-h-0">
-          {/* Left Notebook Spine with Ring Holes */}
           <div className="book-single-spine">
             <span className="book-spine-hole" />
             <span className="book-spine-hole" />
@@ -183,10 +188,11 @@ export const PageFlip: React.FC<PageFlipProps> = ({
           </div>
 
           <BookPage
-            page={page}
+            page={getPageAt(safeIdx)}
             pageNumber={safeIdx + 1}
             totalPages={totalPages}
             side="single"
+            isMobile={isMobile}
             onEdgeTapPrev={canTurnPrev ? onTurnPrev : undefined}
             onEdgeTapNext={canTurnNext ? onTurnNext : undefined}
           />
@@ -194,27 +200,31 @@ export const PageFlip: React.FC<PageFlipProps> = ({
       );
     }
 
-    // Two-Page Spread (Tablet Landscape)
-    const leftIdx = Math.max(0, Math.min(totalPages - 1, baseIndex));
-    const rightIdx = leftIdx + 1;
-    const leftPage = pages[leftIdx] || pages[0];
-    const rightPage =
-      rightIdx < totalPages
-        ? pages[rightIdx]
-        : createCompanionNotesLeaf(rightIdx + 1);
+    // Two-page spread (Tablet Landscape):
+    // When flipping forward (fromIndex -> toIndex), the left page underneath is still fromIndex
+    // until the leaf covers it, and the right page underneath is already the new toIndex + 1!
+    const leftIdx = activeFlip
+      ? activeFlip.direction === 'next'
+        ? activeFlip.fromIndex
+        : activeFlip.toIndex
+      : currentIndex;
+    const rightIdx = activeFlip
+      ? activeFlip.direction === 'next'
+        ? activeFlip.toIndex + 1
+        : activeFlip.fromIndex + 1
+      : currentIndex + 1;
 
     return (
       <div className="relative w-full h-full flex items-stretch min-h-0">
-        {/* Left Page */}
         <BookPage
-          page={leftPage}
+          page={getPageAt(leftIdx)}
           pageNumber={leftIdx + 1}
           totalPages={totalPages}
           side="left"
+          isMobile={false}
           onEdgeTapPrev={canTurnPrev ? onTurnPrev : undefined}
         />
 
-        {/* Center Stitched Spine */}
         <div className="book-center-spine">
           <span className="book-center-stitch" />
           <span className="book-center-stitch" />
@@ -223,54 +233,31 @@ export const PageFlip: React.FC<PageFlipProps> = ({
           <span className="book-center-stitch" />
         </div>
 
-        {/* Right Page */}
         <BookPage
-          page={rightPage}
-          pageNumber={Math.min(totalPages, rightIdx + 1)}
+          page={getPageAt(rightIdx)}
+          pageNumber={rightIdx + 1}
           totalPages={totalPages}
           side="right"
+          isMobile={false}
           onEdgeTapNext={canTurnNext ? onTurnNext : undefined}
         />
       </div>
     );
   };
 
-  // Interactive finger drag angle
+  // Interactive finger drag angle (only while dragging)
   const liveDragAngle =
     !reducedMotion && dragDeltaX < 0
-      ? Math.max(-145, (dragDeltaX / 260) * 145)
+      ? Math.max(-95, (dragDeltaX / 240) * 95)
       : !reducedMotion && dragDeltaX > 0
-        ? Math.min(35, (dragDeltaX / 260) * 45)
+        ? Math.min(30, (dragDeltaX / 240) * 35)
         : 0;
 
   const flipDuration = reducedMotion
     ? 0.22
     : activeFlip?.speed === 'fast'
-      ? 0.28
-      : 0.58;
-
-  // Outgoing leaf page data for the 3D turning overlay
-  const getTurningLeafPage = (flip: ActiveFlipState): {
-    page: BookPageData;
-    pageNum: number;
-  } => {
-    if (!isSpread) {
-      const idx =
-        flip.direction === 'next' ? flip.fromIndex : flip.toIndex;
-      const safe = Math.max(0, Math.min(totalPages - 1, idx));
-      return { page: pages[safe] || pages[0], pageNum: safe + 1 };
-    }
-    // In spread mode, the right-hand page rotates around the center spine
-    const rightIdx =
-      flip.direction === 'next' ? flip.fromIndex + 1 : flip.toIndex + 1;
-    if (rightIdx < totalPages) {
-      return { page: pages[rightIdx], pageNum: rightIdx + 1 };
-    }
-    return {
-      page: createCompanionNotesLeaf(rightIdx + 1),
-      pageNum: totalPages,
-    };
-  };
+      ? 0.34
+      : 0.56;
 
   return (
     <div
@@ -278,138 +265,237 @@ export const PageFlip: React.FC<PageFlipProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      style={{
-        transform:
-          liveDragAngle !== 0 && !activeFlip
-            ? `perspective(1800px) rotateY(${liveDragAngle * 0.25}deg)`
-            : undefined,
-        transformOrigin: isSpread ? 'center center' : 'left center',
-        transition: dragDeltaX === 0 ? 'transform 0.25s ease-out' : 'none',
-      }}
       className="book-outer-frame book-perspective-stage flex-1 min-h-0 w-full relative overflow-hidden flex"
     >
-      {/* Base Current Page / Spread */}
-      <div className="w-full h-full flex min-h-0">
-        {renderStaticView(currentIndex)}
+      {/* Underneath Page / Spread */}
+      <div
+        style={{
+          transform:
+            liveDragAngle !== 0 && !activeFlip
+              ? `perspective(1800px) rotateY(${liveDragAngle * 0.35}deg)`
+              : undefined,
+          transformOrigin: isSpread ? 'center center' : 'left center',
+          transition: dragDeltaX === 0 ? 'transform 0.25s ease-out' : 'none',
+        }}
+        className="w-full h-full flex min-h-0"
+      >
+        {renderUnderneathView()}
       </div>
 
-      {/* Live Finger-Drag Shadow & Curl Feedback */}
+      {/* Live Finger-Drag Shadow & Corner Curl Hint (ONLY shown while actively dragging — §2) */}
       {dragDeltaX !== 0 && !activeFlip && (
-        <div
-          style={{
-            opacity: Math.min(0.65, Math.abs(dragDeltaX) / 180),
-            background:
-              dragDeltaX < 0
-                ? 'linear-gradient(to left, rgba(92, 61, 46, 0.32) 0%, rgba(139, 94, 60, 0.1) 35%, transparent 100%)'
-                : 'linear-gradient(to right, rgba(92, 61, 46, 0.32) 0%, rgba(139, 94, 60, 0.1) 35%, transparent 100%)',
-          }}
-          className="absolute inset-0 pointer-events-none z-30"
-        />
+        <>
+          <div
+            style={{
+              opacity: Math.min(0.55, Math.abs(dragDeltaX) / 180),
+              background:
+                dragDeltaX < 0
+                  ? 'linear-gradient(to left, rgba(92, 61, 46, 0.32) 0%, rgba(139, 94, 60, 0.1) 40%, transparent 100%)'
+                  : 'linear-gradient(to right, rgba(92, 61, 46, 0.32) 0%, rgba(139, 94, 60, 0.1) 40%, transparent 100%)',
+            }}
+            className="absolute inset-0 pointer-events-none z-30"
+          />
+          <div
+            style={{
+              background:
+                'linear-gradient(135deg, transparent 48%, #F0DED4 50%, #FFFDF7 75%, rgba(139, 94, 60, 0.3) 100%)',
+            }}
+            className="absolute bottom-8 right-0 w-9 h-9 rounded-tl-xl border-t border-l border-[#8B5E3C]/50 pointer-events-none z-30"
+          />
+        </>
       )}
 
-      {/* 3D Turning Page Leaf Overlay (Framer Motion + CSS 3D rotateY) */}
-      <AnimatePresence>
-        {activeFlip && (() => {
-          const leaf = getTurningLeafPage(activeFlip);
-          const isNext = activeFlip.direction === 'next';
+      {/* 3D Turning Page Leaf Overlay (Solid 100% Opaque Paper — No Opacity Fade — §9) */}
+      {activeFlip && (() => {
+        const isNext = activeFlip.direction === 'next';
 
-          if (reducedMotion) {
-            return (
-              <motion.div
-                key={activeFlip.id}
-                initial={{
-                  opacity: 0.85,
-                  x: isNext ? 48 : -48,
-                }}
-                animate={{ opacity: 0, x: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="absolute inset-0 z-30 pointer-events-none bg-[#FFFDF7]/60"
-              />
-            );
-          }
+        if (reducedMotion) {
+          return (
+            <motion.div
+              key={activeFlip.id}
+              initial={{ x: isNext ? '18%' : '-18%', opacity: 0.9 }}
+              animate={{ x: '0%', opacity: 0 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className="absolute inset-0 z-30 pointer-events-none bg-[#FFFDF7]"
+            />
+          );
+        }
 
-          const startRotateY = isNext ? 0 : isSpread ? -175 : -105;
-          const endRotateY = isNext ? (isSpread ? -175 : -105) : 0;
+        if (!isSpread) {
+          // Single-page 3D turn around the left spine (rotates ~100deg and slides away with shadow, 100% solid paper)
+          const leafIdx = isNext ? activeFlip.fromIndex : activeFlip.toIndex;
+          const safeLeafIdx = Math.max(0, Math.min(totalPages - 1, leafIdx));
+          const leafPage = getPageAt(safeLeafIdx);
 
           return (
             <div
               key={activeFlip.id}
               className="absolute inset-0 z-30 pointer-events-none book-perspective-stage flex"
             >
-              {/* Moving Shadow Cast onto the Underlying Page */}
+              {/* Moving Cast Shadow on the Revealed Page Underneath */}
               <motion.div
-                initial={{ opacity: isNext ? 0.1 : 0.45 }}
-                animate={{ opacity: isNext ? 0.45 : 0.05 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: isNext ? 0.45 : 0.08 }}
+                animate={{ opacity: isNext ? 0.05 : 0.42 }}
                 transition={{ duration: flipDuration, ease: 'easeInOut' }}
                 style={{
                   background:
-                    'linear-gradient(to right, rgba(92, 61, 46, 0.28) 0%, rgba(139, 94, 60, 0.12) 45%, transparent 100%)',
+                    'linear-gradient(to right, rgba(92, 61, 46, 0.36) 0%, rgba(139, 94, 60, 0.14) 50%, transparent 100%)',
                 }}
                 className="absolute inset-0 z-20 pointer-events-none"
               />
 
-              {/* 3D Rotating Page Leaf Pivoting Around the Spine */}
+              {/* Solid 3D Turning Page Rotating Around Left Spine */}
               <motion.div
                 initial={{
-                  rotateY: startRotateY,
-                  opacity: isNext ? 1 : 0.95,
+                  rotateY: isNext ? 0 : -102,
+                  x: isNext ? '0%' : '-10%',
                 }}
                 animate={{
-                  rotateY: endRotateY,
-                  opacity: isNext && !isSpread ? 0.08 : 1,
+                  rotateY: isNext ? -102 : 0,
+                  x: isNext ? '-10%' : '0%',
                 }}
-                exit={{ opacity: 0 }}
                 transition={{
                   duration: flipDuration,
                   ease: [0.4, 0.0, 0.2, 1],
                 }}
                 style={{
                   transformOrigin: 'left center',
-                  left: isSpread ? 'calc(50% + 14px)' : '0px',
-                  width: isSpread ? 'calc(50% - 14px)' : '100%',
+                  left: 0,
+                  width: '100%',
                 }}
                 className="absolute top-0 bottom-0 z-30 book-turning-leaf shadow-2xl"
               >
-                {/* Front Face of Turning Page */}
-                <div className="w-full h-full bg-[#FFFDF7] rounded-r-2xl border-l-2 border-[#8B5E3C] overflow-hidden relative">
+                <div className="w-full h-full bg-[#FFFDF7] rounded-2xl border-2 border-[#8B5E3C] overflow-hidden relative">
+                  <div className="book-single-spine">
+                    <span className="book-spine-hole" />
+                    <span className="book-spine-hole" />
+                    <span className="book-spine-hole" />
+                    <span className="book-spine-hole" />
+                    <span className="book-spine-hole" />
+                    <span className="book-spine-hole" />
+                  </div>
                   <BookPage
-                    page={leaf.page}
-                    pageNumber={leaf.pageNum}
+                    page={leafPage}
+                    pageNumber={safeLeafIdx + 1}
                     totalPages={totalPages}
-                    side={isSpread ? 'right' : 'single'}
+                    side="single"
+                    isMobile={isMobile}
                   />
 
-                  {/* Moving Soft Spine & Curl Gradient Across Turning Page */}
+                  {/* Moving Soft Spine & Page Bend Shadow Across the Turning Page */}
                   <motion.div
-                    initial={{ opacity: 0.08 }}
-                    animate={{ opacity: 0.38 }}
-                    transition={{ duration: flipDuration }}
-                    style={{
+                    initial={{
                       background:
-                        'linear-gradient(115deg, rgba(139, 94, 60, 0.24) 0%, transparent 55%, rgba(242, 210, 155, 0.38) 92%, rgba(139, 94, 60, 0.35) 100%)',
+                        'linear-gradient(to left, rgba(92, 61, 46, 0.22) 0%, rgba(242, 210, 155, 0.15) 35%, transparent 100%)',
                     }}
+                    animate={{
+                      background:
+                        'linear-gradient(to left, rgba(92, 61, 46, 0.42) 0%, rgba(139, 94, 60, 0.2) 55%, transparent 100%)',
+                    }}
+                    transition={{ duration: flipDuration, ease: 'easeInOut' }}
                     className="absolute inset-0 pointer-events-none z-20"
-                  />
-
-                  {/* Subtle Bottom-Right Corner Curl Highlight */}
-                  <div
-                    style={{
-                      background:
-                        'linear-gradient(135deg, transparent 50%, #F0DED4 52%, #FFFDF7 75%, rgba(139, 94, 60, 0.28) 100%)',
-                    }}
-                    className="absolute bottom-0 right-0 w-10 h-10 rounded-tl-xl border-t border-l border-[#8B5E3C]/45 pointer-events-none z-30"
                   />
                 </div>
 
-                {/* Paper-Coloured Back Side of Turning Page (Visible past -90deg on Spread) */}
+                {/* Solid Paper-Coloured Back Side */}
                 <div className="book-turning-leaf-back" />
               </motion.div>
             </div>
           );
-        })()}
-      </AnimatePresence>
+        }
+
+        // Two-Page Spread 3D Flip Around Center Spine (rotates 0deg -> -180deg with solid front & back faces)
+        const frontRightIdx = isNext
+          ? activeFlip.fromIndex + 1
+          : activeFlip.toIndex + 1;
+        const backLeftIdx = isNext
+          ? activeFlip.toIndex
+          : activeFlip.fromIndex;
+
+        return (
+          <div
+            key={activeFlip.id}
+            className="absolute inset-0 z-30 pointer-events-none book-perspective-stage flex"
+          >
+            {/* Moving Shadow Cast Across the Spread */}
+            <motion.div
+              initial={{ opacity: 0.12 }}
+              animate={{ opacity: [0.12, 0.38, 0.1] }}
+              transition={{ duration: flipDuration, ease: 'easeInOut' }}
+              style={{
+                background:
+                  'linear-gradient(to right, rgba(92, 61, 46, 0.18) 0%, rgba(92, 61, 46, 0.32) 50%, rgba(92, 61, 46, 0.18) 100%)',
+              }}
+              className="absolute inset-0 z-20 pointer-events-none"
+            />
+
+            {/* 3D Leaf Pivoting on the Center Spine */}
+            <motion.div
+              initial={{ rotateY: isNext ? 0 : -180 }}
+              animate={{ rotateY: isNext ? -180 : 0 }}
+              transition={{
+                duration: flipDuration,
+                ease: [0.4, 0.0, 0.2, 1],
+              }}
+              style={{
+                transformOrigin: 'left center',
+                left: 'calc(50% + 14px)',
+                width: 'calc(50% - 14px)',
+              }}
+              className="absolute top-0 bottom-0 z-30 book-turning-leaf shadow-2xl"
+            >
+              {/* Front Face (Right-Hand Page Lifting Up) */}
+              <div
+                style={{
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                }}
+                className="w-full h-full bg-[#FFFDF7] rounded-r-2xl border-2 border-l border-[#8B5E3C] overflow-hidden relative"
+              >
+                <BookPage
+                  page={getPageAt(frontRightIdx)}
+                  pageNumber={frontRightIdx + 1}
+                  totalPages={totalPages}
+                  side="right"
+                  isMobile={false}
+                />
+                <div
+                  style={{
+                    background:
+                      'linear-gradient(to left, rgba(92, 61, 46, 0.28) 0%, rgba(242, 210, 155, 0.18) 40%, transparent 100%)',
+                  }}
+                  className="absolute inset-0 pointer-events-none z-20"
+                />
+              </div>
+
+              {/* Back Face (Solid Paper Leaf Landing on the Left Side) */}
+              <div
+                style={{
+                  transform: 'rotateY(180deg)',
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                }}
+                className="absolute inset-0 w-full h-full bg-[#FFFDF7] rounded-l-2xl border-2 border-r border-[#8B5E3C] overflow-hidden"
+              >
+                <BookPage
+                  page={getPageAt(backLeftIdx)}
+                  pageNumber={backLeftIdx + 1}
+                  totalPages={totalPages}
+                  side="left"
+                  isMobile={false}
+                />
+                <div
+                  style={{
+                    background:
+                      'linear-gradient(to right, rgba(92, 61, 46, 0.25) 0%, transparent 65%)',
+                  }}
+                  className="absolute inset-0 pointer-events-none z-20"
+                />
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -8,6 +8,7 @@ interface DisciplineGaugeProps {
   dailyPnl: number;
   tradesCount: number;
   maxTrades: number;
+  isEmpty?: boolean;
 }
 
 export const DisciplineGauge: React.FC<DisciplineGaugeProps> = ({
@@ -15,40 +16,43 @@ export const DisciplineGauge: React.FC<DisciplineGaugeProps> = ({
   dailyPnl,
   tradesCount,
   maxTrades,
+  isEmpty = false,
 }) => {
-  const clampedScore = Math.max(0, Math.min(100, score));
+  const clampedScore = isEmpty ? 0 : Math.max(0, Math.min(100, score));
 
-  const barBgColor =
-    clampedScore >= 80
+  const barBgColor = isEmpty
+    ? 'transparent'
+    : clampedScore >= 80
       ? '#BFE3C0'
       : clampedScore >= 50
-      ? '#F7E2A0'
-      : '#F5B8B0';
+        ? '#F7E2A0'
+        : '#F5B8B0';
 
-  const scoreTextColor =
-    clampedScore >= 80
+  const scoreTextColor = isEmpty
+    ? 'text-[#5C3D2E]'
+    : clampedScore >= 80
       ? 'text-[#2F6B3A]'
       : clampedScore >= 50
-      ? 'text-[#8B5E3C]'
-      : 'text-[#9B2C20]';
+        ? 'text-[#8B5E3C]'
+        : 'text-[#9B2C20]';
 
   const pnlCardBg =
     dailyPnl > 0
       ? 'bg-[#BFE3C0]/45'
       : dailyPnl < 0
-      ? 'bg-[#F5B8B0]/45'
-      : 'bg-[#FFFDF7]';
+        ? 'bg-[#F5B8B0]/45'
+        : 'bg-[#FFFDF7]';
 
   const pnlTextColor =
     dailyPnl > 0
       ? 'text-[#2F6B3A]'
       : dailyPnl < 0
-      ? 'text-[#9B2C20]'
-      : 'text-[#5C3D2E]';
+        ? 'text-[#9B2C20]'
+        : 'text-[#5C3D2E]';
 
   return (
     <section aria-label="Today at a glance" className="space-y-2">
-      {/* Card 1: Discipline Score (Progress bar full width of its card and 12px tall — §3) */}
+      {/* Card 1: Discipline Score (Progress bar full width of its card and 12px tall — §3 & §4) */}
       <div className="px-3.5 py-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[16px] font-bold text-[#8B5E3C]">
@@ -57,10 +61,14 @@ export const DisciplineGauge: React.FC<DisciplineGaugeProps> = ({
           <span
             className={`text-[24px] font-extrabold leading-none ${scoreTextColor}`}
           >
-            <AnimatedNumber
-              value={clampedScore}
-              formatter={(v) => `${Math.round(v)} / 100`}
-            />
+            {isEmpty ? (
+              '-'
+            ) : (
+              <AnimatedNumber
+                value={clampedScore}
+                formatter={(v) => `${Math.round(v)} / 100`}
+              />
+            )}
           </span>
         </div>
 
@@ -68,7 +76,7 @@ export const DisciplineGauge: React.FC<DisciplineGaugeProps> = ({
         <div className="w-full h-3 rounded-full bg-[#FFFBF2] border border-[#8B5E3C] overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${clampedScore}%` }}
+            animate={{ width: isEmpty ? '0%' : `${clampedScore}%` }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
             style={{ backgroundColor: barBgColor }}
             className="h-full rounded-full"

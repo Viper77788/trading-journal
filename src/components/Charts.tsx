@@ -99,7 +99,7 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
     const day = daysMap[dateIso];
     const evalRes = evaluateDayDiscipline(day, settings);
 
-    if (!day || !evalRes.hasTrades) {
+    if (!day || evalRes.isEmpty) {
       return {
         date: dateIso,
         dayNum,
@@ -114,7 +114,7 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
     return {
       date: dateIso,
       dayNum,
-      hasTrades: true,
+      hasTrades: evalRes.hasTrades,
       pnl: totalPnl,
       status: evalRes.status,
     };
