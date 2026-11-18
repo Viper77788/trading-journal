@@ -20,6 +20,7 @@ import {
 } from '../../utils/formatters';
 import { AnimatedNumber } from '../../components/animations/AnimatedNumber';
 import { BookPageData } from '../BookPage';
+import { DeferredBookChart } from '../DeferredBookChart';
 
 interface FutureBookPagesProps {
   calcSettings: CalculatorSettings;
@@ -493,70 +494,75 @@ export function buildFutureBookPages({
       pastelHeaderBg: '#DCEEF2',
       content: (
         <div className="flex-1 flex flex-col min-h-[220px]">
-          <div className="flex-1 min-h-[210px] p-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={projection.growthChartData}
-                margin={{ top: 8, right: 16, left: 4, bottom: 4 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="4 4"
-                  stroke="rgba(139, 94, 60, 0.25)"
-                />
-                <XAxis
-                  dataKey="period"
-                  stroke="#5C3D2E"
-                  tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
-                />
-                <YAxis
-                  tickFormatter={(v) => formatCompactCurrency(v)}
-                  stroke="#5C3D2E"
-                  tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#FFFDF7',
-                    borderColor: '#8B5E3C',
-                    borderWidth: '2px',
-                    borderRadius: '14px',
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    color: '#5C3D2E',
-                  }}
-                  formatter={(val: number) => formatCurrency(val)}
-                />
-                <Legend
-                  wrapperStyle={{
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    paddingTop: '4px',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="bestCase"
-                  name="Best Case"
-                  stroke="#3B7A8C"
-                  strokeWidth={3}
-                  strokeDasharray="6 4"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="expected"
-                  name="Expected"
-                  stroke="#2F6B3A"
-                  strokeWidth={3.5}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="worstCase"
-                  name="Worst Case"
-                  stroke="#9B2C20"
-                  strokeWidth={3}
-                  strokeDasharray="6 4"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="flex-1 min-h-[210px] p-2.5 rounded-2xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col">
+            <DeferredBookChart placeholderLabel="Loading growth projection...">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={projection.growthChartData}
+                  margin={{ top: 8, right: 16, left: 4, bottom: 4 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="4 4"
+                    stroke="rgba(139, 94, 60, 0.25)"
+                  />
+                  <XAxis
+                    dataKey="period"
+                    stroke="#5C3D2E"
+                    tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => formatCompactCurrency(v)}
+                    stroke="#5C3D2E"
+                    tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#FFFDF7',
+                      borderColor: '#8B5E3C',
+                      borderWidth: '2px',
+                      borderRadius: '14px',
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      color: '#5C3D2E',
+                    }}
+                    formatter={(val: number) => formatCurrency(val)}
+                  />
+                  <Legend
+                    wrapperStyle={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      paddingTop: '4px',
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="bestCase"
+                    name="Best Case"
+                    stroke="#3B7A8C"
+                    strokeWidth={3}
+                    strokeDasharray="6 4"
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="expected"
+                    name="Expected"
+                    stroke="#2F6B3A"
+                    strokeWidth={3.5}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="worstCase"
+                    name="Worst Case"
+                    stroke="#9B2C20"
+                    strokeWidth={3}
+                    strokeDasharray="6 4"
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </DeferredBookChart>
           </div>
         </div>
       ),

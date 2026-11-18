@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Check,
   RefreshCw,
   WifiOff,
   BookOpen,
@@ -19,8 +24,8 @@ import {
   ProjectionResults,
   MonteCarloBandPoint,
 } from '../utils/monteCarlo';
-import { DisplayMode } from '../hooks/useDisplayMode';
-import { PageFlip } from './PageFlip';
+import { DisplayMode, PageTurnStyle } from '../hooks/useDisplayMode';
+import { PageFlip, PageFlipHandle } from './PageFlip';
 import { BookTabs } from './BookTabs';
 import { BookCover } from './BookCover';
 import {
@@ -41,6 +46,8 @@ const COVER_OPENED_SESSION_KEY = 'apexflow_book_cover_opened_v1';
 interface BookShellProps {
   displayMode: DisplayMode;
   onSelectDisplayMode: (mode: DisplayMode) => void;
+  pageTurnStyle: PageTurnStyle;
+  onSelectPageTurnStyle: (style: PageTurnStyle) => void;
   bookOpeningAnimation: boolean;
   onToggleBookOpeningAnimation: (enabled: boolean) => void;
   activePage: NavPageId;
@@ -75,7 +82,9 @@ interface BookShellProps {
   onExportJson: () => void;
   onNotify: (
     title: string,
-    type: 'success' | 'warning' | 'error' | 'info'
+    type: 'success' | 'warning' | 'error' | 'info',
+    actionLabel?: string,
+    onAction?: () => void
   ) => void;
   syncStatus: SyncStatus;
   userEmail?: string | null;
@@ -103,6 +112,8 @@ function readSavedPageMap(): Record<NavPageId, number> {
 export const BookShell: React.FC<BookShellProps> = ({
   displayMode,
   onSelectDisplayMode,
+  pageTurnStyle,
+  onSelectPageTurnStyle,
   bookOpeningAnimation,
   onToggleBookOpeningAnimation,
   activePage,
@@ -130,6 +141,8 @@ export const BookShell: React.FC<BookShellProps> = ({
   userEmail,
   onLogout,
 }) => {
+  const pageFlipRef = useRef<PageFlipHandle | null>(null);
+
   // Viewport & Orientation State
   const [viewport, setViewport] = useState<{ width: number; height: number }>(
     () => ({
@@ -157,14 +170,13 @@ export const BookShell: React.FC<BookShellProps> = ({
     }
   });
 
-  // One-time touch hint under the book that fades out after first page turn (§2)
+  // One-time touch hint under the book that fades out after first page turn
   const [hasTurnedPageOnce, setHasTurnedPageOnce] = useState<boolean>(false);
 
   // Page index per section (0-based)
   const [pageBySection, setPageBySection] = useState<Record<NavPageId, number>>(
     () => readSavedPageMap()
   );
-  const [flipSpeed, setFlipSpeed] = useState<'normal' | 'fast'>('normal');
 
   // Restore last open section on mount
   useEffect(() => {
@@ -232,7 +244,6 @@ export const BookShell: React.FC<BookShellProps> = ({
   const handleSelectDayFromHistory = useCallback(
     (dateIso: string) => {
       onSelectDate(dateIso);
-      setFlipSpeed('fast');
       onSelectPage('tracker');
       setPageBySection((prev) => {
         const next = { ...prev, tracker: 0 };
@@ -299,6 +310,8 @@ export const BookShell: React.FC<BookShellProps> = ({
       userEmail,
       displayMode,
       onSelectDisplayMode,
+      pageTurnStyle,
+      onSelectPageTurnStyle,
       bookOpeningAnimation,
       onToggleBookOpeningAnimation,
       isWideDesktop,
@@ -332,6 +345,8 @@ export const BookShell: React.FC<BookShellProps> = ({
     userEmail,
     displayMode,
     onSelectDisplayMode,
+    pageTurnStyle,
+    onSelectPageTurnStyle,
     bookOpeningAnimation,
     onToggleBookOpeningAnimation,
     isWideDesktop,
@@ -352,10 +367,10 @@ export const BookShell: React.FC<BookShellProps> = ({
   const canTurnPrev = currentIndex > 0;
   const canTurnNext = currentIndex + stepSize < totalPages;
 
-  const setCurrentPageIndex = useCallback(
-    (nextIdx: number, speed: 'normal' | 'fast' = 'normal') => {
+  // Commit page index ONCE when turn finishes (§1)
+  const commitPageIndex = useCallback(
+    (nextIdx: number) => {
       const clamped = Math.max(0, Math.min(totalPages - 1, nextIdx));
-      setFlipSpeed(speed);
       setHasTurnedPageOnce(true);
       setPageBySection((prev) => {
         const next = { ...prev, [activePage]: clamped };
@@ -370,20 +385,51 @@ export const BookShell: React.FC<BookShellProps> = ({
     [activePage, totalPages]
   );
 
-  const handleTurnPrev = useCallback(() => {
+  const handleTurnPrevButton = useCallback(() => {
     if (!canTurnPrev) return;
-    setCurrentPageIndex(currentIndex - stepSize, 'normal');
-  }, [canTurnPrev, currentIndex, stepSize, setCurrentPageIndex]);
+    if (pageFlipRef.current) {
+      pageFlipRef.current.turnPrev();
+    } else {
+      commitPageIndex(currentIndex - stepSize);
+    }
+  }, [canTurnPrev, commitPageIndex, currentIndex, stepSize]);
 
-  const handleTurnNext = useCallback(() => {
+  const handleTurnNextButton = useCallback(() => {
     if (!canTurnNext) return;
-    setCurrentPageIndex(currentIndex + stepSize, 'normal');
-  }, [canTurnNext, currentIndex, stepSize, setCurrentPageIndex]);
+    if (pageFlipRef.current) {
+      pageFlipRef.current.turnNext();
+    } else {
+      commitPageIndex(currentIndex + stepSize);
+    }
+  }, [canTurnNext, commitPageIndex, currentIndex, stepSize]);
+
+  const handleDotClick = useCallback(
+    (targetIdx: number) => {
+      const aligned = isSpread ? Math.floor(targetIdx / 2) * 2 : targetIdx;
+      if (aligned === currentIndex) return;
+      if (pageFlipRef.current) {
+        pageFlipRef.current.jumpToIndex(aligned);
+      } else {
+        commitPageIndex(aligned);
+      }
+    },
+    [isSpread, currentIndex, commitPageIndex]
+  );
+
+  // Auto-fallback to Slide on slow frame times (§7)
+  const handleAutoFallbackToSlide = useCallback(() => {
+    onSelectPageTurnStyle('slide');
+    onNotify(
+      'Switched to lighter page turn for smoother performance',
+      'info',
+      'Undo',
+      () => onSelectPageTurnStyle('3d')
+    );
+  }, [onSelectPageTurnStyle, onNotify]);
 
   const handleSelectSection = useCallback(
     (section: NavPageId) => {
       if (section === activePage) return;
-      setFlipSpeed('fast');
       onSelectPage(section);
       try {
         window.localStorage.setItem(LAST_BOOK_SECTION_KEY, section);
@@ -394,7 +440,7 @@ export const BookShell: React.FC<BookShellProps> = ({
     [activePage, onSelectPage]
   );
 
-  // Keyboard Left / Right Arrows (§6)
+  // Keyboard Left / Right Arrows (§5)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -409,15 +455,15 @@ export const BookShell: React.FC<BookShellProps> = ({
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        handleTurnPrev();
+        handleTurnPrevButton();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        handleTurnNext();
+        handleTurnNextButton();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTurnPrev, handleTurnNext]);
+  }, [handleTurnPrevButton, handleTurnNextButton]);
 
   const handleCoverOpened = () => {
     try {
@@ -428,7 +474,6 @@ export const BookShell: React.FC<BookShellProps> = ({
     setShowCover(false);
   };
 
-  // Page label for bottom bar ("Page 2 of 6" or "Pages 1–2 of 6")
   const pageStatusLabel = isSpread
     ? currentIndex + 2 <= totalPages
       ? `Pages ${currentIndex + 1}–${currentIndex + 2} of ${totalPages}`
@@ -437,7 +482,6 @@ export const BookShell: React.FC<BookShellProps> = ({
 
   return (
     <div className="book-mode-viewport">
-      {/* First-open Brown Notebook Cover Animation */}
       {showCover && (
         <BookCover
           onOpened={handleCoverOpened}
@@ -445,7 +489,7 @@ export const BookShell: React.FC<BookShellProps> = ({
         />
       )}
 
-      {/* Slim 44px Top Header Row (§3: book icon, "TRADING TRACKER", small Saved dot, compact Log out icon button; no email on mobile) */}
+      {/* Slim 44px Top Header Row */}
       <header className="no-print w-full px-2.5 pt-1.5 pb-0.5 shrink-0">
         <div className="w-full max-w-[1200px] mx-auto h-[44px] px-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -454,7 +498,6 @@ export const BookShell: React.FC<BookShellProps> = ({
               TRADING TRACKER
             </span>
 
-            {/* Small Saved Dot / Status Pill */}
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#8B5E3C] text-[12px] sm:text-[13px] font-extrabold shrink-0 ${
                 syncStatus === 'saved'
@@ -509,7 +552,7 @@ export const BookShell: React.FC<BookShellProps> = ({
         </div>
       </header>
 
-      {/* Top Row of 4 Pastel Tabs on Mobile & Tablet Portrait (§3 & §7) */}
+      {/* Top Row of 4 Pastel Tabs on Mobile & Tablet Portrait */}
       {!isSpread && (
         <div className="w-full max-w-[1200px] mx-auto">
           <BookTabs
@@ -520,22 +563,23 @@ export const BookShell: React.FC<BookShellProps> = ({
         </div>
       )}
 
-      {/* Center Book Area (Centered, max-width 1200px, right padding for side tabs in Landscape Spread — §7) */}
+      {/* Center Book Area */}
       <main className="flex-1 min-h-0 w-full max-w-[1200px] mx-auto px-2.5 sm:px-4 py-1 flex items-stretch">
         <PageFlip
+          ref={pageFlipRef}
           pages={pages}
           currentIndex={currentIndex}
           isSpread={isSpread}
           isMobile={isMobileLayout}
           reducedMotion={reducedMotion}
-          flipSpeed={flipSpeed}
-          onTurnPrev={handleTurnPrev}
-          onTurnNext={handleTurnNext}
+          pageTurnStyle={pageTurnStyle}
+          onCommitIndex={commitPageIndex}
+          onAutoFallbackToSlide={handleAutoFallbackToSlide}
           canTurnPrev={canTurnPrev}
           canTurnNext={canTurnNext}
         />
 
-        {/* Right-Edge Bookmark Index Tabs in Tablet Landscape Spread (§7: fully outside page edge, z-30) */}
+        {/* Right-Edge Bookmark Index Tabs in Tablet Landscape Spread */}
         {isSpread && (
           <BookTabs
             activeSection={activePage}
@@ -545,20 +589,20 @@ export const BookShell: React.FC<BookShellProps> = ({
         )}
       </main>
 
-      {/* One-Time Touch Hint Under the Book that Fades Out After First Page Turn (§2) */}
+      {/* One-Time Touch Hint Under the Book */}
       {isMobileLayout && !hasTurnedPageOnce && (
         <div className="text-center text-[13px] font-bold text-[#8B5E3C]/80 leading-none py-0.5 transition-opacity">
           Tap page edge or swipe to turn
         </div>
       )}
 
-      {/* Bottom Page-Turn Bar (§6: Left Arrow, "Page X of Y" + dots, Right Arrow) */}
+      {/* Bottom Page-Turn Bar */}
       <footer className="no-print w-full px-2.5 pt-0.5 pb-1.5 shrink-0">
         <div className="w-full max-w-[1200px] mx-auto px-3 py-1 rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
           <button
             type="button"
             disabled={!canTurnPrev}
-            onClick={handleTurnPrev}
+            onClick={handleTurnPrevButton}
             aria-label="Previous page"
             className={`min-h-[48px] min-w-[52px] px-3.5 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold flex items-center justify-center gap-1 transition-colors ${
               canTurnPrev
@@ -570,7 +614,6 @@ export const BookShell: React.FC<BookShellProps> = ({
             <span className="hidden sm:inline">Prev</span>
           </button>
 
-          {/* Center Page Number & Dots */}
           <div className="flex flex-col items-center gap-1.5">
             <span className="font-heading text-[16px] sm:text-[17px] font-bold text-[#8B5E3C] leading-none whitespace-nowrap">
               {pageStatusLabel}
@@ -584,12 +627,7 @@ export const BookShell: React.FC<BookShellProps> = ({
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() =>
-                      setCurrentPageIndex(
-                        isSpread ? Math.floor(idx / 2) * 2 : idx,
-                        'normal'
-                      )
-                    }
+                    onClick={() => handleDotClick(idx)}
                     aria-label={`Go to page ${idx + 1}`}
                     className={`h-2.5 rounded-full border border-[#8B5E3C] transition-all cursor-pointer ${
                       isActiveDot
@@ -605,7 +643,7 @@ export const BookShell: React.FC<BookShellProps> = ({
           <button
             type="button"
             disabled={!canTurnNext}
-            onClick={handleTurnNext}
+            onClick={handleTurnNextButton}
             aria-label="Next page"
             className={`min-h-[48px] min-w-[52px] px-3.5 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold flex items-center justify-center gap-1 transition-colors ${
               canTurnNext

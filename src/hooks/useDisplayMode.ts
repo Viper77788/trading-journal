@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export type DisplayMode = 'pc' | 'tablet' | 'mobile';
+export type PageTurnStyle = '3d' | 'slide' | 'instant';
 
 const DISPLAY_MODE_STORAGE_KEY = 'displayMode';
 const BOOK_OPENING_ANIM_KEY = 'bookOpeningAnimation';
+const PAGE_TURN_STYLE_KEY = 'pageTurnStyle';
 const DISPLAY_MODE_EVENT = 'apexflow-display-mode-change';
 
 export function readDisplayModeFromStorage(): DisplayMode {
@@ -28,6 +30,18 @@ export function readBookOpeningAnimFromStorage(): boolean {
   }
 }
 
+export function readPageTurnStyleFromStorage(): PageTurnStyle {
+  try {
+    const raw = window.localStorage.getItem(PAGE_TURN_STYLE_KEY);
+    if (raw === '3d' || raw === 'slide' || raw === 'instant') {
+      return raw;
+    }
+    return '3d';
+  } catch {
+    return '3d';
+  }
+}
+
 export function useDisplayMode() {
   const [displayMode, setDisplayModeState] = useState<DisplayMode>(() =>
     readDisplayModeFromStorage()
@@ -35,11 +49,15 @@ export function useDisplayMode() {
   const [bookOpeningAnimation, setBookOpeningAnimationState] = useState<boolean>(
     () => readBookOpeningAnimFromStorage()
   );
+  const [pageTurnStyle, setPageTurnStyleState] = useState<PageTurnStyle>(() =>
+    readPageTurnStyleFromStorage()
+  );
 
   useEffect(() => {
     const handleSync = () => {
       setDisplayModeState(readDisplayModeFromStorage());
       setBookOpeningAnimationState(readBookOpeningAnimFromStorage());
+      setPageTurnStyleState(readPageTurnStyleFromStorage());
     };
     window.addEventListener(DISPLAY_MODE_EVENT, handleSync);
     window.addEventListener('storage', handleSync);
@@ -72,10 +90,22 @@ export function useDisplayMode() {
     window.dispatchEvent(new Event(DISPLAY_MODE_EVENT));
   }, []);
 
+  const setPageTurnStyle = useCallback((style: PageTurnStyle) => {
+    try {
+      window.localStorage.setItem(PAGE_TURN_STYLE_KEY, style);
+    } catch {
+      // Ignore storage errors
+    }
+    setPageTurnStyleState(style);
+    window.dispatchEvent(new Event(DISPLAY_MODE_EVENT));
+  }, []);
+
   return {
     displayMode,
     setDisplayMode,
     bookOpeningAnimation,
     setBookOpeningAnimation,
+    pageTurnStyle,
+    setPageTurnStyle,
   };
 }

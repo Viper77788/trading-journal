@@ -34,6 +34,8 @@
   border: 2.5px solid #8B5E3C;
   border-radius: 20px;
   touch-action: pan-y;
+  perspective: 1800px;
+  -webkit-perspective: 1800px;
   box-shadow:
     3px 3px 0px #FFFBF2,
     5px 5px 0px #8B5E3C,
@@ -42,7 +44,7 @@
     0 18px 36px rgba(139, 94, 60, 0.18);
 }
 
-/* Single-page notebook spine along the left edge (Portrait & Mobile) */
+/* Static Single-Page Notebook Spine Along Left Edge (Portrait & Mobile — §6) */
 .book-single-spine {
   position: absolute;
   top: 0;
@@ -56,7 +58,7 @@
     transparent 100%
   );
   border-right: 2px dashed rgba(139, 94, 60, 0.38);
-  z-index: 15;
+  z-index: 40;
   pointer-events: none;
   display: flex;
   flex-direction: column;
@@ -76,7 +78,7 @@
   pointer-events: none;
 }
 
-/* Center spine for Two-Page Spread (Tablet Landscape) */
+/* Static Center Spine for Two-Page Spread (Tablet Landscape — §6) */
 .book-center-spine {
   position: relative;
   width: 28px;
@@ -96,7 +98,7 @@
   align-items: center;
   justify-content: space-evenly;
   padding: 20px 0;
-  z-index: 20;
+  z-index: 40;
   pointer-events: none;
 }
 
@@ -109,7 +111,7 @@
   pointer-events: none;
 }
 
-/* Individual Notebook Page Sheet: Strict 3-Zone Flex Column (§A) */
+/* Individual Notebook Page Sheet: Strict 3-Zone Flex Column + CSS Containment (§3) */
 .book-page-sheet {
   position: relative;
   background-color: #FFFDF7;
@@ -119,6 +121,7 @@
   min-height: 0;
   overflow: hidden;
   touch-action: pan-y;
+  contain: layout paint style;
 }
 
 .book-page-sheet--left {
@@ -137,7 +140,7 @@
 
 .book-page-sheet--single {
   border-radius: 18px;
-  padding-left: 22px; /* space for left spine */
+  padding-left: 22px; /* space for static left spine */
   box-shadow:
     inset 20px 0 24px -14px rgba(139, 94, 60, 0.16),
     inset -4px 0 10px -4px rgba(139, 94, 60, 0.08);
@@ -190,23 +193,22 @@
   left: 14px;
 }
 
-/* 3D Perspective Stage for Page Flips */
-.book-perspective-stage {
-  perspective: 1800px;
-  -webkit-perspective: 1800px;
-  transform-style: preserve-3d;
-}
-
+/* Turning Leaf Element: transform-style: preserve-3d ONLY on the single turning element (§3) */
 .book-turning-leaf {
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: transform;
   pointer-events: none;
 }
 
-.book-turning-leaf-back {
+.book-turning-face-front {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+}
+
+.book-turning-face-back {
   position: absolute;
   inset: 0;
   background-color: #F0DED4;
@@ -219,7 +221,7 @@
   );
   border: 2px solid #8B5E3C;
   border-radius: 18px;
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   pointer-events: none;

@@ -3,7 +3,11 @@ import { Download, ShieldCheck, Clock, BookOpen } from 'lucide-react';
 import { AccountSettings, InactivityTimeoutOption } from '../types/settings';
 import { getMaxRiskDollar } from '../utils/calculations';
 import { formatCurrency } from '../utils/formatters';
-import { useDisplayMode, DisplayMode } from '../hooks/useDisplayMode';
+import {
+  useDisplayMode,
+  DisplayMode,
+  PageTurnStyle,
+} from '../hooks/useDisplayMode';
 
 interface SettingsPageProps {
   settings: AccountSettings;
@@ -31,6 +35,15 @@ const DISPLAY_MODE_OPTIONS: Array<{
   { value: 'mobile', label: 'Mobile book' },
 ];
 
+const PAGE_TURN_STYLE_OPTIONS: Array<{
+  value: PageTurnStyle;
+  label: string;
+}> = [
+  { value: '3d', label: 'Smooth 3D' },
+  { value: 'slide', label: 'Slide' },
+  { value: 'instant', label: 'Instant' },
+];
+
 export const SettingsPage: React.FC<SettingsPageProps> = ({
   settings,
   userEmail,
@@ -42,6 +55,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setDisplayMode,
     bookOpeningAnimation,
     setBookOpeningAnimation,
+    pageTurnStyle,
+    setPageTurnStyle,
   } = useDisplayMode();
 
   const [isWideDesktop, setIsWideDesktop] = useState<boolean>(() =>
@@ -220,6 +235,39 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 key={opt.value}
                 type="button"
                 onClick={() => setDisplayMode(opt.value)}
+                className={`h-[44px] px-4 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                    : 'bg-[#FFFDF7] text-[#8B5E3C] hover:bg-[#FFFBF2]'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Page Turn Style Setting (Smooth 3D / Slide / Instant — §7) */}
+      <div className="p-4 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="text-[18px] font-extrabold text-[#5C3D2E]">
+            Page turn style
+          </div>
+          <p className="text-[16px] text-[#5C3D2E] m-0">
+            Choose how book pages animate when turning (Smooth 3D, Slide, or
+            Instant).
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {PAGE_TURN_STYLE_OPTIONS.map((opt) => {
+            const isSelected = pageTurnStyle === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPageTurnStyle(opt.value)}
                 className={`h-[44px] px-4 rounded-full border-2 border-[#8B5E3C] text-[17px] font-extrabold transition-colors cursor-pointer ${
                   isSelected
                     ? 'bg-[#BFE3C0] text-[#2F6B3A]'

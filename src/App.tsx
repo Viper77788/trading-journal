@@ -29,15 +29,25 @@ export default function App() {
     setDisplayMode,
     bookOpeningAnimation,
     setBookOpeningAnimation,
+    pageTurnStyle,
+    setPageTurnStyle,
   } = useDisplayMode();
 
   const addToast = useCallback(
-    (title: string, type: ToastMessage['type'] = 'info') => {
+    (
+      title: string,
+      type: ToastMessage['type'] = 'info',
+      actionLabel?: string,
+      onAction?: () => void
+    ) => {
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setToasts((prev) => [...prev, { id, title, type }]);
+      setToasts((prev) => [
+        ...prev,
+        { id, title, type, actionLabel, onAction },
+      ]);
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 3000);
+      }, 4500);
     },
     []
   );
@@ -232,6 +242,8 @@ export default function App() {
           <LazyBookShell
             displayMode={displayMode}
             onSelectDisplayMode={setDisplayMode}
+            pageTurnStyle={pageTurnStyle}
+            onSelectPageTurnStyle={setPageTurnStyle}
             bookOpeningAnimation={bookOpeningAnimation}
             onToggleBookOpeningAnimation={setBookOpeningAnimation}
             activePage={activePage}

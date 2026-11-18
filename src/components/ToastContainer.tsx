@@ -6,6 +6,8 @@ export interface ToastMessage {
   id: string;
   title: string;
   type: 'success' | 'warning' | 'error' | 'info';
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 interface ToastContainerProps {
@@ -18,17 +20,17 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   onDismiss,
 }) => {
   return (
-    <div className="no-print fixed top-4 right-4 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+    <div className="no-print fixed top-4 right-4 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
       <AnimatePresence>
         {toasts.map((t) => {
           const bgClass =
             t.type === 'success'
               ? 'bg-[#BFE3C0] text-[#2F6B3A]'
               : t.type === 'error'
-              ? 'bg-[#F5B8B0] text-[#9B2C20]'
-              : t.type === 'warning'
-              ? 'bg-[#F7E2A0] text-[#5C3D2E]'
-              : 'bg-[#DCEEF2] text-[#5C3D2E]';
+                ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                : t.type === 'warning'
+                  ? 'bg-[#F7E2A0] text-[#5C3D2E]'
+                  : 'bg-[#DCEEF2] text-[#5C3D2E]';
 
           return (
             <motion.div
@@ -49,13 +51,27 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
                   {t.title}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => onDismiss(t.id)}
-                className="p-1 rounded-lg hover:bg-black/5 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {t.actionLabel && t.onAction && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      t.onAction?.();
+                      onDismiss(t.id);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-[#FFFDF7] border border-[#8B5E3C] text-[14px] font-extrabold text-[#5C3D2E] underline cursor-pointer"
+                  >
+                    {t.actionLabel}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onDismiss(t.id)}
+                  className="p-1 rounded-lg hover:bg-black/5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </motion.div>
           );
         })}

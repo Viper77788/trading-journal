@@ -12,7 +12,7 @@ import {
 } from '../../types/settings';
 import { getMaxRiskDollar } from '../../utils/calculations';
 import { formatCurrency } from '../../utils/formatters';
-import { DisplayMode } from '../../hooks/useDisplayMode';
+import { DisplayMode, PageTurnStyle } from '../../hooks/useDisplayMode';
 import { BookPageData } from '../BookPage';
 
 interface SettingsBookPagesProps {
@@ -21,6 +21,8 @@ interface SettingsBookPagesProps {
   userEmail?: string | null;
   displayMode: DisplayMode;
   onSelectDisplayMode: (mode: DisplayMode) => void;
+  pageTurnStyle: PageTurnStyle;
+  onSelectPageTurnStyle: (style: PageTurnStyle) => void;
   bookOpeningAnimation: boolean;
   onToggleBookOpeningAnimation: (enabled: boolean) => void;
   isWideDesktop: boolean;
@@ -48,12 +50,23 @@ const DISPLAY_MODE_OPTIONS: Array<{
   { value: 'mobile', label: 'Mobile book' },
 ];
 
+const PAGE_TURN_STYLE_OPTIONS: Array<{
+  value: PageTurnStyle;
+  label: string;
+}> = [
+  { value: '3d', label: 'Smooth 3D' },
+  { value: 'slide', label: 'Slide' },
+  { value: 'instant', label: 'Instant' },
+];
+
 export function buildSettingsBookPages({
   isMobile,
   settings,
   userEmail,
   displayMode,
   onSelectDisplayMode,
+  pageTurnStyle,
+  onSelectPageTurnStyle,
   bookOpeningAnimation,
   onToggleBookOpeningAnimation,
   isWideDesktop,
@@ -69,7 +82,7 @@ export function buildSettingsBookPages({
       : 30;
 
   // ==========================================================================
-  // MOBILE BOOK MODE: 4 Pages (Label on top, full-width input below — §2)
+  // MOBILE BOOK MODE: 4 Pages (Label on top, full-width input below)
   // ==========================================================================
   if (isMobile) {
     return [
@@ -201,7 +214,7 @@ export function buildSettingsBookPages({
         ),
       },
 
-      // Mobile Settings Page 3: Display mode + toggles
+      // Mobile Settings Page 3: Display mode + Page turn style + toggles
       {
         id: 'settings-m-p3',
         sectionLabel: 'SETTINGS • PAGE 3',
@@ -209,9 +222,9 @@ export function buildSettingsBookPages({
         mobileTitle: 'DISPLAY & TOGGLES',
         pastelHeaderBg: '#F2D29B',
         content: (
-          <div className="flex-1 flex flex-col justify-between gap-2.5">
-            <div className="p-3 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] space-y-2">
-              <div className="flex items-center gap-2 text-[17px] font-extrabold text-[#5C3D2E]">
+          <div className="flex-1 flex flex-col justify-between gap-2">
+            <div className="p-2.5 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] space-y-1.5">
+              <div className="flex items-center gap-2 text-[16px] font-extrabold text-[#5C3D2E]">
                 <BookOpen className="w-4 h-4 text-[#8B5E3C]" />
                 <span>Display mode</span>
               </div>
@@ -223,7 +236,7 @@ export function buildSettingsBookPages({
                       key={opt.value}
                       type="button"
                       onClick={() => onSelectDisplayMode(opt.value)}
-                      className={`min-h-[46px] px-2 rounded-xl border-2 border-[#8B5E3C] text-[14px] font-extrabold transition-colors cursor-pointer ${
+                      className={`min-h-[42px] px-1.5 rounded-xl border-2 border-[#8B5E3C] text-[13px] font-extrabold transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                           : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -236,15 +249,41 @@ export function buildSettingsBookPages({
               </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] space-y-2">
-              <div className="text-[17px] font-extrabold text-[#5C3D2E]">
+            {/* Page turn style (Smooth 3D / Slide / Instant — §7) */}
+            <div className="p-2.5 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C] space-y-1.5">
+              <div className="text-[16px] font-extrabold text-[#5C3D2E]">
+                Page turn style
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {PAGE_TURN_STYLE_OPTIONS.map((opt) => {
+                  const isSelected = pageTurnStyle === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => onSelectPageTurnStyle(opt.value)}
+                      className={`min-h-[42px] px-1.5 rounded-xl border-2 border-[#8B5E3C] text-[13px] font-extrabold transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                          : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
+              <div className="text-[15px] font-extrabold text-[#5C3D2E]">
                 Book opening animation
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => onToggleBookOpeningAnimation(true)}
-                  className={`min-h-[46px] rounded-xl border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+                  className={`min-h-[40px] px-3 rounded-xl border-2 border-[#8B5E3C] text-[14px] font-extrabold cursor-pointer ${
                     bookOpeningAnimation
                       ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                       : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -255,7 +294,7 @@ export function buildSettingsBookPages({
                 <button
                   type="button"
                   onClick={() => onToggleBookOpeningAnimation(false)}
-                  className={`min-h-[46px] rounded-xl border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+                  className={`min-h-[40px] px-3 rounded-xl border-2 border-[#8B5E3C] text-[14px] font-extrabold cursor-pointer ${
                     !bookOpeningAnimation
                       ? 'bg-[#F5B8B0] text-[#9B2C20]'
                       : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -266,15 +305,15 @@ export function buildSettingsBookPages({
               </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] space-y-2">
-              <div className="text-[17px] font-extrabold text-[#5C3D2E]">
+            <div className="p-2.5 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
+              <div className="text-[15px] font-extrabold text-[#5C3D2E]">
                 Show Print button
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => onUpdateSettings({ showPrintButton: true })}
-                  className={`min-h-[46px] rounded-xl border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+                  className={`min-h-[40px] px-3 rounded-xl border-2 border-[#8B5E3C] text-[14px] font-extrabold cursor-pointer ${
                     isPrintEnabled
                       ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                       : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -285,7 +324,7 @@ export function buildSettingsBookPages({
                 <button
                   type="button"
                   onClick={() => onUpdateSettings({ showPrintButton: false })}
-                  className={`min-h-[46px] rounded-xl border-2 border-[#8B5E3C] text-[16px] font-extrabold cursor-pointer ${
+                  className={`min-h-[40px] px-3 rounded-xl border-2 border-[#8B5E3C] text-[14px] font-extrabold cursor-pointer ${
                     !isPrintEnabled
                       ? 'bg-[#F5B8B0] text-[#9B2C20]'
                       : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -366,7 +405,7 @@ export function buildSettingsBookPages({
   }
 
   // ==========================================================================
-  // TABLET BOOK MODE: 2 Pages (Spread 1–2 in Landscape, Pages 1 & 2 in Portrait — §5)
+  // TABLET BOOK MODE: 2 Pages (Spread 1–2 in Landscape, Pages 1 & 2 in Portrait)
   // ==========================================================================
   return [
     // PAGE 1: Account Settings (Account Size, Max Risk %, Max Risk $, Max Trades)
@@ -479,24 +518,26 @@ export function buildSettingsBookPages({
       ),
     },
 
-    // PAGE 2: Display Mode, Print Toggle, Inactivity Lock, Export Backup, Log Out
+    // PAGE 2: Display Mode, Page Turn Style, Toggles, Inactivity Lock, Export Backup, Log Out
     {
       id: 'settings-p2',
       sectionLabel: 'SETTINGS • DEVICE & ACCOUNT',
       pageTitle: 'DISPLAY, SECURITY & BACKUP',
       pastelHeaderBg: '#E2DCEB',
       content: (
-        <div className="flex-1 flex flex-col justify-between gap-2">
-          <div className="p-2.5 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] space-y-1.5">
-            <div className="flex items-center gap-2 text-[16px] font-extrabold text-[#5C3D2E]">
-              <BookOpen className="w-4 h-4 text-[#8B5E3C]" />
-              <span>Display mode</span>
+        <div className="flex-1 flex flex-col justify-between gap-1.5">
+          <div className="p-2 rounded-2xl bg-[#E2DCEB] border-2 border-[#8B5E3C] space-y-1">
+            <div className="flex items-center justify-between gap-2 text-[15px] font-extrabold text-[#5C3D2E]">
+              <span className="inline-flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-[#8B5E3C]" />
+                <span>Display mode</span>
+              </span>
+              {isWideDesktop && (
+                <span className="text-[12px] font-bold text-[#8B5E3C]">
+                  Made for tablets &amp; phones
+                </span>
+              )}
             </div>
-            {isWideDesktop && (
-              <p className="text-[14px] font-bold text-[#8B5E3C] m-0">
-                Book mode is made for tablets and phones
-              </p>
-            )}
             <div className="grid grid-cols-3 gap-1.5">
               {DISPLAY_MODE_OPTIONS.map((opt) => {
                 const isSelected = displayMode === opt.value;
@@ -505,7 +546,7 @@ export function buildSettingsBookPages({
                     key={opt.value}
                     type="button"
                     onClick={() => onSelectDisplayMode(opt.value)}
-                    className={`min-h-[44px] px-2 rounded-xl border-2 border-[#8B5E3C] text-[14px] font-extrabold transition-colors cursor-pointer ${
+                    className={`min-h-[38px] px-1.5 rounded-xl border-2 border-[#8B5E3C] text-[13px] font-extrabold transition-colors cursor-pointer ${
                       isSelected
                         ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                         : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -518,68 +559,96 @@ export function buildSettingsBookPages({
             </div>
           </div>
 
-          <div className="p-2.5 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
-            <div className="text-[16px] font-extrabold text-[#5C3D2E]">
-              Book opening animation
+          {/* Page turn style (Smooth 3D / Slide / Instant — §7) */}
+          <div className="p-2 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C] space-y-1">
+            <div className="text-[15px] font-extrabold text-[#5C3D2E]">
+              Page turn style
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => onToggleBookOpeningAnimation(true)}
-                className={`min-h-[44px] min-w-[60px] px-3 rounded-full border-2 border-[#8B5E3C] text-[15px] font-extrabold cursor-pointer ${
-                  bookOpeningAnimation
-                    ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
-                }`}
-              >
-                ON
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleBookOpeningAnimation(false)}
-                className={`min-h-[44px] min-w-[60px] px-3 rounded-full border-2 border-[#8B5E3C] text-[15px] font-extrabold cursor-pointer ${
-                  !bookOpeningAnimation
-                    ? 'bg-[#F5B8B0] text-[#9B2C20]'
-                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
-                }`}
-              >
-                OFF
-              </button>
+            <div className="grid grid-cols-3 gap-1.5">
+              {PAGE_TURN_STYLE_OPTIONS.map((opt) => {
+                const isSelected = pageTurnStyle === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onSelectPageTurnStyle(opt.value)}
+                    className={`min-h-[38px] px-1.5 rounded-xl border-2 border-[#8B5E3C] text-[13px] font-extrabold transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                        : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="p-2.5 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
-            <div className="text-[16px] font-extrabold text-[#5C3D2E]">
-              Show Print button
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="p-2 rounded-2xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-1.5">
+              <div className="text-[14px] font-extrabold text-[#5C3D2E] leading-tight">
+                Opening anim
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onToggleBookOpeningAnimation(true)}
+                  className={`min-h-[36px] px-2 rounded-lg border border-[#8B5E3C] text-[13px] font-extrabold cursor-pointer ${
+                    bookOpeningAnimation
+                      ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                      : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                  }`}
+                >
+                  ON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleBookOpeningAnimation(false)}
+                  className={`min-h-[36px] px-2 rounded-lg border border-[#8B5E3C] text-[13px] font-extrabold cursor-pointer ${
+                    !bookOpeningAnimation
+                      ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                      : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                  }`}
+                >
+                  OFF
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => onUpdateSettings({ showPrintButton: true })}
-                className={`min-h-[44px] min-w-[60px] px-3 rounded-full border-2 border-[#8B5E3C] text-[15px] font-extrabold cursor-pointer ${
-                  isPrintEnabled
-                    ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
-                }`}
-              >
-                ON
-              </button>
-              <button
-                type="button"
-                onClick={() => onUpdateSettings({ showPrintButton: false })}
-                className={`min-h-[44px] min-w-[60px] px-3 rounded-full border-2 border-[#8B5E3C] text-[15px] font-extrabold cursor-pointer ${
-                  !isPrintEnabled
-                    ? 'bg-[#F5B8B0] text-[#9B2C20]'
-                    : 'bg-[#FFFDF7] text-[#8B5E3C]'
-                }`}
-              >
-                OFF
-              </button>
+
+            <div className="p-2 rounded-2xl bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-between gap-1.5">
+              <div className="text-[14px] font-extrabold text-[#5C3D2E] leading-tight">
+                Print button
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ showPrintButton: true })}
+                  className={`min-h-[36px] px-2 rounded-lg border border-[#8B5E3C] text-[13px] font-extrabold cursor-pointer ${
+                    isPrintEnabled
+                      ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                      : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                  }`}
+                >
+                  ON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ showPrintButton: false })}
+                  className={`min-h-[36px] px-2 rounded-lg border border-[#8B5E3C] text-[13px] font-extrabold cursor-pointer ${
+                    !isPrintEnabled
+                      ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                      : 'bg-[#FFFDF7] text-[#8B5E3C]'
+                  }`}
+                >
+                  OFF
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="p-2.5 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C] space-y-1.5">
-            <div className="flex items-center gap-2 text-[16px] font-extrabold text-[#5C3D2E]">
+          <div className="p-2 rounded-2xl bg-[#DCEEF2] border-2 border-[#8B5E3C] space-y-1">
+            <div className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#5C3D2E]">
               <Clock className="w-4 h-4 text-[#8B5E3C]" />
               <span>Auto-lock after inactivity</span>
             </div>
@@ -593,7 +662,7 @@ export function buildSettingsBookPages({
                     onClick={() =>
                       onUpdateSettings({ inactivityTimeoutMinutes: opt.value })
                     }
-                    className={`min-h-[44px] px-2 rounded-xl border-2 border-[#8B5E3C] text-[14px] font-extrabold cursor-pointer ${
+                    className={`min-h-[38px] px-1.5 rounded-xl border-2 border-[#8B5E3C] text-[13px] font-extrabold cursor-pointer ${
                       isSelected
                         ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                         : 'bg-[#FFFDF7] text-[#8B5E3C]'
@@ -606,11 +675,11 @@ export function buildSettingsBookPages({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={onExportJson}
-              className="min-h-[46px] px-3 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] text-[16px] font-extrabold text-[#2F6B3A] flex items-center justify-center gap-1.5 cursor-pointer"
+              className="min-h-[42px] px-3 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] text-[15px] font-extrabold text-[#2F6B3A] flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Download className="w-4 h-4 shrink-0" />
               <span>Export Backup</span>
@@ -619,7 +688,7 @@ export function buildSettingsBookPages({
             <button
               type="button"
               onClick={onLogout}
-              className="min-h-[46px] px-3 rounded-xl bg-[#F8D0CC] hover:bg-[#f5b8b0] border-2 border-[#8B5E3C] text-[16px] font-extrabold text-[#9B2C20] flex items-center justify-center gap-1.5 cursor-pointer"
+              className="min-h-[42px] px-3 rounded-xl bg-[#F8D0CC] hover:bg-[#f5b8b0] border-2 border-[#8B5E3C] text-[15px] font-extrabold text-[#9B2C20] flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <LogOut className="w-4 h-4 shrink-0" />
               <span>Log out</span>

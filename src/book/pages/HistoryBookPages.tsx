@@ -17,6 +17,7 @@ import {
   WinLossChart,
 } from '../../components/Charts';
 import { BookPageData } from '../BookPage';
+import { DeferredBookChart } from '../DeferredBookChart';
 
 interface HistoryBookPagesProps {
   daysMap: Record<string, DayRecord>;
@@ -574,7 +575,9 @@ export function buildHistoryBookPages({
               </h3>
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
-              <EquityCurveChart data={analytics.equityCurve} />
+              <DeferredBookChart placeholderLabel="Loading profit chart...">
+                <EquityCurveChart data={analytics.equityCurve} />
+              </DeferredBookChart>
             </div>
           </section>
 
@@ -585,7 +588,9 @@ export function buildHistoryBookPages({
               </h3>
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
-              <WinLossChart wins={analytics.wins} losses={analytics.losses} />
+              <DeferredBookChart placeholderLabel="Loading win/loss chart...">
+                <WinLossChart wins={analytics.wins} losses={analytics.losses} />
+              </DeferredBookChart>
             </div>
           </section>
         </div>
@@ -608,7 +613,9 @@ export function buildHistoryBookPages({
               </h3>
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
-              <MistakeBarChart data={analytics.mistakeChartData} />
+              <DeferredBookChart placeholderLabel="Loading mistakes chart...">
+                <MistakeBarChart data={analytics.mistakeChartData} />
+              </DeferredBookChart>
             </div>
           </section>
 
@@ -619,7 +626,9 @@ export function buildHistoryBookPages({
               </h3>
             </div>
             <div className="p-2 flex-1 flex flex-col min-h-0">
-              <EmotionDonutChart data={analytics.emotionChartData} />
+              <DeferredBookChart placeholderLabel="Loading feelings chart...">
+                <EmotionDonutChart data={analytics.emotionChartData} />
+              </DeferredBookChart>
             </div>
           </section>
         </div>
