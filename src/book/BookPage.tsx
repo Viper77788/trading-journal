@@ -99,8 +99,8 @@ export const BookPage: React.FC<BookPageProps> = ({
         </div>
       </div>
 
-      {/* Inner Page Body with flex layout and at least 40px bottom breathing space before footer (§2 & §8) */}
-      <div className="book-page-content flex-1 flex flex-col min-h-0 panel-scroll px-3.5 sm:px-5 pt-2.5 pb-[40px] relative z-10">
+      {/* Inner Page Body with flex layout and bottom breathing space before footer (§2 & §8) */}
+      <div className="book-page-content flex-1 flex flex-col min-h-0 panel-scroll px-3.5 sm:px-5 pt-2 pb-4 sm:pb-[40px] relative z-10">
         {page.content}
       </div>
 

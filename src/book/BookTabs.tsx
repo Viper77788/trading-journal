@@ -62,7 +62,7 @@ export const BookTabs: React.FC<BookTabsProps> = ({
               style={{
                 backgroundColor: isActive ? tab.pastelColor : '#FFFDF7',
               }}
-              className={`h-[44px] px-1.5 rounded-xl flex items-center justify-center gap-1.5 font-heading text-[13px] sm:text-[15px] font-bold tracking-normal transition-all cursor-pointer ${
+              className={`h-[44px] px-1 rounded-xl flex items-center justify-center gap-1 font-heading text-[12px] sm:text-[15px] font-bold tracking-normal transition-all cursor-pointer ${
                 isActive
                   ? 'border-2 border-[#8B5E3C] text-[#5C3D2E] shadow-xs'
                   : 'border border-[#8B5E3C]/65 text-[#8B5E3C] hover:bg-[#F0DED4]/40'

@@ -1108,11 +1108,11 @@ export function buildTodayBookPages({
 
   // Shared How Did I Feel Block
   const feelingsBlock = (
-    <div className="p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-2 shrink-0">
-      <div className="text-[17px] font-extrabold text-[#8B5E3C]">
+    <div className="p-2.5 sm:p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1.5 shrink-0">
+      <div className="text-[16px] sm:text-[17px] font-extrabold text-[#8B5E3C]">
         How did I feel today?
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5">
         {EMOTION_CHIP_META.map((item) => {
           const isSelected = (day.audit.emotions || []).includes(item.id);
           return (
@@ -1123,7 +1123,7 @@ export function buildTodayBookPages({
               style={{
                 backgroundColor: isSelected ? item.pastelBg : '#FFFBF2',
               }}
-              className={`min-h-[42px] px-3 py-1 rounded-full text-[15px] sm:text-[16px] font-bold transition-all cursor-pointer ${
+              className={`min-h-[38px] sm:min-h-[42px] px-2.5 py-1 rounded-full text-[15px] sm:text-[16px] font-bold transition-all cursor-pointer flex items-center justify-center ${
                 isSelected
                   ? 'border-2 border-[#8B5E3C] text-[#5C3D2E]'
                   : 'border border-[#8B5E3C]/60 text-[#8B5E3C]'
