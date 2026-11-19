@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+[data-layout='desktop'] {
   --bg-cream: #FFFBF2;
   --bg-paper: #FFFDF7;
   --brown-border: #8B5E3C;
@@ -18,6 +19,26 @@
   --bad-bg: #F5B8B0;
   --bad-text: #9B2C20;
   --warn-bg: #F7E2A0;
+
+  /* Desktop layout variables */
+  --space-gap: 12px;
+  --shell-pad: 12px;
+  --btn-min-h: 36px;
+  --btn-min-w: 36px;
+  --input-min-h: 40px;
+  --icon-btn-size: 38px;
+  --circle-btn-size: 40px;
+}
+
+[data-layout='tablet'] {
+  /* Tablet layout variables (§3.1 & §3.5) */
+  --space-gap: 10px;
+  --shell-pad: 8px;
+  --btn-min-h: 48px;
+  --btn-min-w: 48px;
+  --input-min-h: 52px;
+  --icon-btn-size: 48px;
+  --circle-btn-size: 48px;
 }
 
 @layer base {
@@ -25,13 +46,17 @@
   body {
     margin: 0;
     padding: 0;
+    height: 100dvh;
+    max-height: 100dvh;
     background-color: #FFFBF2;
     color: #5C3D2E;
     font-family: 'Nunito', system-ui, -apple-system, sans-serif;
     font-size: 16px;
     line-height: 1.4;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow: hidden;
   }
 
   h1,
@@ -49,43 +74,141 @@
   textarea {
     font-family: 'Nunito', system-ui, -apple-system, sans-serif;
     font-size: 16px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  [role='button'] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+    -webkit-user-select: text;
   }
 }
 
-/* App Shell: 100vh locked on desktop (>= 800px), normal scroll on mobile (< 800px) */
+/* Active pressed feedback on all interactive buttons (§3.5) */
+button:active:not(:disabled),
+[role='button']:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Hover styles ONLY when device supports true hover (§3.5) */
+@media (hover: hover) {
+  .touch-btn:hover:not(:disabled),
+  .trade-icon-btn:hover:not(:disabled) {
+    filter: brightness(0.97);
+  }
+}
+
+/* Touch Ergonomics switched by data-layout="tablet" (§3.1 & §3.5) */
+.touch-btn {
+  min-height: var(--btn-min-h);
+  min-width: var(--btn-min-w);
+}
+
+.touch-input {
+  min-height: var(--input-min-h);
+  font-size: 16px;
+}
+
+.trade-icon-btn {
+  width: var(--icon-btn-size);
+  height: var(--icon-btn-size);
+  min-width: var(--icon-btn-size);
+  min-height: var(--icon-btn-size);
+}
+
+.touch-circle-btn {
+  width: var(--circle-btn-size);
+  height: var(--circle-btn-size);
+  min-width: var(--circle-btn-size);
+  min-height: var(--circle-btn-size);
+}
+
+/* App Shell: 100dvh locked, respects safe-area insets (§3.3) */
 .app-viewport-shell {
-  min-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   width: 100%;
   background-color: #FFFBF2;
   color: #5C3D2E;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
-@media (min-width: 800px) {
-  html,
-  body {
-    height: 100vh;
-    overflow: hidden;
-  }
+[data-layout='tablet'] .app-header-shell {
+  padding: 6px 8px 0 8px;
+}
 
-  .app-viewport-shell {
-    height: 100vh;
-    max-height: 100vh;
-    overflow: hidden;
-  }
+[data-layout='tablet'] .app-header-bar {
+  height: 52px;
+  min-height: 52px;
+  padding: 0 10px;
+}
 
+[data-layout='tablet'] .nav-tab-btn,
+[data-layout='tablet'] .nav-logout-btn {
+  height: 48px;
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.app-main-area {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--shell-pad);
+}
+
+/* Below 700px: single stacked column scrolls cleanly inside app-main-area (§2 & §3.4) */
+@media (max-width: 699.98px) {
   .app-main-area {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    padding: 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 8px;
+  }
+
+  .app-header-bar {
+    flex-wrap: wrap;
+    height: auto !important;
+    padding: 6px 8px !important;
   }
 }
 
-@media (max-width: 799.98px) {
-  .app-main-area {
-    padding: 10px;
+/* Fast 140ms CSS Opacity/Translate Tab Fade (§4) */
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 3px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.tab-fade-pane {
+  animation: tabFadeIn 140ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-fade-pane {
+    animation: none;
+  }
+  button:active:not(:disabled) {
+    transform: none;
   }
 }
 
@@ -95,20 +218,40 @@
   border: 2px solid #8B5E3C;
   border-radius: 16px;
   box-shadow: 0 4px 14px rgba(139, 94, 60, 0.07);
+  contain: layout paint;
 }
 
-/* Scrollable Inner Column Panel */
+/* Scrollable Inner Panel (§3.3) */
 .panel-scroll {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
-/* TODAY Grid:
-   - < 800px: 1 column
-   - 800px - 1299px: 2 columns (50% / 50%)
-   - >= 1300px: 3 columns (30% / 40% / 30%)
-*/
+/* Stat Cards on TODAY: stacked in Desktop, 3 in one row in Tablet (§3.4) */
+.stat-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-layout='tablet'] .stat-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 699.98px) {
+  [data-layout='tablet'] .stat-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ==========================================================================
+   DESKTOP TODAY GRID (data-layout="desktop")
+   ========================================================================== */
 .today-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -131,33 +274,190 @@
   }
 }
 
-/* HISTORY Grid (40% Left Calendar / 60% Right Stats + 2x2 Charts at >= 960px) */
-.history-grid {
+/* ==========================================================================
+   TABLET TODAY GRID WITH CSS GRID AREAS (§3.1 & §3.4)
+   - Landscape (>= 1000px): 2 columns (45% / 55%)
+     Left col: overview (top) + prep (bottom)
+     Right col: trades (top) + review (bottom)
+   - Portrait (700px - 999.98px): 2x2 grid
+     Top-left: overview | Top-right: prep
+     Bottom-left: trades | Bottom-right: review
+   - Below 700px: 1 stacked column
+   ========================================================================== */
+.today-tablet-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--space-gap, 10px);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
-@media (min-width: 960px) {
-  .history-grid {
-    grid-template-columns: 2fr 3fr;
-    height: 100%;
-    min-height: 0;
+.today-area-overview {
+  grid-area: overview;
+}
+.today-area-prep {
+  grid-area: prep;
+}
+.today-area-trades {
+  grid-area: trades;
+}
+.today-area-review {
+  grid-area: review;
+}
+
+@media (max-width: 699.98px) {
+  .today-tablet-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'overview'
+      'prep'
+      'trades'
+      'review';
+    height: auto;
   }
 }
 
-/* FUTURE Grid (35% Left Inputs / 65% Right Outputs + Chart at >= 960px) */
+@media (min-width: 700px) and (max-width: 999.98px) {
+  .today-tablet-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 46fr) minmax(0, 54fr);
+    grid-template-areas:
+      'overview prep'
+      'trades review';
+  }
+}
+
+@media (min-width: 1000px) {
+  .today-tablet-grid {
+    grid-template-columns: 9fr 11fr;
+    grid-template-rows: minmax(0, 44fr) minmax(0, 56fr);
+    grid-template-areas:
+      'overview trades'
+      'prep review';
+  }
+}
+
+/* ==========================================================================
+   HISTORY GRID & 6-ROW CALENDAR (§3.7)
+   ========================================================================== */
+.history-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-gap, 12px);
+  height: 100%;
+  min-height: 0;
+}
+
+/* Tablet Portrait (700px - 999.98px): Calendar on top with fixed legend, stats (2x2) & charts (2-col) below */
+@media (min-width: 700px) and (max-width: 999.98px) {
+  .history-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 46fr) minmax(0, 54fr);
+  }
+}
+
+/* Landscape (>= 1000px): Calendar left (40%), Stats & Charts right (60%) */
+@media (min-width: 1000px) {
+  .history-grid {
+    grid-template-columns: 2fr 3fr;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+.calendar-6row-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+[data-layout='tablet'] .calendar-6row-grid {
+  gap: 8px;
+}
+
+.calendar-day-cell {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.history-stat-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 1000px) {
+  .history-stat-cards-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  .history-stat-cards-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.history-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 699.98px) {
+  .history-charts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ==========================================================================
+   FUTURE GRID (§3.7)
+   ========================================================================== */
 .future-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--space-gap, 12px);
+  height: 100%;
+  min-height: 0;
 }
 
-@media (min-width: 960px) {
+@media (min-width: 700px) and (max-width: 999.98px) {
+  .future-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 48fr) minmax(0, 52fr);
+  }
+
+  .future-results-panel {
+    order: -1;
+  }
+
+  .future-sticky-summary {
+    position: sticky;
+    top: 0;
+    padding-bottom: 4px;
+  }
+}
+
+@media (min-width: 1000px) {
   .future-grid {
     grid-template-columns: 7fr 13fr;
-    height: 100%;
-    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+/* ==========================================================================
+   SETTINGS GRID (§3.7: Two columns in landscape, one column in portrait)
+   ========================================================================== */
+.settings-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 1000px) {
+  .settings-main-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
   }
 }
 
@@ -176,11 +476,58 @@
   padding-bottom: 4px;
 }
 
-/* Custom Range Slider in Warm Brown */
+/* Custom Range Slider in Warm Brown with >= 44px thumb in Tablet Mode (§3.7) */
 input[type='range'] {
   accent-color: #8B5E3C;
   height: 8px;
   border-radius: 999px;
+}
+
+[data-layout='tablet'] input[type='range'],
+input[type='range'].touch-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 44px;
+  background: transparent;
+}
+
+[data-layout='tablet'] input[type='range']::-webkit-slider-runnable-track,
+input[type='range'].touch-slider::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #FFFDF7;
+  border: 2px solid #8B5E3C;
+}
+
+[data-layout='tablet'] input[type='range']::-webkit-slider-thumb,
+input[type='range'].touch-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #8B5E3C;
+  border: 3px solid #FFFDF7;
+  margin-top: -19px;
+  cursor: pointer;
+}
+
+[data-layout='tablet'] input[type='range']::-moz-range-track,
+input[type='range'].touch-slider::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #FFFDF7;
+  border: 2px solid #8B5E3C;
+}
+
+[data-layout='tablet'] input[type='range']::-moz-range-thumb,
+input[type='range'].touch-slider::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #8B5E3C;
+  border: 3px solid #FFFDF7;
+  cursor: pointer;
 }
 
 /* Thin Pastel Scrollbar */

@@ -1,21 +1,21 @@
 import React, { useState, useCallback, useEffect, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 import { useTrades } from './hooks/useTrades';
 import { useCalculator } from './hooks/useCalculator';
-import { useDisplayMode } from './hooks/useDisplayMode';
+import { useLayoutMode } from './hooks/useLayoutMode';
 import { getTodayDateISO } from './utils/formatters';
 import { Sidebar, NavPageId } from './components/Sidebar';
 import { ToastContainer, ToastMessage } from './components/ToastContainer';
 import { DailyTracker } from './pages/DailyTracker';
-import { Dashboard } from './pages/Dashboard';
-import { FutureCalculator } from './pages/FutureCalculator';
-import { SettingsPage } from './pages/Settings';
 import { LoginPage } from './pages/LoginPage';
 
-// Lazy-loaded Book Mode Shell so PC mode bundle & runtime are never slowed down
-const LazyBookShell = React.lazy(() => import('./book/BookShell'));
+// Code-split HISTORY, FUTURE, and SETTINGS routes so first-load JS for TODAY is minimal (§4)
+const LazyDashboard = React.lazy(() => import('./pages/Dashboard'));
+const LazyFutureCalculator = React.lazy(
+  () => import('./pages/FutureCalculator')
+);
+const LazySettingsPage = React.lazy(() => import('./pages/Settings'));
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -24,14 +24,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateISO());
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const {
-    displayMode,
-    setDisplayMode,
-    bookOpeningAnimation,
-    setBookOpeningAnimation,
-    pageTurnStyle,
-    setPageTurnStyle,
-  } = useDisplayMode();
+  const { effectiveLayout } = useLayoutMode();
 
   const addToast = useCallback(
     (
@@ -127,6 +120,29 @@ export default function App() {
     monteCarlo,
   } = useCalculator();
 
+  // Prefetch HISTORY, FUTURE, and SETTINGS chunks on idle after first paint (§4)
+  useEffect(() => {
+    if (!userId || isLoadingCloud) return;
+    const prefetchRoutes = () => {
+      void import('./pages/Dashboard');
+      void import('./pages/FutureCalculator');
+      void import('./pages/Settings');
+    };
+
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof win.requestIdleCallback === 'function') {
+      const idleId = win.requestIdleCallback(prefetchRoutes);
+      return () => win.cancelIdleCallback?.(idleId);
+    }
+
+    const timer = window.setTimeout(prefetchRoutes, 900);
+    return () => window.clearTimeout(timer);
+  }, [userId, isLoadingCloud]);
+
   const handleLogout = useCallback(async () => {
     clearStateOnLogout();
     resetCalcSettings();
@@ -180,10 +196,10 @@ export default function App() {
     };
   }, [userId, settings.inactivityTimeoutMinutes, handleLogout]);
 
-  // 1. Initial auth check skeleton (no app content shown)
+  // 1. Initial auth check skeleton
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen w-full bg-[#FFFBF2] flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] w-full bg-[#FFFBF2] flex items-center justify-center p-4">
         <div className="paper-sheet px-8 py-6 text-center space-y-2">
           <div className="font-heading text-[22px] font-bold text-[#8B5E3C] uppercase">
             DAILY TRADING TRACKER
@@ -196,7 +212,7 @@ export default function App() {
     );
   }
 
-  // 2. Signed out: show ONLY the Login page (identical across all modes)
+  // 2. Signed out: show ONLY the Login page
   if (!session || !userId) {
     return <LoginPage />;
   }
@@ -223,67 +239,8 @@ export default function App() {
     addToast(`Opened ${dateIso}`, 'info');
   };
 
-  // 3. BOOK MODE (Tablet Book or Mobile Book) — loaded lazily
-  if (displayMode === 'tablet' || displayMode === 'mobile') {
-    return (
-      <>
-        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-        <Suspense
-          fallback={
-            <div className="min-h-screen w-full bg-[#FFFBF2] flex items-center justify-center p-4">
-              <div className="paper-sheet px-8 py-6 text-center space-y-2">
-                <div className="font-heading text-[22px] font-bold text-[#8B5E3C] uppercase">
-                  OPENING TRADING NOTEBOOK...
-                </div>
-              </div>
-            </div>
-          }
-        >
-          <LazyBookShell
-            displayMode={displayMode}
-            onSelectDisplayMode={setDisplayMode}
-            pageTurnStyle={pageTurnStyle}
-            onSelectPageTurnStyle={setPageTurnStyle}
-            bookOpeningAnimation={bookOpeningAnimation}
-            onToggleBookOpeningAnimation={setBookOpeningAnimation}
-            activePage={activePage}
-            onSelectPage={setActivePage}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            day={currentDayRecord}
-            daysMap={daysMap}
-            settings={settings}
-            dashboardAnalytics={dashboardAnalytics}
-            calcSettings={calcSettings}
-            onUpdateCalc={updateCalcSettings}
-            onResetCalc={() => {
-              resetCalcSettings();
-              addToast('Calculator reset!', 'info');
-            }}
-            projection={projection}
-            monteCarlo={monteCarlo}
-            onUpdateChecklist={(patch) => updateChecklist(selectedDate, patch)}
-            onUpdateSettings={updateAccountSettings}
-            onAddTrade={(customPayload) => addTrade(selectedDate, customPayload)}
-            onUpdateTrade={(tradeId, patch) =>
-              updateTrade(selectedDate, tradeId, patch)
-            }
-            onDeleteTrade={(tradeId) => deleteTrade(selectedDate, tradeId)}
-            onUpdateAudit={(patch) => updateAudit(selectedDate, patch)}
-            onExportJson={handleExportJson}
-            onNotify={addToast}
-            syncStatus={syncStatus}
-            userEmail={userEmail}
-            onLogout={handleLogout}
-          />
-        </Suspense>
-      </>
-    );
-  }
-
-  // 4. PC MODE (Default) — 100% unchanged layout, wrappers, and CSS
   return (
-    <div className="app-viewport-shell">
+    <div className="app-viewport-shell" data-layout={effectiveLayout}>
       {/* Soft Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
@@ -296,10 +253,9 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area (Fills remaining 100vh on desktop with 12px padding) */}
+      {/* Main Content Area */}
       <main className="app-main-area w-full">
         {isLoadingCloud ? (
-          /* Loading Skeletons while cloud data loads after login */
           <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
             <div className="lg:col-span-4 paper-sheet p-4 space-y-3 animate-pulse">
               <div className="h-12 rounded-xl bg-[#F2D29B]/60 border-2 border-[#8B5E3C]/40" />
@@ -319,79 +275,83 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activePage}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.16 }}
-              className="h-full min-h-0"
-            >
-              {activePage === 'tracker' && (
-                <DailyTracker
-                  selectedDate={selectedDate}
-                  onSelectDate={setSelectedDate}
-                  day={currentDayRecord}
-                  daysMap={daysMap}
-                  settings={settings}
-                  onUpdateChecklist={(patch) =>
-                    updateChecklist(selectedDate, patch)
-                  }
-                  onUpdateSettings={updateAccountSettings}
-                  onAddTrade={(customPayload) =>
-                    addTrade(selectedDate, customPayload)
-                  }
-                  onUpdateTrade={(tradeId, patch) =>
-                    updateTrade(selectedDate, tradeId, patch)
-                  }
-                  onDeleteTrade={(tradeId) =>
-                    deleteTrade(selectedDate, tradeId)
-                  }
-                  onUpdateAudit={(patch) => updateAudit(selectedDate, patch)}
-                  onNotify={addToast}
-                />
-              )}
+          <div key={activePage} className="tab-fade-pane h-full min-h-0">
+            {activePage === 'tracker' && (
+              <DailyTracker
+                effectiveLayout={effectiveLayout}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                day={currentDayRecord}
+                daysMap={daysMap}
+                settings={settings}
+                onUpdateChecklist={(patch) =>
+                  updateChecklist(selectedDate, patch)
+                }
+                onUpdateSettings={updateAccountSettings}
+                onAddTrade={(customPayload) =>
+                  addTrade(selectedDate, customPayload)
+                }
+                onUpdateTrade={(tradeId, patch) =>
+                  updateTrade(selectedDate, tradeId, patch)
+                }
+                onDeleteTrade={(tradeId) => deleteTrade(selectedDate, tradeId)}
+                onUpdateAudit={(patch) => updateAudit(selectedDate, patch)}
+                onNotify={addToast}
+              />
+            )}
 
-              {activePage === 'dashboard' && (
-                <Dashboard
-                  daysMap={daysMap}
-                  settings={settings}
-                  analytics={dashboardAnalytics}
-                  onSelectDayToEdit={handleSelectDayFromDashboard}
-                />
-              )}
+            {activePage !== 'tracker' && (
+              <Suspense
+                fallback={
+                  <div className="h-full w-full paper-sheet flex items-center justify-center p-6">
+                    <span className="font-heading text-[20px] font-bold text-[#8B5E3C] uppercase">
+                      Loading...
+                    </span>
+                  </div>
+                }
+              >
+                {activePage === 'dashboard' && (
+                  <LazyDashboard
+                    effectiveLayout={effectiveLayout}
+                    daysMap={daysMap}
+                    settings={settings}
+                    analytics={dashboardAnalytics}
+                    onSelectDayToEdit={handleSelectDayFromDashboard}
+                  />
+                )}
 
-              {activePage === 'calculator' && (
-                <FutureCalculator
-                  calcSettings={calcSettings}
-                  onUpdateCalc={updateCalcSettings}
-                  onResetCalc={() => {
-                    resetCalcSettings();
-                    addToast('Calculator reset!', 'info');
-                  }}
-                  projection={projection}
-                  monteCarlo={monteCarlo}
-                  realStats={{
-                    winRate: dashboardAnalytics.winRate,
-                    rewardToRisk: dashboardAnalytics.avgRealRewardToRisk,
-                    currentBalance:
-                      settings.accountSize + dashboardAnalytics.netPnl,
-                  }}
-                  onNotify={addToast}
-                />
-              )}
+                {activePage === 'calculator' && (
+                  <LazyFutureCalculator
+                    effectiveLayout={effectiveLayout}
+                    calcSettings={calcSettings}
+                    onUpdateCalc={updateCalcSettings}
+                    onResetCalc={() => {
+                      resetCalcSettings();
+                      addToast('Calculator reset!', 'info');
+                    }}
+                    projection={projection}
+                    monteCarlo={monteCarlo}
+                    realStats={{
+                      winRate: dashboardAnalytics.winRate,
+                      rewardToRisk: dashboardAnalytics.avgRealRewardToRisk,
+                      currentBalance:
+                        settings.accountSize + dashboardAnalytics.netPnl,
+                    }}
+                    onNotify={addToast}
+                  />
+                )}
 
-              {activePage === 'settings' && (
-                <SettingsPage
-                  settings={settings}
-                  userEmail={userEmail}
-                  onUpdateSettings={updateAccountSettings}
-                  onExportJson={handleExportJson}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+                {activePage === 'settings' && (
+                  <LazySettingsPage
+                    settings={settings}
+                    userEmail={userEmail}
+                    onUpdateSettings={updateAccountSettings}
+                    onExportJson={handleExportJson}
+                  />
+                )}
+              </Suspense>
+            )}
+          </div>
         )}
       </main>
 
@@ -417,7 +377,7 @@ export default function App() {
                 type="button"
                 disabled={isMigrating}
                 onClick={skipMigrationToCloud}
-                className="h-[46px] px-5 rounded-xl bg-[#FFFBF2] hover:bg-[#F0DED4] border-2 border-[#8B5E3C] font-heading text-[17px] font-bold text-[#8B5E3C] cursor-pointer disabled:opacity-50"
+                className="touch-btn h-[48px] px-5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] font-heading text-[17px] font-bold text-[#8B5E3C] cursor-pointer disabled:opacity-50"
               >
                 Skip
               </button>
@@ -425,7 +385,7 @@ export default function App() {
                 type="button"
                 disabled={isMigrating}
                 onClick={confirmMigrationToCloud}
-                className="h-[46px] px-6 rounded-xl bg-[#BFE3C0] hover:bg-[#a9d8ab] border-2 border-[#8B5E3C] font-heading text-[17px] font-bold text-[#2F6B3A] cursor-pointer disabled:opacity-50"
+                className="touch-btn h-[48px] px-6 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] font-heading text-[17px] font-bold text-[#2F6B3A] cursor-pointer disabled:opacity-50"
               >
                 {isMigrating ? 'Moving...' : 'Move them'}
               </button>

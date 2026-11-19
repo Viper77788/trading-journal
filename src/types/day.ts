@@ -42,5 +42,6 @@ export interface DayRecord {
   checklist: SessionChecklistState;
   trades: TradeEntry[];
   audit: DailyAuditState;
+  maxTradesSnapshot?: number;
   updatedAt: string;
 }

@@ -534,13 +534,7 @@ export function useTrades(
       dateIso: string,
       customPayload?: Partial<TradeEntry>
     ): { ok: boolean; reason?: string } => {
-      const current = daysMap[dateIso] || createEmptyDay(dateIso);
-      if (current.trades.length >= settings.maxTradesPerDay) {
-        return {
-          ok: false,
-          reason: `${settings.maxTradesPerDay} trades done. Stop trading for today!`,
-        };
-      }
+      const current = daysMapRef.current[dateIso] || createEmptyDay(dateIso);
 
       const defaultRiskDollar = getMaxRiskDollar(settings);
       const riskAmt =
@@ -553,7 +547,7 @@ export function useTrades(
           : settings.maxRiskPercent;
 
       const newTrade: TradeEntry = {
-        id: `${dateIso}-t-${Date.now()}`,
+        id: `${dateIso}-t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         tradeNumber: current.trades.length + 1,
         session: customPayload?.session || 'NY',
         asset: customPayload?.asset || 'XAUUSD',
@@ -569,14 +563,21 @@ export function useTrades(
 
       setDaysMap((prev) => {
         const existing = prev[dateIso] || createEmptyDay(dateIso);
-        if (existing.trades.length >= settings.maxTradesPerDay) {
-          return prev;
-        }
+        const nextTradeWithNum: TradeEntry = {
+          ...newTrade,
+          tradeNumber: existing.trades.length + 1,
+        };
+        const snapshot =
+          existing.trades.length === 0 || existing.maxTradesSnapshot === undefined
+            ? settings.maxTradesPerDay
+            : existing.maxTradesSnapshot;
+
         const nextMap = {
           ...prev,
           [dateIso]: {
             ...existing,
-            trades: [...existing.trades, newTrade],
+            maxTradesSnapshot: snapshot,
+            trades: [...existing.trades, nextTradeWithNum],
             updatedAt: new Date().toISOString(),
           },
         };
@@ -589,7 +590,7 @@ export function useTrades(
 
       return { ok: true };
     },
-    [daysMap, settings, scheduleSave]
+    [settings, scheduleSave]
   );
 
   const updateTrade = useCallback(
@@ -653,6 +654,8 @@ export function useTrades(
           ...prev,
           [dateIso]: {
             ...current,
+            maxTradesSnapshot:
+              filtered.length === 0 ? undefined : current.maxTradesSnapshot,
             trades: filtered,
             updatedAt: new Date().toISOString(),
           },

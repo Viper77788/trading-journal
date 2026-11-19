@@ -12,7 +12,7 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = React.memo(
   ({
     value,
     formatter = (v: number) => v.toFixed(0),
-    duration = 0.55,
+    duration = 0.45,
     className = '',
   }: AnimatedNumberProps) => {
     const shouldReduceMotion = useReducedMotion();
@@ -24,32 +24,16 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = React.memo(
         return;
       }
 
-      let controls: { stop: () => void } | null = null;
-      let delayTimer: number | null = null;
-
-      const startCountUp = () => {
-        controls = animate(displayValue, value, {
-          duration,
-          ease: [0.16, 1, 0.3, 1],
-          onUpdate: (latest) => {
-            setDisplayValue(latest);
-          },
-        });
-      };
-
-      // §4: Pause count-up while a book turn is in progress, and start after it ends
-      if (
-        typeof document !== 'undefined' &&
-        document.body.dataset.bookTurning === 'true'
-      ) {
-        delayTimer = window.setTimeout(startCountUp, 450);
-      } else {
-        startCountUp();
-      }
+      const controls = animate(displayValue, value, {
+        duration,
+        ease: [0.16, 1, 0.3, 1],
+        onUpdate: (latest) => {
+          setDisplayValue(latest);
+        },
+      });
 
       return () => {
-        if (delayTimer !== null) window.clearTimeout(delayTimer);
-        controls?.stop();
+        controls.stop();
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [value, shouldReduceMotion, duration]);

@@ -1,6 +1,7 @@
 export type TradingSession = 'London' | 'NY' | 'Outside';
 
 export type MistakeTag =
+  | 'Over Trading'
   | 'FOMO'
   | 'Revenge Trade'
   | 'Overleveraged'
@@ -12,6 +13,7 @@ export type MistakeTag =
 
 export const MISTAKE_TAGS: MistakeTag[] = [
   'None',
+  'Over Trading',
   'FOMO',
   'Revenge Trade',
   'Overleveraged',

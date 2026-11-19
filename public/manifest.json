@@ -1,0 +1,17 @@
+{
+  "name": "Daily Trading Habit Tracker",
+  "short_name": "Trading Tracker",
+  "description": "Private daily trading discipline tracker and future growth calculator.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFBF2",
+  "theme_color": "#FFFBF2",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
