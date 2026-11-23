@@ -157,11 +157,11 @@ export const FeelingsCard: React.FC<FeelingsCardProps> = React.memo(
     };
 
     return (
-      <div className="p-2.5 sm:p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1.5 shrink-0">
-        <div className="text-[16px] font-bold text-[#8B5E3C]">
+      <div className="p-2 sm:p-2.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1.5 shrink-0">
+        <div className="text-[15px] sm:text-[16px] font-bold text-[#8B5E3C] leading-tight">
           How did I feel today?
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
           {EMOTION_CHIP_META.map((item) => {
             const isSelected = (day.audit.emotions || []).includes(item.id);
             return (
@@ -172,7 +172,7 @@ export const FeelingsCard: React.FC<FeelingsCardProps> = React.memo(
                 style={{
                   backgroundColor: isSelected ? item.pastelBg : '#FFFBF2',
                 }}
-                className={`touch-btn px-3 py-1 rounded-full text-[15px] sm:text-[16px] font-bold transition-colors cursor-pointer ${
+                className={`touch-btn px-2 py-1 rounded-xl text-[14px] sm:text-[15px] font-bold transition-colors cursor-pointer flex items-center justify-center whitespace-nowrap ${
                   isSelected
                     ? 'border-2 border-[#8B5E3C] text-[#5C3D2E]'
                     : 'border border-[#8B5E3C]/60 text-[#8B5E3C]'

@@ -494,7 +494,7 @@ export const FutureCalculator: React.FC<FutureCalculatorProps> = React.memo(
               </h2>
             </div>
 
-            <div className="p-3 h-[260px]">
+            <div className="p-2.5 h-[195px] sm:h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={projection.growthChartData}

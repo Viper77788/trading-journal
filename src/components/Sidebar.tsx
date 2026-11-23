@@ -70,18 +70,18 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     return (
       <header className="no-print app-header-shell w-full px-3 pt-2 pb-0 shrink-0">
         <div className="app-header-bar w-full px-3 sm:px-4 py-1.5 rounded-2xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex items-center justify-between gap-2">
-          {/* Left: Compact Page Title + Cloud Sync Status */}
-          <div className="flex items-center gap-2 min-w-0 shrink">
-            <h1 className="app-page-title font-heading text-[22px] xl:text-[26px] font-bold uppercase text-[#8B5E3C] leading-none m-0 truncate">
-              <span className="hidden lg:inline">
+          {/* Left: Page Title + Cloud Sync Status (shrink-0 on shortTitle so it never clips in tablet portrait) */}
+          <div className="flex items-center gap-2 min-w-0 shrink-0">
+            <h1 className="app-page-title font-heading text-[20px] sm:text-[22px] xl:text-[26px] font-bold uppercase text-[#8B5E3C] leading-none m-0 whitespace-nowrap">
+              <span className="hidden xl:inline">
                 {activeTabMeta.pageTitle}
               </span>
-              <span className="lg:hidden">{activeTabMeta.shortTitle}</span>
+              <span className="xl:hidden">{activeTabMeta.shortTitle}</span>
             </h1>
 
             {/* Tiny Cloud Sync Status Pill */}
             <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#8B5E3C] text-[13px] sm:text-[14px] font-extrabold shrink-0 ${
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#8B5E3C] text-[13px] font-extrabold shrink-0 ${
                 syncStatus === 'saved'
                   ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                   : syncStatus === 'saving'
@@ -128,13 +128,13 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     style={{
                       backgroundColor: isActive ? tab.pastelColor : '#FFFBF2',
                     }}
-                    className={`touch-btn nav-tab-btn h-[44px] px-3 sm:px-3.5 rounded-xl flex items-center justify-center gap-1.5 font-heading text-[15px] sm:text-[17px] font-bold tracking-wide transition-colors cursor-pointer ${
+                    className={`touch-btn nav-tab-btn h-[44px] px-2.5 lg:px-3.5 rounded-xl flex items-center justify-center gap-1.5 font-heading text-[15px] lg:text-[17px] font-bold tracking-wide transition-colors cursor-pointer ${
                       isActive
                         ? 'border-2 border-[#8B5E3C] text-[#5C3D2E]'
                         : 'border border-[#8B5E3C]/50 text-[#8B5E3C]'
                     }`}
                   >
-                    <Icon className="w-4 h-4 shrink-0 stroke-[2.2]" />
+                    <Icon className="hidden md:inline-block w-4 h-4 shrink-0 stroke-[2.2]" />
                     <span>{tab.label}</span>
                   </button>
                 );
@@ -153,11 +153,12 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
             <button
               type="button"
               onClick={onLogout}
-              className="touch-btn nav-logout-btn h-[44px] px-3 rounded-xl bg-[#F8D0CC] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center gap-1.5 font-heading text-[15px] sm:text-[16px] font-bold tracking-wide transition-colors cursor-pointer shrink-0"
+              aria-label="Log out"
+              className="touch-btn nav-logout-btn h-[44px] px-2.5 lg:px-3 rounded-xl bg-[#F8D0CC] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center gap-1.5 font-heading text-[15px] lg:text-[16px] font-bold tracking-wide transition-colors cursor-pointer shrink-0"
               title="Sign out of your private journal"
             >
               <LogOut className="w-4 h-4 shrink-0 stroke-[2.3]" />
-              <span>Log out</span>
+              <span className="hidden sm:inline">Log out</span>
             </button>
           </div>
         </div>

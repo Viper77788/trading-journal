@@ -320,7 +320,7 @@ button:active:not(:disabled),
 @media (min-width: 700px) and (max-width: 999.98px) {
   .today-tablet-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 46fr) minmax(0, 54fr);
+    grid-template-rows: minmax(0, 44fr) minmax(0, 56fr);
     grid-template-areas:
       'overview prep'
       'trades review';
@@ -330,10 +330,27 @@ button:active:not(:disabled),
 @media (min-width: 1000px) {
   .today-tablet-grid {
     grid-template-columns: 9fr 11fr;
-    grid-template-rows: minmax(0, 44fr) minmax(0, 56fr);
-    grid-template-areas:
-      'overview trades'
-      'prep review';
+    grid-template-rows: repeat(12, minmax(0, 1fr));
+  }
+
+  .today-tablet-grid .today-area-overview {
+    grid-column: 1;
+    grid-row: 1 / 6;
+  }
+
+  .today-tablet-grid .today-area-prep {
+    grid-column: 1;
+    grid-row: 6 / 13;
+  }
+
+  .today-tablet-grid .today-area-trades {
+    grid-column: 2;
+    grid-row: 1 / 7;
+  }
+
+  .today-tablet-grid .today-area-review {
+    grid-column: 2;
+    grid-row: 7 / 13;
   }
 }
 
@@ -352,7 +369,7 @@ button:active:not(:disabled),
 @media (min-width: 700px) and (max-width: 999.98px) {
   .history-grid {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 46fr) minmax(0, 54fr);
+    grid-template-rows: minmax(0, 52fr) minmax(0, 48fr);
   }
 }
 
@@ -368,16 +385,18 @@ button:active:not(:disabled),
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-template-rows: repeat(6, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
 }
 
 [data-layout='tablet'] .calendar-6row-grid {
-  gap: 8px;
+  gap: 5px;
 }
 
 .calendar-day-cell {
-  min-height: 48px;
-  min-width: 48px;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  width: 100%;
 }
 
 .history-stat-cards-grid {
@@ -424,7 +443,7 @@ button:active:not(:disabled),
 @media (min-width: 700px) and (max-width: 999.98px) {
   .future-grid {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 48fr) minmax(0, 52fr);
+    grid-template-rows: minmax(0, 54fr) minmax(0, 46fr);
   }
 
   .future-results-panel {

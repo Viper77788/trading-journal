@@ -83,15 +83,15 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = React.memo(
         data-status={status}
         onClick={() => onSelectDate(date)}
         title={`Open ${date}`}
-        className={`calendar-day-cell px-1 py-1 rounded-xl flex flex-col items-center justify-between overflow-hidden cursor-pointer ${
+        className={`calendar-day-cell px-0.5 py-0.5 rounded-lg flex flex-col items-center justify-between overflow-hidden cursor-pointer ${
           isToday
-            ? 'bg-[#F2D29B]/50 border-[2.5px] border-[#8B5E3C]'
+            ? 'bg-[#F2D29B]/50 border-2 border-[#8B5E3C]'
             : 'bg-[#FFFDF7] border border-[#8B5E3C]/45'
         }`}
       >
         {/* Top: Day Number */}
         <span
-          className={`text-[13px] sm:text-[15px] leading-none ${
+          className={`text-[12px] sm:text-[13px] leading-none ${
             isToday
               ? 'font-extrabold text-[#5C3D2E]'
               : 'font-bold text-[#8B5E3C]'
@@ -102,7 +102,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = React.memo(
 
         {/* Middle: Status Circle */}
         <div
-          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-[#8B5E3C] flex items-center justify-center shrink-0 my-0.5 ${
+          className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-[1.5px] border-[#8B5E3C] flex items-center justify-center shrink-0 ${
             isGreen
               ? 'bg-[#BFE3C0] text-[#2F6B3A]'
               : isYellow
@@ -112,24 +112,24 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = React.memo(
                   : 'bg-[#FFFDF7]'
           }`}
         >
-          {isGreen && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+          {isGreen && <Check className="w-3 h-3 stroke-[3]" />}
           {isYellow && (
-            <span className="text-[15px] font-extrabold leading-none">~</span>
+            <span className="text-[13px] font-extrabold leading-none">~</span>
           )}
-          {isRed && <X className="w-3.5 h-3.5 stroke-[3]" />}
+          {isRed && <X className="w-3 h-3 stroke-[3]" />}
         </div>
 
         {/* Bottom: Short P&L Label that never overflows */}
         {hasTrades ? (
           <span
-            className={`text-[12px] sm:text-[14px] font-extrabold leading-none max-w-full overflow-hidden text-ellipsis whitespace-nowrap ${
+            className={`text-[11px] sm:text-[12px] font-extrabold leading-none max-w-full overflow-hidden text-ellipsis whitespace-nowrap ${
               pnl >= 0 ? 'text-[#2F6B3A]' : 'text-[#9B2C20]'
             }`}
           >
             {formatCalendarCellPnl(pnl)}
           </span>
         ) : (
-          <span className="h-[14px]" />
+          <span className="h-[11px]" />
         )}
       </button>
     );
@@ -563,9 +563,9 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = React.memo(
     }
 
     return (
-      <div className="flex-1 h-[190px] flex items-center gap-3">
-        <div className="w-1/2 h-40 flex items-center justify-center">
-          <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full border-2 border-[#8B5E3C] p-1 bg-[#FFFDF7]">
+      <div className="flex-1 h-[190px] flex items-center gap-2">
+        <div className="w-[42%] h-36 flex items-center justify-center shrink-0">
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-2 border-[#8B5E3C] p-1 bg-[#FFFDF7]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -574,8 +574,8 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = React.memo(
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  innerRadius={22}
-                  outerRadius={54}
+                  innerRadius={18}
+                  outerRadius={46}
                   paddingAngle={data.length > 1 ? 4 : 0}
                   stroke="none"
                   isAnimationActive={isAnimationActive}
@@ -614,7 +614,7 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = React.memo(
           </div>
         </div>
 
-        <div className="w-1/2 space-y-1.5 overflow-y-auto max-h-40 pr-1">
+        <div className="flex-1 min-w-0 space-y-1.5 overflow-y-auto max-h-40 pr-1">
           {data.map((item, idx) => (
             <div
               key={item.name}
@@ -622,13 +622,13 @@ export const EmotionDonutChart: React.FC<EmotionDonutChartProps> = React.memo(
                 backgroundColor:
                   PASTEL_PIE_COLORS[idx % PASTEL_PIE_COLORS.length],
               }}
-              className="flex items-center justify-between gap-2 px-2.5 py-1 rounded-xl border border-[#8B5E3C] text-[14px] sm:text-[15px] font-bold text-[#5C3D2E]"
+              className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-xl border border-[#8B5E3C] text-[13px] sm:text-[14px] font-bold text-[#5C3D2E]"
             >
-              <span className="truncate">
+              <span className=" whitespace-nowrap">
                 {item.name} ({item.percent}%)
               </span>
               <span className="shrink-0">
-                {item.value} {item.value === 1 ? 'day' : 'days'}
+                {item.value}d
               </span>
             </div>
           ))}

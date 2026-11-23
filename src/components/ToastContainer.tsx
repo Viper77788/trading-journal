@@ -20,7 +20,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = React.memo(
     const shouldReduceMotion = useReducedMotion();
 
     return (
-      <div className="no-print fixed top-4 right-4 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+      <div className="no-print fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
         <AnimatePresence>
           {toasts.map((t) => {
             const bgClass =
