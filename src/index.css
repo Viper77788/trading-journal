@@ -203,8 +203,24 @@ button:active:not(:disabled),
   animation: tabFadeIn 140ms ease-out;
 }
 
+@keyframes viewerFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.viewer-fade-enter {
+  animation: viewerFadeIn 150ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .tab-fade-pane {
+  .tab-fade-pane,
+  .viewer-fade-enter {
     animation: none;
   }
   button:active:not(:disabled) {

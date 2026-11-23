@@ -230,7 +230,10 @@ export default function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    addToast('Backup downloaded!', 'success');
+    addToast(
+      'Backup downloaded! (Includes chart links & paths; use ZIP export in Settings for uploaded images)',
+      'success'
+    );
   };
 
   const handleSelectDayFromDashboard = (dateIso: string) => {
@@ -278,6 +281,7 @@ export default function App() {
           <div key={activePage} className="tab-fade-pane h-full min-h-0">
             {activePage === 'tracker' && (
               <DailyTracker
+                userId={userId}
                 effectiveLayout={effectiveLayout}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
@@ -317,6 +321,9 @@ export default function App() {
                     settings={settings}
                     analytics={dashboardAnalytics}
                     onSelectDayToEdit={handleSelectDayFromDashboard}
+                    onUpdateTradeForDate={(dateIso, tradeId, patch) =>
+                      updateTrade(dateIso, tradeId, patch)
+                    }
                   />
                 )}
 
@@ -344,9 +351,11 @@ export default function App() {
                 {activePage === 'settings' && (
                   <LazySettingsPage
                     settings={settings}
+                    daysMap={daysMap}
                     userEmail={userEmail}
                     onUpdateSettings={updateAccountSettings}
                     onExportJson={handleExportJson}
+                    onNotify={addToast}
                   />
                 )}
               </Suspense>

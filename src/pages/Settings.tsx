@@ -1,8 +1,21 @@
-import React from 'react';
-import { Download, ShieldCheck, Clock, Monitor } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import {
+  Download,
+  ShieldCheck,
+  Clock,
+  Monitor,
+  Archive,
+  HardDrive,
+  AlertTriangle,
+} from 'lucide-react';
+import { DayRecord } from '../types/day';
 import { AccountSettings, InactivityTimeoutOption } from '../types/settings';
 import { getMaxRiskDollar } from '../utils/calculations';
 import { formatCurrency } from '../utils/formatters';
+import {
+  calculateChartStorageUsage,
+  downloadAllChartImagesZip,
+} from '../utils/chartStorage';
 import {
   useLayoutMode,
   LayoutPreference,
@@ -10,9 +23,14 @@ import {
 
 interface SettingsPageProps {
   settings: AccountSettings;
+  daysMap?: Record<string, DayRecord>;
   userEmail?: string | null;
   onUpdateSettings: (patch: Partial<AccountSettings>) => void;
   onExportJson: () => void;
+  onNotify?: (
+    title: string,
+    type: 'success' | 'warning' | 'error' | 'info'
+  ) => void;
 }
 
 const TIMEOUT_OPTIONS: Array<{
@@ -35,9 +53,17 @@ const LAYOUT_OPTIONS: Array<{
 ];
 
 export const SettingsPage: React.FC<SettingsPageProps> = React.memo(
-  ({ settings, userEmail, onUpdateSettings, onExportJson }) => {
+  ({
+    settings,
+    daysMap = {},
+    userEmail,
+    onUpdateSettings,
+    onExportJson,
+    onNotify,
+  }) => {
     const { layoutPreference, setLayoutPreference, effectiveLayout } =
       useLayoutMode();
+    const [isZippingCharts, setIsZippingCharts] = useState(false);
 
     const maxRiskDollar = getMaxRiskDollar(settings);
     const isPrintEnabled = Boolean(settings.showPrintButton);
@@ -45,6 +71,35 @@ export const SettingsPage: React.FC<SettingsPageProps> = React.memo(
       settings.inactivityTimeoutMinutes !== undefined
         ? settings.inactivityTimeoutMinutes
         : 30;
+
+    const storageSummary = useMemo(
+      () => calculateChartStorageUsage(daysMap),
+      [daysMap]
+    );
+
+    const handleDownloadChartsZip = async () => {
+      if (isZippingCharts) return;
+      if (storageSummary.uploadedCount === 0) {
+        onNotify?.('No uploaded chart screenshots found to zip.', 'info');
+        return;
+      }
+      setIsZippingCharts(true);
+      try {
+        const res = await downloadAllChartImagesZip(daysMap);
+        if (res.count > 0) {
+          onNotify?.(
+            `Downloaded ${res.count} chart ${res.count === 1 ? 'image' : 'images'} (ZIP)!`,
+            'success'
+          );
+        } else {
+          onNotify?.('Could not download chart images right now.', 'warning');
+        }
+      } catch {
+        onNotify?.('Could not build chart images ZIP.', 'error');
+      } finally {
+        setIsZippingCharts(false);
+      }
+    };
 
     return (
       <div className="paper-sheet p-4 sm:p-5 space-y-3.5 h-full panel-scroll">
@@ -203,25 +258,66 @@ export const SettingsPage: React.FC<SettingsPageProps> = React.memo(
             </div>
           </div>
 
-          {/* Export Backup */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-[180px] flex-1">
-              <div className="text-[17px] sm:text-[18px] font-extrabold text-[#5C3D2E]">
-                Export Backup
+          {/* Export Backup + Download All Chart Images (ZIP) + Chart Storage Usage (§2) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] flex flex-col justify-between gap-2.5">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[17px] sm:text-[18px] font-extrabold text-[#5C3D2E]">
+                  Export Backup &amp; Chart Storage
+                </span>
+                <span
+                  data-testid="chart-storage-usage-line"
+                  className="px-2.5 py-0.5 rounded-full bg-[#DCEEF2] border border-[#8B5E3C] text-[13px] font-extrabold text-[#5C3D2E] inline-flex items-center gap-1"
+                >
+                  <HardDrive className="w-3.5 h-3.5 text-[#8B5E3C]" />
+                  <span>{storageSummary.formattedText}</span>
+                </span>
               </div>
-              <p className="text-[15px] sm:text-[16px] text-[#5C3D2E] m-0">
-                Download a JSON copy of all your saved trades and daily notes.
+              <p className="text-[14px] sm:text-[15px] text-[#5C3D2E] m-0">
+                JSON backup includes your trades, notes, and chart metadata
+                (TradingView links &amp; storage paths). Uploaded images are not
+                included in the JSON — download them as a ZIP below.
               </p>
+              {storageSummary.isOverWarningThreshold && (
+                <div
+                  data-testid="chart-storage-warning"
+                  className="p-2 rounded-lg bg-[#F7E2A0] border border-[#8B5E3C] text-[13px] font-extrabold text-[#5C3D2E] flex items-center gap-1.5"
+                >
+                  <AlertTriangle className="w-4 h-4 text-[#8B5E3C] shrink-0" />
+                  <span>
+                    Over 800 MB of your 1 GB free storage plan is used. Export a
+                    ZIP backup and remove old screenshots to save space.
+                  </span>
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              data-testid="export-backup-btn"
-              onClick={onExportJson}
-              className="touch-btn h-[48px] px-5 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] text-[16px] sm:text-[17px] font-extrabold text-[#2F6B3A] flex items-center justify-center gap-2 cursor-pointer shrink-0"
-            >
-              <Download className="w-5 h-5" />
-              <span>Export Backup</span>
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                data-testid="export-backup-btn"
+                onClick={onExportJson}
+                className="touch-btn flex-1 min-w-[160px] h-[46px] px-4 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] text-[15px] sm:text-[16px] font-extrabold text-[#2F6B3A] flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Backup</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="download-charts-zip-btn"
+                disabled={isZippingCharts}
+                onClick={() => void handleDownloadChartsZip()}
+                className="touch-btn flex-1 min-w-[200px] h-[46px] px-4 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] text-[15px] sm:text-[16px] font-extrabold text-[#5C3D2E] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Archive className="w-4 h-4" />
+                <span>
+                  {isZippingCharts
+                    ? 'Building ZIP...'
+                    : 'Download all chart images (ZIP)'}
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Show Print Button Setting */}

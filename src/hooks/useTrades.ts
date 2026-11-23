@@ -9,6 +9,7 @@ import {
   computeDashboardAnalytics,
   getMaxRiskDollar,
 } from '../utils/calculations';
+import { removeChartFilesFromStorage } from '../utils/chartStorage';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 export type SyncStatus = 'saved' | 'saving' | 'offline';
@@ -547,7 +548,9 @@ export function useTrades(
           : settings.maxRiskPercent;
 
       const newTrade: TradeEntry = {
-        id: `${dateIso}-t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id:
+          customPayload?.id ||
+          `${dateIso}-t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         tradeNumber: current.trades.length + 1,
         session: customPayload?.session || 'NY',
         asset: customPayload?.asset || 'XAUUSD',
@@ -558,6 +561,8 @@ export function useTrades(
         outcome: customPayload?.outcome ?? 0,
         mistakes: customPayload?.mistakes || ['None'],
         notes: customPayload?.notes || '',
+        charts: customPayload?.charts || [],
+        reviewNote: customPayload?.reviewNote || '',
         createdAt: new Date().toISOString(),
       };
 
@@ -645,6 +650,17 @@ export function useTrades(
 
   const deleteTrade = useCallback(
     (dateIso: string, tradeId: string) => {
+      const existingDay = daysMapRef.current[dateIso];
+      const targetTrade = existingDay?.trades.find((t) => t.id === tradeId);
+      if (targetTrade?.charts?.length) {
+        const uploadPaths = targetTrade.charts
+          .filter((c) => c.type === 'upload' && c.imagePath)
+          .map((c) => c.imagePath);
+        if (uploadPaths.length > 0) {
+          void removeChartFilesFromStorage(uploadPaths);
+        }
+      }
+
       setDaysMap((prev) => {
         const current = prev[dateIso] || createEmptyDay(dateIso);
         const filtered = current.trades
@@ -708,8 +724,10 @@ export function useTrades(
   const exportBackupJson = useCallback((): string => {
     return JSON.stringify(
       {
-        version: '1.0.0',
+        version: '1.1.0',
         exportedAt: new Date().toISOString(),
+        chartStorageNotice:
+          'Chart metadata (TradingView snapshot links and Supabase storage paths) is included in this backup. Uploaded screenshot files are not embedded in the JSON; use "Download all chart images (ZIP)" in Settings to download your uploaded chart images.',
         settings,
         daysMap,
       },

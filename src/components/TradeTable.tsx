@@ -9,12 +9,15 @@ import {
   ChevronUp,
   X,
   AlertTriangle,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   TradeEntry,
   TradingSession,
   MistakeTag,
   MISTAKE_TAGS,
+  TradeChartAttachment,
+  TradeChartSlot,
 } from '../types/trade';
 import { DayRecord } from '../types/day';
 import { AccountSettings } from '../types/settings';
@@ -29,9 +32,19 @@ import {
   getRecentTradedPairs,
 } from '../utils/calculations';
 import { formatCurrency, formatRMultiple } from '../utils/formatters';
+import { removeChartFilesFromStorage } from '../utils/chartStorage';
 import { AnimatedNumber } from './animations/AnimatedNumber';
+import { TradeChartsFormSection } from './TradeChartsFormSection';
+
+export interface ExternalTradeModalRequest {
+  mode: 'new' | 'edit';
+  trade?: TradeEntry;
+  openChartsSection?: boolean;
+  nonce: number;
+}
 
 interface TradeTableProps {
+  userId?: string | null;
   day: DayRecord;
   daysMap?: Record<string, DayRecord>;
   trades: TradeEntry[];
@@ -51,6 +64,8 @@ interface TradeTableProps {
   ) => void;
   dailyPnl: number;
   dailyR: number;
+  onOpenChartViewer?: (tradeId: string, slot?: TradeChartSlot) => void;
+  externalModalRequest?: ExternalTradeModalRequest | null;
 }
 
 interface TradeRowCardProps {
@@ -59,10 +74,11 @@ interface TradeRowCardProps {
   day: DayRecord;
   settings: AccountSettings;
   isConfirmingDelete: boolean;
-  onEdit: (trade: TradeEntry) => void;
+  onEdit: (trade: TradeEntry, openCharts?: boolean) => void;
   onToggleConfirmDelete: (tradeId: string) => void;
   onConfirmDelete: (tradeId: string) => void;
   onCancelDelete: () => void;
+  onOpenChartViewer?: (tradeId: string, slot?: TradeChartSlot) => void;
 }
 
 const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
@@ -76,6 +92,7 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
     onToggleConfirmDelete,
     onConfirmDelete,
     onCancelDelete,
+    onOpenChartViewer,
   }) => {
     const violated = isTradeRiskViolated(trade, settings);
     const overLimit = isTradeOverLimit(tradeIndex, day, settings);
@@ -97,6 +114,7 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
         ? Math.round((trade.outcome / trade.riskAmount) * 10) / 10
         : 0;
     const rString = tradeR > 0 ? `+${tradeR}R` : `${tradeR}R`;
+    const chartsCount = trade.charts?.length || 0;
 
     return (
       <div
@@ -147,7 +165,7 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
 
             <button
               type="button"
-              onClick={() => onEdit(trade)}
+              onClick={() => onEdit(trade, false)}
               aria-label="Edit trade"
               title="Edit trade"
               className="no-print trade-icon-btn rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
@@ -191,49 +209,72 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
           </div>
         )}
 
-        {/* Line 2: Risk limit warning, note, and mistake tags (including automatic Over Trading chip) */}
-        {(violated || trade.notes || effectiveMistakes.length > 0) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-dotted border-[#8B5E3C]/40">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              {violated && (
-                <span className="px-2.5 py-0.5 rounded-lg bg-[#F5B8B0] border border-[#8B5E3C] text-[16px] font-extrabold text-[#9B2C20]">
-                  Over your risk limit!
-                </span>
-              )}
-              {trade.notes && (
-                <span className="text-[16px] text-[#5C3D2E] truncate max-w-md">
-                  {trade.notes}
-                </span>
-              )}
-            </div>
+        {/* Line 2: Risk limit warning, note, Charts chip / + Add chart chip, and mistake tags (§4) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-dotted border-[#8B5E3C]/40">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            {violated && (
+              <span className="px-2.5 py-0.5 rounded-lg bg-[#F5B8B0] border border-[#8B5E3C] text-[15px] font-extrabold text-[#9B2C20]">
+                Over your risk limit!
+              </span>
+            )}
+            {trade.notes && (
+              <span className="text-[15px] text-[#5C3D2E] truncate max-w-md">
+                {trade.notes}
+              </span>
+            )}
 
-            {effectiveMistakes.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {effectiveMistakes.map((m) => {
-                  const minor = isMinorMistake(m);
-                  const isOverTradeChip = m === 'Over Trading';
-                  return (
-                    <span
-                      key={m}
-                      data-testid={
-                        isOverTradeChip ? 'over-trading-chip' : undefined
-                      }
-                      className={`px-2.5 py-0.5 rounded-full border border-[#8B5E3C] text-[15px] font-extrabold ${
-                        isOverTradeChip
-                          ? 'bg-[#F5B8B0] text-[#9B2C20]'
-                          : minor
-                            ? 'bg-[#F7E2A0] text-[#5C3D2E]'
-                            : 'bg-[#F8D0CC] text-[#9B2C20]'
-                      }`}
-                    >
-                      {m}
-                    </span>
-                  );
-                })}
-              </div>
+            {/* Charts count chip or soft "+ Add chart" chip (§4) */}
+            {chartsCount > 0 ? (
+              <button
+                type="button"
+                data-testid={`trade-charts-chip-${tradeIndex + 1}`}
+                onClick={() => onOpenChartViewer?.(trade.id)}
+                className="no-print px-2.5 py-0.5 rounded-full bg-[#DCEEF2] border border-[#8B5E3C] text-[13px] font-extrabold text-[#5C3D2E] inline-flex items-center gap-1 cursor-pointer"
+              >
+                <ImageIcon className="w-3.5 h-3.5 text-[#8B5E3C]" />
+                <span>
+                  {chartsCount} {chartsCount === 1 ? 'chart' : 'charts'}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid={`trade-add-chart-chip-${tradeIndex + 1}`}
+                onClick={() => onEdit(trade, true)}
+                className="no-print px-2.5 py-0.5 rounded-full bg-[#FFFBF2] border border-dashed border-[#8B5E3C] text-[13px] font-bold text-[#8B5E3C] inline-flex items-center gap-1 cursor-pointer"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>+ Add chart</span>
+              </button>
             )}
           </div>
-        )}
+
+          {effectiveMistakes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {effectiveMistakes.map((m) => {
+                const minor = isMinorMistake(m);
+                const isOverTradeChip = m === 'Over Trading';
+                return (
+                  <span
+                    key={m}
+                    data-testid={
+                      isOverTradeChip ? 'over-trading-chip' : undefined
+                    }
+                    className={`px-2.5 py-0.5 rounded-full border border-[#8B5E3C] text-[14px] font-extrabold ${
+                      isOverTradeChip
+                        ? 'bg-[#F5B8B0] text-[#9B2C20]'
+                        : minor
+                          ? 'bg-[#F7E2A0] text-[#5C3D2E]'
+                          : 'bg-[#F8D0CC] text-[#9B2C20]'
+                    }`}
+                  >
+                    {m}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -243,6 +284,7 @@ TradeRowCard.displayName = 'TradeRowCard';
 
 export const TradeTable: React.FC<TradeTableProps> = React.memo(
   ({
+    userId,
     day,
     daysMap = {},
     trades,
@@ -253,11 +295,14 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
     onNotify,
     dailyPnl,
     dailyR,
+    onOpenChartViewer,
+    externalModalRequest,
   }) => {
     const shouldReduceMotion = useReducedMotion();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isOverLimitConfirmOpen, setIsOverLimitConfirmOpen] = useState(false);
     const [editingTradeId, setEditingTradeId] = useState<string | null>(null);
+    const [draftTradeId, setDraftTradeId] = useState<string>('');
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(
       null
     );
@@ -271,10 +316,15 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
     const [resultDollar, setResultDollar] = useState<string>('500');
     const [notes, setNotes] = useState('');
 
-    // Optional More Details
+    // Optional More Details & Charts
     const [setupQuality, setSetupQuality] = useState<number>(4);
     const [disciplineScore, setDisciplineScore] = useState<number>(5);
     const [mistakes, setMistakes] = useState<MistakeTag[]>(['None']);
+    const [charts, setCharts] = useState<TradeChartAttachment[]>([]);
+    const [isChartUploading, setIsChartUploading] = useState<boolean>(false);
+
+    const chartsSectionAnchorRef = useRef<HTMLDivElement | null>(null);
+    const pendingOpenChartsSectionRef = useRef<boolean>(false);
 
     // Track visualViewport for on-screen virtual keyboard safety (§3.6)
     const [vvMetrics, setVvMetrics] = useState<{
@@ -331,8 +381,22 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
       [daysMap, day]
     );
 
-    const prepareAndOpenAddModal = () => {
+    const scrollToChartsSection = () => {
+      window.setTimeout(() => {
+        chartsSectionAnchorRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }, 90);
+    };
+
+    const prepareAndOpenAddModal = (openCharts = false) => {
+      const shouldOpenCharts =
+        openCharts || pendingOpenChartsSectionRef.current;
+      pendingOpenChartsSectionRef.current = false;
+      const newId = `${day.date}-t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       setEditingTradeId(null);
+      setDraftTradeId(newId);
       setAsset(recentPairs[0] || 'XAUUSD');
       setSession('NY');
       setRiskDollar(String(maxRiskDollar));
@@ -342,12 +406,20 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
       setSetupQuality(4);
       setDisciplineScore(5);
       setMistakes(['None']);
-      setShowMoreDetails(false);
+      setCharts([]);
+      setIsChartUploading(false);
+      setShowMoreDetails(shouldOpenCharts);
       setIsOverLimitConfirmOpen(false);
       setIsModalOpen(true);
+      if (shouldOpenCharts) {
+        scrollToChartsSection();
+      }
     };
 
-    const handleTapAddTrade = (overrideCurrentCount?: number) => {
+    const handleTapAddTrade = (
+      overrideCurrentCount?: number,
+      openCharts = false
+    ) => {
       const currentCount =
         typeof overrideCurrentCount === 'number'
           ? overrideCurrentCount
@@ -355,14 +427,16 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
       const limit = latestLimitRef.current;
 
       if (currentCount >= limit) {
+        pendingOpenChartsSectionRef.current = openCharts;
         setIsOverLimitConfirmOpen(true);
         return;
       }
-      prepareAndOpenAddModal();
+      prepareAndOpenAddModal(openCharts);
     };
 
-    const openEditTradeModal = (t: TradeEntry) => {
+    const openEditTradeModal = (t: TradeEntry, openCharts = false) => {
       setEditingTradeId(t.id);
+      setDraftTradeId(t.id);
       setAsset(t.asset || 'XAUUSD');
       setSession(t.session === 'London' ? 'London' : 'NY');
       setRiskDollar(String(t.riskAmount || maxRiskDollar));
@@ -372,8 +446,51 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
       setSetupQuality(t.setupQuality || 4);
       setDisciplineScore(t.disciplineScore || 5);
       setMistakes(t.mistakes && t.mistakes.length > 0 ? t.mistakes : ['None']);
-      setShowMoreDetails(false);
+      setCharts(t.charts || []);
+      setIsChartUploading(false);
+      setShowMoreDetails(openCharts);
       setIsModalOpen(true);
+      if (openCharts) {
+        scrollToChartsSection();
+      }
+    };
+
+    // Respond to external modal requests from ChartsOfTheDayCard or ChartViewerModal
+    const lastNonceRef = useRef<number>(0);
+    useEffect(() => {
+      if (
+        !externalModalRequest ||
+        externalModalRequest.nonce === lastNonceRef.current
+      ) {
+        return;
+      }
+      lastNonceRef.current = externalModalRequest.nonce;
+      if (externalModalRequest.mode === 'edit' && externalModalRequest.trade) {
+        openEditTradeModal(
+          externalModalRequest.trade,
+          Boolean(externalModalRequest.openChartsSection)
+        );
+      } else {
+        handleTapAddTrade(
+          undefined,
+          Boolean(externalModalRequest.openChartsSection)
+        );
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [externalModalRequest]);
+
+    const handleCloseModalWithoutSaving = () => {
+      if (isChartUploading) return;
+      // If cancelling a brand-new trade draft, clean up any uploaded draft chart files
+      if (!editingTradeId && charts.length > 0) {
+        const draftUploadPaths = charts
+          .filter((c) => c.type === 'upload' && c.imagePath)
+          .map((c) => c.imagePath);
+        if (draftUploadPaths.length > 0) {
+          void removeChartFilesFromStorage(draftUploadPaths);
+        }
+      }
+      setIsModalOpen(false);
     };
 
     const toggleMistakeInModal = (tag: MistakeTag) => {
@@ -391,6 +508,8 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
 
     const handleSaveModal = (e: React.FormEvent) => {
       e.preventDefault();
+      if (isChartUploading) return;
+
       const numericRisk = Math.max(0, Number(riskDollar) || 0);
       const numericResultAbs = Math.max(0, Number(resultDollar) || 0);
       const signedOutcome =
@@ -407,11 +526,13 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
           setupQuality,
           disciplineScore,
           mistakes,
+          charts,
         });
         onNotify('Trade updated!', 'success');
       } else {
         const nextCountAfterAdd = trades.length + 1;
         const res = onAddTrade({
+          id: draftTradeId,
           asset: normalizedAsset,
           session,
           riskAmount: numericRisk,
@@ -420,10 +541,11 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
           setupQuality,
           disciplineScore,
           mistakes,
+          charts,
         });
         if (res.ok) {
           onNotify('Trade saved!', 'success', 'Add another', () => {
-            handleTapAddTrade(nextCountAfterAdd);
+            handleTapAddTrade(nextCountAfterAdd, false);
           });
         } else if (res.reason) {
           onNotify(res.reason, 'warning');
@@ -437,6 +559,11 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
       window.setTimeout(() => {
         target.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }, 90);
+    };
+
+    const handleQuickOpenChartsInModal = () => {
+      setShowMoreDetails(true);
+      scrollToChartsSection();
     };
 
     const calculatedRiskPctInModal =
@@ -507,7 +634,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                         <button
                           type="button"
                           data-testid="confirm-log-extra-trade"
-                          onClick={prepareAndOpenAddModal}
+                          onClick={() => prepareAndOpenAddModal(false)}
                           className="touch-btn min-h-[48px] px-5 rounded-xl bg-[#F5B8B0] border-2 border-[#8B5E3C] font-heading text-[17px] font-bold uppercase text-[#9B2C20] cursor-pointer"
                         >
                           Log it anyway
@@ -518,7 +645,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                 )}
               </AnimatePresence>
 
-              {/* PART 3.6: CENTERED 2-COLUMN ADD / EDIT TRADE MODAL WITH STICKY FOOTER */}
+              {/* PART 3.6 & SECTION 1: CENTERED 2-COLUMN ADD / EDIT TRADE MODAL WITH CHARTS & STICKY FOOTER */}
               <AnimatePresence>
                 {isModalOpen && (
                   <div
@@ -526,7 +653,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="add-trade-modal-title"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={handleCloseModalWithoutSaving}
                     className="no-print fixed inset-0 z-[9999] bg-[#5C3D2E]/45 flex items-center justify-center p-3"
                   >
                     <motion.div
@@ -562,7 +689,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                         </h3>
                         <button
                           type="button"
-                          onClick={() => setIsModalOpen(false)}
+                          onClick={handleCloseModalWithoutSaving}
                           aria-label="Close modal"
                           className="touch-btn w-12 h-12 rounded-full bg-[#F0DED4] border-2 border-[#8B5E3C] flex items-center justify-center text-[#5C3D2E] cursor-pointer"
                         >
@@ -595,7 +722,6 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                                 placeholder="Example: XAUUSD"
                                 className="w-full min-h-[52px] px-3.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] outline-none"
                               />
-                              {/* 4 Most Recent Pairs for One-Tap Entry (§3.6) */}
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {recentPairs.map((pair) => {
                                   const isSelectedPair =
@@ -724,11 +850,26 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                             </div>
                           </div>
 
-                          {/* Row 3: Quick Note */}
+                          {/* Row 3: Quick Note + Small "Add chart" button near the note field (§1) */}
                           <div>
-                            <label className="block text-[16px] font-bold text-[#5C3D2E] mb-1">
-                              5. Quick note (optional)
-                            </label>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <label className="block text-[16px] font-bold text-[#5C3D2E]">
+                                5. Quick note (optional)
+                              </label>
+                              <button
+                                type="button"
+                                data-testid="quick-add-chart-toggle"
+                                onClick={handleQuickOpenChartsInModal}
+                                className="px-2.5 py-1 rounded-lg bg-[#DCEEF2] border border-[#8B5E3C] text-[13px] font-extrabold text-[#5C3D2E] inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <ImageIcon className="w-3.5 h-3.5 text-[#8B5E3C]" />
+                                <span>
+                                  {charts.length > 0
+                                    ? `Charts (${charts.length}/2)`
+                                    : '+ Add chart'}
+                                </span>
+                              </button>
+                            </div>
                             <input
                               type="text"
                               inputMode="text"
@@ -740,16 +881,23 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                             />
                           </div>
 
-                          {/* Collapsible "More details (optional)" */}
+                          {/* Collapsible "More details (optional)" including "Charts (optional)" (§1) */}
                           <div>
                             <button
                               type="button"
+                              data-testid="toggle-more-details-btn"
                               onClick={() =>
                                 setShowMoreDetails((prev) => !prev)
                               }
                               className="touch-btn w-full min-h-[48px] px-3.5 rounded-xl bg-[#E2DCEB] border-2 border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E] flex items-center justify-between cursor-pointer"
                             >
-                              <span>More details (optional)</span>
+                              <span>
+                                More details &amp; Charts (optional
+                                {charts.length > 0
+                                  ? ` • ${charts.length} attached`
+                                  : ''}
+                                )
+                              </span>
                               {showMoreDetails ? (
                                 <ChevronUp className="w-4 h-4" />
                               ) : (
@@ -839,26 +987,44 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                                     })}
                                   </div>
                                 </div>
+
+                                {/* Section 1: Charts (optional) */}
+                                <div ref={chartsSectionAnchorRef}>
+                                  <TradeChartsFormSection
+                                    userId={userId || 'anon'}
+                                    dateIso={day.date}
+                                    draftTradeId={draftTradeId}
+                                    charts={charts}
+                                    onChangeCharts={setCharts}
+                                    onUploadingChange={setIsChartUploading}
+                                  />
+                                </div>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Sticky Footer (Close and SAVE TRADE always visible — §3.6) */}
+                        {/* Sticky Footer (Close and SAVE TRADE always visible — blocked only while upload is running) */}
                         <div className="px-5 py-3 border-t-2 border-dotted border-[#8B5E3C]/50 bg-[#FFFDF7] flex items-center gap-3 shrink-0">
                           <button
                             type="button"
-                            onClick={() => setIsModalOpen(false)}
-                            className="touch-btn min-h-[48px] px-5 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] cursor-pointer"
+                            disabled={isChartUploading}
+                            onClick={handleCloseModalWithoutSaving}
+                            className="touch-btn min-h-[48px] px-5 rounded-xl bg-[#F0DED4] border-2 border-[#8B5E3C] text-[17px] font-bold text-[#5C3D2E] cursor-pointer disabled:opacity-50"
                           >
                             Close
                           </button>
                           <button
                             type="submit"
+                            disabled={isChartUploading}
                             data-testid="save-trade-submit"
-                            className="touch-btn flex-1 min-h-[48px] px-6 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase text-[#2F6B3A] cursor-pointer"
+                            className="touch-btn flex-1 min-h-[48px] px-6 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase text-[#2F6B3A] cursor-pointer disabled:opacity-50"
                           >
-                            {editingTradeId ? 'SAVE CHANGES' : 'SAVE TRADE'}
+                            {isChartUploading
+                              ? 'UPLOADING CHART...'
+                              : editingTradeId
+                                ? 'SAVE CHANGES'
+                                : 'SAVE TRADE'}
                           </button>
                         </div>
                       </form>
@@ -874,7 +1040,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
     return (
       <section
         aria-label="My Trades Today"
-        className="flex flex-col h-full min-h-0 gap-2"
+        className="flex flex-col flex-1 min-h-0 gap-2"
       >
         {/* Slim Pastel Heading Bar + Always-Enabled "ADD TRADE" Button (§1.1 & §1.2) */}
         <div className="px-3.5 py-2 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2 shrink-0">
@@ -901,7 +1067,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
           <button
             type="button"
             data-testid="add-trade-btn"
-            onClick={() => handleTapAddTrade()}
+            onClick={() => handleTapAddTrade(undefined, false)}
             className={`no-print touch-btn min-h-[44px] px-4 rounded-xl border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase tracking-wide flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
               isAtOrOverLimit
                 ? 'bg-[#F5B8B0] text-[#9B2C20]'
@@ -928,14 +1094,14 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
         {/* Scrollable Trade Cards List */}
         <div className="flex-1 panel-scroll space-y-2 pr-0.5 min-h-0">
           {trades.length === 0 ? (
-            <div className="p-5 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center h-full min-h-[140px] gap-3">
-              <div className="text-[17px] font-bold text-[#8B5E3C]">
+            <div className="p-4 rounded-xl bg-[#FFFDF7] border-2 border-dashed border-[#8B5E3C]/60 text-center flex flex-col items-center justify-center h-full min-h-[110px] gap-2.5">
+              <div className="text-[16px] sm:text-[17px] font-bold text-[#8B5E3C]">
                 No trades yet today. Tap ADD TRADE to start.
               </div>
               <button
                 type="button"
-                onClick={() => handleTapAddTrade()}
-                className="no-print touch-btn min-h-[48px] px-5 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase text-[#2F6B3A] inline-flex items-center gap-1.5 cursor-pointer"
+                onClick={() => handleTapAddTrade(undefined, false)}
+                className="no-print touch-btn min-h-[44px] px-5 rounded-xl bg-[#BFE3C0] border-2 border-[#8B5E3C] font-heading text-[16px] font-bold uppercase text-[#2F6B3A] inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4 stroke-[2.8]" />
                 <span>ADD TRADE</span>
@@ -960,6 +1126,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                   onNotify('Trade deleted.', 'info');
                 }}
                 onCancelDelete={() => setConfirmDeleteId(null)}
+                onOpenChartViewer={onOpenChartViewer}
               />
             ))
           )}

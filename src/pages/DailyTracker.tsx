@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,7 +12,7 @@ import {
   DailyAuditState,
 } from '../types/day';
 import { AccountSettings } from '../types/settings';
-import { TradeEntry } from '../types/trade';
+import { TradeEntry, TradeChartSlot } from '../types/trade';
 import {
   calculateDayTotals,
   evaluateDayDiscipline,
@@ -23,17 +23,27 @@ import {
   getTodayDateISO,
   shiftDateISO,
 } from '../utils/formatters';
+import { prefetchDaySignedUrls } from '../utils/chartStorage';
 import { EffectiveLayout } from '../hooks/useLayoutMode';
 import { DisciplineGauge } from '../components/DisciplineGauge';
 import { ChecklistCard } from '../components/ChecklistCard';
-import { TradeTable } from '../components/TradeTable';
+import {
+  TradeTable,
+  ExternalTradeModalRequest,
+} from '../components/TradeTable';
+import { ChartsOfTheDayCard } from '../components/ChartsOfTheDayCard';
 import {
   AuditForm,
   FeelingsCard,
   FeelingsAndLessonSection,
 } from '../components/AuditForm';
 
+const LazyChartViewerModal = React.lazy(
+  () => import('../components/ChartViewerModal')
+);
+
 interface DailyTrackerProps {
+  userId?: string | null;
   effectiveLayout?: EffectiveLayout;
   selectedDate: string;
   onSelectDate: (dateIso: string) => void;
@@ -76,6 +86,7 @@ function getWeekDatesMondayToSunday(selectedDateIso: string) {
 
 export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
   ({
+    userId,
     effectiveLayout = 'desktop',
     selectedDate,
     onSelectDate,
@@ -95,6 +106,21 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
     );
     const [savedBanner, setSavedBanner] = useState(false);
 
+    // In-App Chart Viewer State (§3)
+    const [viewerState, setViewerState] = useState<{
+      open: boolean;
+      tradeId: string | null;
+      slot: TradeChartSlot | null;
+    }>({
+      open: false,
+      tradeId: null,
+      slot: null,
+    });
+
+    // External Modal Request for TradeTable (e.g. from ChartsOfTheDayCard or Viewer "Edit trade")
+    const [externalModalRequest, setExternalModalRequest] =
+      useState<ExternalTradeModalRequest | null>(null);
+
     useEffect(() => {
       const mql = window.matchMedia('(min-width: 1300px)');
       const onChange = (e: MediaQueryListEvent) => setIsWide3Col(e.matches);
@@ -104,6 +130,11 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
         return () => mql.removeEventListener('change', onChange);
       }
     }, []);
+
+    // Fetch signed URLs in one batch per day and cache them in memory (§5)
+    useEffect(() => {
+      void prefetchDaySignedUrls(day);
+    }, [day]);
 
     const todayIso = getTodayDateISO();
     const dayEval = evaluateDayDiscipline(day, settings);
@@ -118,6 +149,43 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
       setTimeout(() => {
         setSavedBanner(false);
       }, 2000);
+    };
+
+    const handleOpenChartViewer = (
+      tradeId: string,
+      slot?: TradeChartSlot
+    ) => {
+      setViewerState({
+        open: true,
+        tradeId,
+        slot: slot || null,
+      });
+    };
+
+    const handleAttachChartToTrade = (trade: TradeEntry) => {
+      setExternalModalRequest({
+        mode: 'edit',
+        trade,
+        openChartsSection: true,
+        nonce: Date.now(),
+      });
+    };
+
+    const handleOpenNewTradeWithChart = () => {
+      setExternalModalRequest({
+        mode: 'new',
+        openChartsSection: true,
+        nonce: Date.now(),
+      });
+    };
+
+    const handleEditTradeFromViewer = (trade: TradeEntry) => {
+      setExternalModalRequest({
+        mode: 'edit',
+        trade,
+        openChartsSection: false,
+        nonce: Date.now(),
+      });
     };
 
     // Shared Date Row + Weekly Habit Row + 3 Stat Cards
@@ -187,7 +255,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
           </div>
         </div>
 
-        {/* Slim This Week's Habit Row (M T W T F S S) with Green / Yellow (Almost) / Red */}
+        {/* Slim This Week's Habit Row (M T W T F S S) */}
         <div className="px-3 py-1.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] space-y-1">
           <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="font-heading text-[15px] sm:text-[16px] font-bold uppercase text-[#8B5E3C]">
@@ -263,7 +331,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
           </div>
         </div>
 
-        {/* 3 Stat Cards (Stacked in Desktop, 3 in ONE row in Tablet via .stat-cards-grid) */}
+        {/* 3 Stat Cards */}
         <DisciplineGauge
           score={dayEval.score}
           dailyPnl={totalPnl}
@@ -275,136 +343,178 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
       </div>
     );
 
+    const tradesAndChartsColumnContent = (
+      <div className="flex flex-col h-full min-h-0 gap-2.5">
+        <TradeTable
+          userId={userId}
+          day={day}
+          daysMap={daysMap}
+          trades={day.trades}
+          settings={settings}
+          onUpdateSettings={onUpdateSettings}
+          onAddTrade={onAddTrade}
+          onUpdateTrade={onUpdateTrade}
+          onDeleteTrade={onDeleteTrade}
+          onNotify={onNotify}
+          dailyPnl={totalPnl}
+          dailyR={totalR}
+          onOpenChartViewer={handleOpenChartViewer}
+          externalModalRequest={externalModalRequest}
+        />
+
+        <ChartsOfTheDayCard
+          day={day}
+          settings={settings}
+          onOpenViewer={handleOpenChartViewer}
+          onAttachChartToTrade={handleAttachChartToTrade}
+          onOpenNewTradeWithChart={handleOpenNewTradeWithChart}
+        />
+      </div>
+    );
+
+    const chartViewerOverlay = viewerState.open ? (
+      <Suspense fallback={null}>
+        <LazyChartViewerModal
+          isOpen={viewerState.open}
+          day={day}
+          settings={settings}
+          initialTradeId={viewerState.tradeId}
+          initialSlot={viewerState.slot}
+          onClose={() =>
+            setViewerState({ open: false, tradeId: null, slot: null })
+          }
+          onUpdateTrade={onUpdateTrade}
+          onEditTrade={handleEditTradeFromViewer}
+        />
+      </Suspense>
+    ) : null;
+
     // ========================================================================
-    // TABLET LAYOUT (§3.4):
-    // - Landscape (>= 1000px): 2 columns (45% / 55%) via CSS Grid areas
-    //   Left col: overview (date row, weekly row, 3 stat cards in 1 row) + prep (Before You Trade + Feelings)
-    //   Right col: trades (My Trades Today) + review (End-of-Day Review + Lesson + pinned SAVE TODAY)
-    // - Portrait (700px - 999px): 2x2 grid via CSS Grid areas
-    //   Top-left: overview | Top-right: prep
-    //   Bottom-left: trades | Bottom-right: review
-    // - Narrow (< 700px): 1 stacked column of the same 4 grid areas
+    // TABLET LAYOUT (§3.4 & §4)
     // ========================================================================
     if (effectiveLayout === 'tablet') {
       return (
-        <div className="today-tablet-grid h-full min-h-0">
-          {/* AREA 1: OVERVIEW (Date row, weekly habit row, 3 stat cards) */}
-          <div className="today-area-overview paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 panel-scroll">
-            {topLeftStatsBlock}
+        <>
+          <div className="today-tablet-grid h-full min-h-0">
+            {/* AREA 1: OVERVIEW (Date row, weekly habit row, 3 stat cards) */}
+            <div className="today-area-overview paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 panel-scroll">
+              {topLeftStatsBlock}
+            </div>
+
+            {/* AREA 2: PREP (Before You Trade checklist + Feelings chips) */}
+            <div className="today-area-prep paper-sheet p-2.5 sm:p-3 flex flex-col gap-2 min-h-0 panel-scroll">
+              <ChecklistCard
+                checklist={day.checklist}
+                onUpdate={onUpdateChecklist}
+              />
+              <FeelingsCard day={day} onUpdateAudit={onUpdateAudit} />
+            </div>
+
+            {/* AREA 3: TRADES + CHARTS OF THE DAY */}
+            <div className="today-area-trades paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 h-full">
+              {tradesAndChartsColumnContent}
+            </div>
+
+            {/* AREA 4: REVIEW (End-of-Day Review + Lesson for Tomorrow, with SAVE TODAY pinned at bottom) */}
+            <div className="today-area-review paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 h-full gap-2">
+              <div className="flex-1 panel-scroll flex flex-col gap-2 min-h-0 pr-0.5">
+                <AuditForm
+                  day={day}
+                  settings={settings}
+                  onUpdateAudit={onUpdateAudit}
+                />
+
+                <div className="flex-1 flex flex-col min-h-[76px] rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
+                  <div className="px-3 py-1 bg-[#E8E0A9] border-b-2 border-[#8B5E3C] shrink-0">
+                    <label
+                      htmlFor="tablet-lesson-notepad"
+                      className="font-heading text-[16px] sm:text-[18px] font-bold uppercase text-[#8B5E3C] block cursor-pointer"
+                    >
+                      LESSON FOR TOMORROW
+                    </label>
+                  </div>
+                  <div className="p-1.5 flex-1 flex flex-col min-h-0">
+                    <textarea
+                      id="tablet-lesson-notepad"
+                      rows={2}
+                      value={day.audit.keyLesson || ''}
+                      onChange={(e) =>
+                        onUpdateAudit({ keyLesson: e.target.value })
+                      }
+                      placeholder="Write one simple thing to remember tomorrow..."
+                      className="lined-notepad flex-1 w-full px-2 text-[16px] font-semibold text-[#5C3D2E] placeholder-[#8B5E3C]/60 outline-none resize-none border-0 min-h-[48px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="no-print shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSaveToday}
+                  className={`touch-btn w-full min-h-[48px] rounded-xl border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                    savedBanner
+                      ? 'bg-[#BFE3C0] text-[#2F6B3A]'
+                      : 'bg-[#F2D29B] text-[#5C3D2E]'
+                  }`}
+                >
+                  {savedBanner ? 'Saved ✓' : 'SAVE TODAY'}
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* AREA 2: PREP (Before You Trade checklist + Feelings chips) */}
-          <div className="today-area-prep paper-sheet p-2.5 sm:p-3 flex flex-col gap-2 min-h-0 panel-scroll">
-            <ChecklistCard
-              checklist={day.checklist}
-              onUpdate={onUpdateChecklist}
-            />
-            <FeelingsCard day={day} onUpdateAudit={onUpdateAudit} />
-          </div>
+          {chartViewerOverlay}
+        </>
+      );
+    }
 
-          {/* AREA 3: TRADES (My Trades Today — trade cards scroll inside, Total today pinned) */}
-          <div className="today-area-trades paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 h-full">
-            <TradeTable
-              day={day}
-              daysMap={daysMap}
-              trades={day.trades}
-              settings={settings}
-              onUpdateSettings={onUpdateSettings}
-              onAddTrade={onAddTrade}
-              onUpdateTrade={onUpdateTrade}
-              onDeleteTrade={onDeleteTrade}
-              onNotify={onNotify}
-              dailyPnl={totalPnl}
-              dailyR={totalR}
-            />
-          </div>
+    // ========================================================================
+    // DESKTOP LAYOUT (3-Column >= 1300px, 2-Column < 1300px)
+    // ========================================================================
+    if (isWide3Col) {
+      return (
+        <>
+          <div className="today-grid h-full">
+            {/* LEFT COLUMN (30%): Date + Weekly row + 3 stat cards + Feelings + Lesson + Pinned SAVE TODAY */}
+            <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full gap-2.5 panel-scroll">
+              {topLeftStatsBlock}
+              <FeelingsAndLessonSection
+                day={day}
+                onUpdateAudit={onUpdateAudit}
+                onNotify={onNotify}
+              />
+            </div>
 
-          {/* AREA 4: REVIEW (End-of-Day Review + Lesson for Tomorrow, with SAVE TODAY pinned at bottom) */}
-          <div className="today-area-review paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 h-full gap-2">
-            <div className="flex-1 panel-scroll flex flex-col gap-2 min-h-0 pr-0.5">
+            {/* MIDDLE COLUMN (40%): My Trades Today + Charts of the Day */}
+            <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full">
+              {tradesAndChartsColumnContent}
+            </div>
+
+            {/* RIGHT COLUMN (30%): Before You Trade checklist + End-of-Day Review */}
+            <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full">
+              <ChecklistCard
+                checklist={day.checklist}
+                onUpdate={onUpdateChecklist}
+              />
               <AuditForm
                 day={day}
                 settings={settings}
                 onUpdateAudit={onUpdateAudit}
               />
-
-              <div className="flex-1 flex flex-col min-h-[76px] rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
-                <div className="px-3 py-1 bg-[#E8E0A9] border-b-2 border-[#8B5E3C] shrink-0">
-                  <label
-                    htmlFor="tablet-lesson-notepad"
-                    className="font-heading text-[16px] sm:text-[18px] font-bold uppercase text-[#8B5E3C] block cursor-pointer"
-                  >
-                    LESSON FOR TOMORROW
-                  </label>
-                </div>
-                <div className="p-1.5 flex-1 flex flex-col min-h-0">
-                  <textarea
-                    id="tablet-lesson-notepad"
-                    rows={2}
-                    value={day.audit.keyLesson || ''}
-                    onChange={(e) =>
-                      onUpdateAudit({ keyLesson: e.target.value })
-                    }
-                    placeholder="Write one simple thing to remember tomorrow..."
-                    className="lined-notepad flex-1 w-full px-2 text-[16px] font-semibold text-[#5C3D2E] placeholder-[#8B5E3C]/60 outline-none resize-none border-0 min-h-[48px]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="no-print shrink-0">
-              <button
-                type="button"
-                onClick={handleSaveToday}
-                className={`touch-btn w-full min-h-[48px] rounded-xl border-2 border-[#8B5E3C] font-heading text-[18px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-                  savedBanner
-                    ? 'bg-[#BFE3C0] text-[#2F6B3A]'
-                    : 'bg-[#F2D29B] text-[#5C3D2E]'
-                }`}
-              >
-                {savedBanner ? 'Saved ✓' : 'SAVE TODAY'}
-              </button>
             </div>
           </div>
-        </div>
+
+          {chartViewerOverlay}
+        </>
       );
     }
 
-    // ========================================================================
-    // DESKTOP LAYOUT (100% unchanged structure & appearance)
-    // ========================================================================
-    if (isWide3Col) {
-      return (
+    return (
+      <>
         <div className="today-grid h-full">
-          {/* LEFT COLUMN (30%): Date + Weekly row + 3 stat cards + Feelings + Lesson + Pinned SAVE TODAY */}
-          <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full gap-2.5 panel-scroll">
+          <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3">
             {topLeftStatsBlock}
-            <FeelingsAndLessonSection
-              day={day}
-              onUpdateAudit={onUpdateAudit}
-              onNotify={onNotify}
-            />
-          </div>
-
-          {/* MIDDLE COLUMN (40%): My Trades Today */}
-          <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full">
-            <TradeTable
-              day={day}
-              daysMap={daysMap}
-              trades={day.trades}
-              settings={settings}
-              onUpdateSettings={onUpdateSettings}
-              onAddTrade={onAddTrade}
-              onUpdateTrade={onUpdateTrade}
-              onDeleteTrade={onDeleteTrade}
-              onNotify={onNotify}
-              dailyPnl={totalPnl}
-              dailyR={totalR}
-            />
-          </div>
-
-          {/* RIGHT COLUMN (30%): Before You Trade checklist + End-of-Day Review */}
-          <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full">
             <ChecklistCard
               checklist={day.checklist}
               onUpdate={onUpdateChecklist}
@@ -414,47 +524,20 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
               settings={settings}
               onUpdateAudit={onUpdateAudit}
             />
+            <FeelingsAndLessonSection
+              day={day}
+              onUpdateAudit={onUpdateAudit}
+              onNotify={onNotify}
+            />
+          </div>
+
+          <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full">
+            {tradesAndChartsColumnContent}
           </div>
         </div>
-      );
-    }
 
-    return (
-      <div className="today-grid h-full">
-        <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3">
-          {topLeftStatsBlock}
-          <ChecklistCard
-            checklist={day.checklist}
-            onUpdate={onUpdateChecklist}
-          />
-          <AuditForm
-            day={day}
-            settings={settings}
-            onUpdateAudit={onUpdateAudit}
-          />
-          <FeelingsAndLessonSection
-            day={day}
-            onUpdateAudit={onUpdateAudit}
-            onNotify={onNotify}
-          />
-        </div>
-
-        <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full">
-          <TradeTable
-            day={day}
-            daysMap={daysMap}
-            trades={day.trades}
-            settings={settings}
-            onUpdateSettings={onUpdateSettings}
-            onAddTrade={onAddTrade}
-            onUpdateTrade={onUpdateTrade}
-            onDeleteTrade={onDeleteTrade}
-            onNotify={onNotify}
-            dailyPnl={totalPnl}
-            dailyR={totalR}
-          />
-        </div>
-      </div>
+        {chartViewerOverlay}
+      </>
     );
   }
 );

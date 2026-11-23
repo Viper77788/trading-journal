@@ -14,7 +14,14 @@ import {
   Cell,
   LabelList,
 } from 'recharts';
-import { Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Camera,
+  ExternalLink,
+} from 'lucide-react';
 import {
   DashboardAnalytics,
   calculateDayTotals,
@@ -23,6 +30,7 @@ import {
 } from '../utils/calculations';
 import {
   formatCurrency,
+  formatReadableDate,
   getTodayDateISO,
 } from '../utils/formatters';
 import { DayRecord } from '../types/day';
@@ -32,6 +40,7 @@ interface CalendarHeatmapProps {
   daysMap: Record<string, DayRecord>;
   settings: AccountSettings;
   onSelectDate: (dateIso: string) => void;
+  onViewDayCharts?: (dateIso: string) => void;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -65,13 +74,25 @@ interface CalendarDayCellProps {
   dayNum: number;
   hasTrades: boolean;
   pnl: number;
+  chartsCount: number;
   status: DayDisciplineStatus;
   isToday: boolean;
-  onSelectDate: (dateIso: string) => void;
+  isSelected: boolean;
+  onTapCell: (dateIso: string) => void;
 }
 
 const CalendarDayCell: React.FC<CalendarDayCellProps> = React.memo(
-  ({ date, dayNum, hasTrades, pnl, status, isToday, onSelectDate }) => {
+  ({
+    date,
+    dayNum,
+    hasTrades,
+    pnl,
+    chartsCount,
+    status,
+    isToday,
+    isSelected,
+    onTapCell,
+  }) => {
     const isGreen = status === 'green';
     const isYellow = status === 'yellow';
     const isRed = status === 'red';
@@ -81,18 +102,32 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = React.memo(
         type="button"
         data-testid={`calendar-cell-${date}`}
         data-status={status}
-        onClick={() => onSelectDate(date)}
-        title={`Open ${date}`}
-        className={`calendar-day-cell px-0.5 py-0.5 rounded-lg flex flex-col items-center justify-between overflow-hidden cursor-pointer ${
-          isToday
-            ? 'bg-[#F2D29B]/50 border-2 border-[#8B5E3C]'
-            : 'bg-[#FFFDF7] border border-[#8B5E3C]/45'
+        onClick={() => onTapCell(date)}
+        title={`Select ${date}`}
+        className={`calendar-day-cell relative px-0.5 py-0.5 rounded-lg flex flex-col items-center justify-between overflow-hidden cursor-pointer ${
+          isSelected
+            ? 'bg-[#F2D29B]/75 border-2 border-[#8B5E3C] ring-1 ring-[#8B5E3C]'
+            : isToday
+              ? 'bg-[#F2D29B]/40 border-2 border-[#8B5E3C]'
+              : 'bg-[#FFFDF7] border border-[#8B5E3C]/45'
         }`}
       >
+        {/* Chart Count Camera Dot in Top-Right Corner (zero layout shift — §4) */}
+        {chartsCount > 0 && (
+          <span
+            data-testid={`calendar-chart-dot-${date}`}
+            title={`${chartsCount} ${chartsCount === 1 ? 'chart' : 'charts'}`}
+            className="absolute top-0.5 right-0.5 px-1 py-0.2 rounded-full bg-[#DCEEF2] border border-[#8B5E3C] text-[9px] font-extrabold text-[#5C3D2E] leading-none inline-flex items-center gap-0.5 pointer-events-none"
+          >
+            <Camera className="w-2.5 h-2.5 text-[#8B5E3C]" />
+            <span>{chartsCount}</span>
+          </span>
+        )}
+
         {/* Top: Day Number */}
         <span
           className={`text-[12px] sm:text-[13px] leading-none ${
-            isToday
+            isToday || isSelected
               ? 'font-extrabold text-[#5C3D2E]'
               : 'font-bold text-[#8B5E3C]'
           }`}
@@ -139,12 +174,13 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = React.memo(
 CalendarDayCell.displayName = 'CalendarDayCell';
 
 export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
-  ({ daysMap, settings, onSelectDate }) => {
+  ({ daysMap, settings, onSelectDate, onViewDayCharts }) => {
     const todayIso = getTodayDateISO();
     const [initYear, initMonth] = todayIso.split('-').map(Number);
 
     const [viewYear, setViewYear] = useState<number>(initYear || 2026);
     const [viewMonth, setViewMonth] = useState<number>((initMonth || 11) - 1);
+    const [selectedDayIso, setSelectedDayIso] = useState<string>(todayIso);
 
     const handleStepMonth = (delta: number) => {
       const dt = new Date(Date.UTC(viewYear, viewMonth + delta, 1));
@@ -180,6 +216,10 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
           const dateIso = `${viewYear}-${mm}-${dd}`;
           const day = daysMap[dateIso];
           const evalRes = evaluateDayDiscipline(day, settings);
+          const chartsCount = (day?.trades || []).reduce(
+            (sum, t) => sum + (t.charts?.length || 0),
+            0
+          );
 
           if (!day || evalRes.isEmpty) {
             return {
@@ -187,6 +227,7 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
               dayNum,
               hasTrades: false,
               pnl: 0,
+              chartsCount: 0,
               status: 'empty' as DayDisciplineStatus,
             };
           }
@@ -198,14 +239,26 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
             dayNum,
             hasTrades: evalRes.hasTrades,
             pnl: totalPnl,
+            chartsCount,
             status: evalRes.status,
           };
         }),
       [daysInMonth, viewMonth, viewYear, daysMap, settings]
     );
 
+    const selectedDayRecord = daysMap[selectedDayIso];
+    const selectedDayEval = evaluateDayDiscipline(selectedDayRecord, settings);
+    const selectedDayTotals = selectedDayRecord
+      ? calculateDayTotals(selectedDayRecord)
+      : { totalPnl: 0, totalR: 0 };
+    const selectedDayTradesCount = selectedDayRecord?.trades?.length || 0;
+    const selectedDayChartsCount = (selectedDayRecord?.trades || []).reduce(
+      (sum, t) => sum + (t.charts?.length || 0),
+      0
+    );
+
     return (
-      <div className="flex-1 flex flex-col min-h-0 h-full gap-2">
+      <div className="flex-1 flex flex-col min-h-0 h-full gap-1.5">
         {/* Slim Month Title Bar with Prev / Next Month Arrow Buttons */}
         <div className="px-3 py-1.5 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex items-center justify-between gap-2 shrink-0">
           <button
@@ -232,13 +285,13 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
         </div>
 
         {/* Calendar Box Stretching to Fill Available Panel Height with 6 Fixed Rows */}
-        <div className="flex-1 flex flex-col min-h-0 p-2.5 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] gap-1.5 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 p-2 rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] gap-1 overflow-hidden">
           {/* Weekday Header Row */}
-          <div className="grid grid-cols-7 gap-1.5 text-center pb-1 border-b border-dotted border-[#8B5E3C]/40 shrink-0">
+          <div className="grid grid-cols-7 gap-1.5 text-center pb-0.5 border-b border-dotted border-[#8B5E3C]/40 shrink-0">
             {WEEKDAYS.map((dayName) => (
               <div
                 key={dayName}
-                className="font-heading text-[14px] sm:text-[15px] font-bold text-[#8B5E3C]"
+                className="font-heading text-[13px] sm:text-[14px] font-bold text-[#8B5E3C]"
               >
                 {dayName}
               </div>
@@ -258,15 +311,68 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
                 dayNum={cell.dayNum}
                 hasTrades={cell.hasTrades}
                 pnl={cell.pnl}
+                chartsCount={cell.chartsCount}
                 status={cell.status}
                 isToday={cell.date === todayIso}
-                onSelectDate={onSelectDate}
+                isSelected={cell.date === selectedDayIso}
+                onTapCell={(dateIso) => setSelectedDayIso(dateIso)}
               />
             ))}
 
             {trailingBlanks.map((b) => (
               <div key={`trail-${b}`} className="rounded-xl bg-transparent" />
             ))}
+          </div>
+        </div>
+
+        {/* Selected-Day Strip with "View charts (N)" and "Open day" (§4) */}
+        <div
+          data-testid="history-selected-day-strip"
+          className="px-3 py-1.5 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2 shrink-0"
+        >
+          <div className="text-[13px] sm:text-[14px] font-bold text-[#5C3D2E] truncate">
+            <strong>{formatReadableDate(selectedDayIso)}:</strong>{' '}
+            {selectedDayEval.isEmpty ? (
+              <span className="text-[#8B5E3C]">No trades logged</span>
+            ) : (
+              <>
+                <span
+                  className={
+                    selectedDayTotals.totalPnl >= 0
+                      ? 'text-[#2F6B3A] font-extrabold'
+                      : 'text-[#9B2C20] font-extrabold'
+                  }
+                >
+                  {formatCurrency(selectedDayTotals.totalPnl, true)}
+                </span>{' '}
+                • {selectedDayTradesCount}{' '}
+                {selectedDayTradesCount === 1 ? 'trade' : 'trades'} • Score{' '}
+                {selectedDayEval.score}/100
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {selectedDayChartsCount > 0 && onViewDayCharts && (
+              <button
+                type="button"
+                data-testid="history-view-charts-btn"
+                onClick={() => onViewDayCharts(selectedDayIso)}
+                className="px-2.5 py-1 rounded-lg bg-[#DCEEF2] border border-[#8B5E3C] text-[13px] font-extrabold text-[#5C3D2E] inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Camera className="w-3.5 h-3.5 text-[#8B5E3C]" />
+                <span>View charts ({selectedDayChartsCount})</span>
+              </button>
+            )}
+            <button
+              type="button"
+              data-testid="history-open-day-btn"
+              onClick={() => onSelectDate(selectedDayIso)}
+              className="px-2.5 py-1 rounded-lg bg-[#F2D29B] border border-[#8B5E3C] text-[13px] font-extrabold text-[#5C3D2E] inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span>Open day</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
           </div>
         </div>
 
