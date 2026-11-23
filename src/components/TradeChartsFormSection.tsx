@@ -22,13 +22,15 @@ import {
 } from '../utils/chartStorage';
 import { ChartImageSurface } from './ChartThumbnail';
 
-interface TradeChartsFormSectionProps {
+export interface TradeChartsFormSectionProps {
   userId: string;
   dateIso: string;
   draftTradeId: string;
   charts: TradeChartAttachment[];
   onChangeCharts: React.Dispatch<React.SetStateAction<TradeChartAttachment[]>>;
   onUploadingChange: (uploading: boolean) => void;
+  initialPastedFile?: File | Blob | null;
+  onConsumedInitialPastedFile?: () => void;
 }
 
 const SLOTS_META: Array<{
@@ -55,6 +57,8 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
   charts,
   onChangeCharts,
   onUploadingChange,
+  initialPastedFile,
+  onConsumedInitialPastedFile,
 }) => {
   const [tvInputs, setTvInputs] = useState<Record<TradeChartSlot, string>>({
     entry: '',
@@ -90,6 +94,10 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
     entry: false,
     result: false,
   });
+  const [pendingPasteReplace, setPendingPasteReplace] = useState<{
+    file: File | Blob;
+    slot: TradeChartSlot;
+  } | null>(null);
 
   const fileInputRefs = useRef<
     Record<TradeChartSlot, HTMLInputElement | null>
@@ -100,6 +108,16 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
   const lastPastedHashRef = useRef<string | null>(null);
   const chartsRef = useRef<TradeChartAttachment[]>(charts);
   chartsRef.current = charts;
+
+  // Reset per-slot inputs/confirmations when switching trades in the picker
+  useEffect(() => {
+    setTvInputs({ entry: '', result: '' });
+    setTvErrors({ entry: null, result: null });
+    setSlotErrors({ entry: null, result: null });
+    setReplacingSlot({ entry: false, result: false });
+    setConfirmDeleteSlot({ entry: false, result: false });
+    setPendingPasteReplace(null);
+  }, [draftTradeId]);
 
   // Prefetch compression and viewer modules on idle when form opens (§5)
   useEffect(() => {
@@ -175,6 +193,7 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
     async (slot: TradeChartSlot, file: File | Blob) => {
       setSlotErrors((prev) => ({ ...prev, [slot]: null }));
       setTvErrors((prev) => ({ ...prev, [slot]: null }));
+      setPendingPasteReplace(null);
 
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         setSlotErrors((prev) => ({
@@ -253,7 +272,37 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
     [userId, dateIso, draftTradeId, getSlotChart, upsertSlotChart, replacingSlot]
   );
 
-  // Listen for Ctrl+V paste events while the Add/Edit Trade form is open (§1b)
+  // Assign an incoming pasted image following §1 slot assignment rule:
+  // Fill "Entry chart" first, then "Result chart". If both are full, replace picked slot after confirmation.
+  const assignPastedFileToSlots = useCallback(
+    (imageFile: File | Blob) => {
+      const entryAttached = getSlotChart('entry');
+      const resultAttached = getSlotChart('result');
+
+      if (!entryAttached || replacingSlot.entry) {
+        void handleProcessImageFile('entry', imageFile);
+        return;
+      }
+      if (!resultAttached || replacingSlot.result) {
+        void handleProcessImageFile('result', imageFile);
+        return;
+      }
+
+      // Both slots are full: ask confirmation to replace the picked slot (default Entry, switchable to Result)
+      setPendingPasteReplace({ file: imageFile, slot: 'entry' });
+    },
+    [getSlotChart, replacingSlot, handleProcessImageFile]
+  );
+
+  // Consume initialPastedFile when opened via quick Ctrl+V on TODAY page (§1)
+  useEffect(() => {
+    if (!initialPastedFile) return;
+    const fileToProcess = initialPastedFile;
+    onConsumedInitialPastedFile?.();
+    assignPastedFileToSlots(fileToProcess);
+  }, [initialPastedFile, onConsumedInitialPastedFile, assignPastedFileToSlots]);
+
+  // Listen for Ctrl+V paste events while the Add/Edit Trade or Add Chart modal is open (§1b)
   useEffect(() => {
     const handleWindowPaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -271,32 +320,12 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
       if (!imageFile) return;
 
       e.preventDefault();
-      const entryAttached = getSlotChart('entry');
-      const resultAttached = getSlotChart('result');
-
-      // Put the pasted image in the first empty (or currently replacing) slot
-      let targetSlot: TradeChartSlot | null = null;
-      if (!entryAttached || replacingSlot.entry) {
-        targetSlot = 'entry';
-      } else if (!resultAttached || replacingSlot.result) {
-        targetSlot = 'result';
-      }
-
-      if (!targetSlot) {
-        setSlotErrors((prev) => ({
-          ...prev,
-          result:
-            'Both Entry and Result chart slots are full. Tap Replace on a slot first.',
-        }));
-        return;
-      }
-
-      void handleProcessImageFile(targetSlot, imageFile);
+      assignPastedFileToSlots(imageFile);
     };
 
     window.addEventListener('paste', handleWindowPaste);
     return () => window.removeEventListener('paste', handleWindowPaste);
-  }, [getSlotChart, replacingSlot, handleProcessImageFile]);
+  }, [assignPastedFileToSlots]);
 
   const handleLabelChange = (slot: TradeChartSlot, nextLabel: string) => {
     onChangeCharts((prev) =>
@@ -333,6 +362,53 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
         </span>
       </div>
 
+      {/* Confirmation prompt when pasting into a trade where both Entry & Result slots are already full (§1) */}
+      {pendingPasteReplace && (
+        <div
+          data-testid="paste-replace-confirm-banner"
+          className="p-3 rounded-xl bg-[#F7E2A0] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2"
+        >
+          <span className="text-[13px] font-extrabold text-[#5C3D2E]">
+            Both slots are full. Replace{' '}
+            <strong>
+              {pendingPasteReplace.slot === 'entry'
+                ? 'Entry chart'
+                : 'Result chart'}
+            </strong>{' '}
+            with this pasted image?
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              data-testid="confirm-paste-replace-entry"
+              onClick={() =>
+                void handleProcessImageFile('entry', pendingPasteReplace.file)
+              }
+              className="px-2.5 py-1 rounded-lg bg-[#F2D29B] border border-[#8B5E3C] text-[12px] font-extrabold text-[#5C3D2E] cursor-pointer"
+            >
+              Replace Entry
+            </button>
+            <button
+              type="button"
+              data-testid="confirm-paste-replace-result"
+              onClick={() =>
+                void handleProcessImageFile('result', pendingPasteReplace.file)
+              }
+              className="px-2.5 py-1 rounded-lg bg-[#DCEEF2] border border-[#8B5E3C] text-[12px] font-extrabold text-[#5C3D2E] cursor-pointer"
+            >
+              Replace Result
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingPasteReplace(null)}
+              className="px-2.5 py-1 rounded-lg bg-[#FFFDF7] border border-[#8B5E3C] text-[12px] font-bold text-[#5C3D2E] cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {SLOTS_META.map(({ slot, title, labelPlaceholder }) => {
           const attached = charts.find((c) => c.slot === slot);
@@ -346,7 +422,7 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
             <div
               key={slot}
               data-testid={`chart-slot-card-${slot}`}
-              className="p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex flex-col justify-between gap-2.5"
+              className="p-3 rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] flex flex-col gap-2"
             >
               {/* Slot Header */}
               <div className="flex items-center justify-between gap-2">
@@ -394,13 +470,13 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
                 <div className="space-y-2">
                   <div
                     data-testid={`chart-preview-${slot}`}
-                    className="relative w-full aspect-[16/10] rounded-xl border-2 border-[#8B5E3C] bg-[#F0DED4]/40 overflow-hidden"
+                    className="relative w-full aspect-video rounded-xl border-2 border-[#8B5E3C] bg-[#FFFBF2] overflow-hidden flex items-center justify-center"
                   >
                     <ChartImageSurface
                       chart={attached}
                       variant="thumb"
                       alt={`${title} preview`}
-                      imgClassName="w-full h-full object-cover"
+                      imgClassName="w-full h-full object-contain bg-[#FFFBF2]"
                     />
                   </div>
 
@@ -478,14 +554,34 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
                 </div>
               )}
 
-              {/* Input Controls when slot is empty or user tapped Replace */}
+              {/* Input Controls when slot is empty or user tapped Replace (§3: small dashed placeholder with picture icon + full fitting placeholder) */}
               {(!attached || isReplacing) && !isUploading && (
                 <div className="space-y-2">
+                  {/* Small dashed placeholder with a picture icon instead of blank gap (§3) */}
+                  <div
+                    data-testid={`chart-empty-placeholder-${slot}`}
+                    className="px-3 py-2.5 rounded-xl bg-[#FFFBF2] border border-dashed border-[#8B5E3C]/65 flex items-center justify-center gap-2 text-[#8B5E3C]"
+                  >
+                    <ImageIcon className="w-4 h-4 shrink-0" />
+                    <span className="text-[12px] font-bold">
+                      {isReplacing
+                        ? `Replace ${title.toLowerCase()}`
+                        : `No ${title.toLowerCase()} yet`}
+                    </span>
+                  </div>
+
                   {/* Option A: TradingView Snapshot Link Input */}
                   <div className="space-y-1">
+                    <label
+                      htmlFor={`tv-link-field-${slot}`}
+                      className="block text-[12px] font-extrabold text-[#5C3D2E]"
+                    >
+                      TradingView snapshot link
+                    </label>
                     <div className="relative flex items-center">
-                      <Link2 className="w-4 h-4 text-[#8B5E3C] absolute left-3 pointer-events-none" />
+                      <Link2 className="w-3.5 h-3.5 text-[#8B5E3C] absolute left-2.5 pointer-events-none" />
                       <input
+                        id={`tv-link-field-${slot}`}
                         type="url"
                         data-testid={`tv-link-input-${slot}`}
                         value={tvInputs[slot]}
@@ -493,7 +589,7 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
                           handleTvLinkInputChange(slot, e.target.value)
                         }
                         placeholder="Paste TradingView snapshot link"
-                        className="w-full h-[42px] pl-9 pr-3 rounded-lg bg-[#FFFBF2] border border-[#8B5E3C] text-[14px] font-bold text-[#5C3D2E] placeholder-[#8B5E3C]/65 outline-none"
+                        className="w-full h-[38px] pl-8 pr-2.5 rounded-lg bg-[#FFFBF2] border border-[#8B5E3C] text-[12.5px] font-bold text-[#5C3D2E] placeholder-[#8B5E3C]/70 outline-none"
                       />
                     </div>
                     {tvError && (
@@ -523,7 +619,7 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
                       }
                     }}
                     onClick={() => fileInputRefs.current[slot]?.click()}
-                    className="p-3 rounded-xl bg-[#DCEEF2]/45 border-2 border-dashed border-[#8B5E3C] text-center cursor-pointer flex flex-col items-center justify-center gap-1 min-h-[78px]"
+                    className="p-2.5 rounded-xl bg-[#DCEEF2]/45 border-2 border-dashed border-[#8B5E3C] text-center cursor-pointer flex flex-col items-center justify-center gap-1 min-h-[70px]"
                   >
                     <input
                       ref={(el) => {
@@ -541,8 +637,8 @@ export const TradeChartsFormSection: React.FC<TradeChartsFormSectionProps> = ({
                       }}
                       className="sr-only"
                     />
-                    <div className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#5C3D2E]">
-                      <Upload className="w-4 h-4 text-[#8B5E3C] shrink-0" />
+                    <div className="flex items-center gap-1.5 text-[12.5px] font-extrabold text-[#5C3D2E]">
+                      <Upload className="w-3.5 h-3.5 text-[#8B5E3C] shrink-0" />
                       <span>Paste (Ctrl+V), drop or choose an image</span>
                     </div>
                     <span className="text-[11px] font-bold text-[#8B5E3C]">

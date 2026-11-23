@@ -188,8 +188,9 @@ interface ChartThumbnailCardProps {
 export const ChartThumbnailCard: React.FC<ChartThumbnailCardProps> = React.memo(
   ({ chart, onClick, compact = false, testId }) => {
     const slotTitle = chart.slot === 'entry' ? 'Entry' : 'Result';
-    const displayLabel = chart.label?.trim()
-      ? `${slotTitle} • ${chart.label.trim()}`
+    const trimmedLabel = chart.label?.trim() || '';
+    const displayLabel = trimmedLabel
+      ? `${slotTitle} • ${trimmedLabel}`
       : `${slotTitle} chart`;
 
     return (
@@ -209,13 +210,13 @@ export const ChartThumbnailCard: React.FC<ChartThumbnailCardProps> = React.memo(
           compact ? 'w-[128px] sm:w-[144px]' : 'w-full'
         }`}
       >
-        {/* Fixed 16:10 aspect-ratio thumbnail box to prevent layout shift (§5) */}
-        <div className="relative w-full aspect-[16/10] bg-[#F0DED4]/35 overflow-hidden">
+        {/* Fixed 16:9 aspect-ratio thumbnail box on a cream background with object-fit: contain so charts are never cropped (§2) */}
+        <div className="relative w-full aspect-video bg-[#FFFBF2] overflow-hidden flex items-center justify-center">
           <ChartImageSurface
             chart={chart}
             variant="thumb"
             alt={displayLabel}
-            imgClassName="w-full h-full object-cover"
+            imgClassName="w-full h-full object-contain bg-[#FFFBF2]"
           />
 
           {/* Tiny Corner Type Icon (Link icon for TradingView, Image icon for upload — §4) */}
@@ -235,10 +236,19 @@ export const ChartThumbnailCard: React.FC<ChartThumbnailCardProps> = React.memo(
           </span>
         </div>
 
-        {/* Bottom Label Strip */}
-        <div className="w-full px-2 py-1 bg-[#FFFDF7] border-t border-[#8B5E3C]/50 flex items-center justify-between gap-1">
-          <span className="text-[12px] sm:text-[13px] font-extrabold text-[#5C3D2E] truncate">
-            {displayLabel}
+        {/* Bottom Label Strip: Entry / Result tag + label under the image (§2) */}
+        <div className="w-full px-2 py-1 bg-[#FFFDF7] border-t border-[#8B5E3C]/50 flex items-center justify-between gap-1.5">
+          <span
+            className={`px-1.5 py-0.5 rounded-md border border-[#8B5E3C] text-[11px] font-extrabold shrink-0 ${
+              chart.slot === 'entry'
+                ? 'bg-[#DCEEF2] text-[#5C3D2E]'
+                : 'bg-[#F2D29B] text-[#5C3D2E]'
+            }`}
+          >
+            {slotTitle}
+          </span>
+          <span className="text-[12px] sm:text-[13px] font-extrabold text-[#5C3D2E] truncate flex-1 text-right">
+            {trimmedLabel || `${slotTitle} chart`}
           </span>
         </div>
       </div>

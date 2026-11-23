@@ -291,13 +291,39 @@ button:active:not(:disabled),
 }
 
 /* ==========================================================================
-   TABLET TODAY GRID WITH CSS GRID AREAS (§3.1 & §3.4)
+   CHARTS OF THE DAY THUMBNAILS GRID & HIGHLIGHT ANIMATION (§1 & §2)
+   ========================================================================== */
+.charts-of-day-thumbs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+@keyframes chartGroupOutlineFade {
+  0% {
+    box-shadow: 0 0 0 4px rgba(139, 94, 60, 0.55);
+    background-color: #F7E2A0;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 94, 60, 0);
+    background-color: #FFFBF2;
+  }
+}
+
+.chart-group-highlight {
+  animation: chartGroupOutlineFade 600ms ease-out;
+  outline: 2px solid #8B5E3C;
+}
+
+/* ==========================================================================
+   TABLET TODAY GRID WITH CSS GRID AREAS (§2 & §3.4)
    - Landscape (>= 1000px): 2 columns (45% / 55%)
      Left col: overview (top) + prep (bottom)
-     Right col: trades (top) + review (bottom)
-   - Portrait (700px - 999.98px): 2x2 grid
+     Right col: trades (top) + review (End-of-Day Review + Charts of the Day + Lesson, bottom)
+   - Portrait (700px - 999.98px): 2 columns
      Top-left: overview | Top-right: prep
-     Bottom-left: trades | Bottom-right: review
+     Middle-left: trades | Bottom-left (below My Trades Today): charts
+     Right (rows 2-3): review
    - Below 700px: 1 stacked column
    ========================================================================== */
 .today-tablet-grid {
@@ -317,6 +343,9 @@ button:active:not(:disabled),
 .today-area-trades {
   grid-area: trades;
 }
+.today-area-charts {
+  grid-area: charts;
+}
 .today-area-review {
   grid-area: review;
 }
@@ -328,6 +357,7 @@ button:active:not(:disabled),
       'overview'
       'prep'
       'trades'
+      'charts'
       'review';
     height: auto;
   }
@@ -336,10 +366,11 @@ button:active:not(:disabled),
 @media (min-width: 700px) and (max-width: 999.98px) {
   .today-tablet-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 44fr) minmax(0, 56fr);
+    grid-template-rows: minmax(0, 42fr) minmax(0, 32fr) minmax(0, 26fr);
     grid-template-areas:
       'overview prep'
-      'trades review';
+      'trades review'
+      'charts review';
   }
 }
 
@@ -361,12 +392,12 @@ button:active:not(:disabled),
 
   .today-tablet-grid .today-area-trades {
     grid-column: 2;
-    grid-row: 1 / 7;
+    grid-row: 1 / 6;
   }
 
   .today-tablet-grid .today-area-review {
     grid-column: 2;
-    grid-row: 7 / 13;
+    grid-row: 6 / 13;
   }
 }
 

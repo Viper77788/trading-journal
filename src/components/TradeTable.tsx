@@ -65,6 +65,7 @@ interface TradeTableProps {
   dailyPnl: number;
   dailyR: number;
   onOpenChartViewer?: (tradeId: string, slot?: TradeChartSlot) => void;
+  onOpenAddChartModal?: (requestedTradeId?: string | null) => void;
   externalModalRequest?: ExternalTradeModalRequest | null;
 }
 
@@ -79,6 +80,7 @@ interface TradeRowCardProps {
   onConfirmDelete: (tradeId: string) => void;
   onCancelDelete: () => void;
   onOpenChartViewer?: (tradeId: string, slot?: TradeChartSlot) => void;
+  onOpenAddChartModal?: (requestedTradeId?: string | null) => void;
 }
 
 const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
@@ -93,6 +95,7 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
     onConfirmDelete,
     onCancelDelete,
     onOpenChartViewer,
+    onOpenAddChartModal,
   }) => {
     const violated = isTradeRiskViolated(trade, settings);
     const overLimit = isTradeOverLimit(tradeIndex, day, settings);
@@ -223,7 +226,7 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
               </span>
             )}
 
-            {/* Charts count chip or soft "+ Add chart" chip (§4) */}
+            {/* Charts count chip or soft "+ Add chart" chip (§1 & §4) */}
             {chartsCount > 0 ? (
               <button
                 type="button"
@@ -240,7 +243,13 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
               <button
                 type="button"
                 data-testid={`trade-add-chart-chip-${tradeIndex + 1}`}
-                onClick={() => onEdit(trade, true)}
+                onClick={() => {
+                  if (onOpenAddChartModal) {
+                    onOpenAddChartModal(trade.id);
+                  } else {
+                    onEdit(trade, true);
+                  }
+                }}
                 className="no-print px-2.5 py-0.5 rounded-full bg-[#FFFBF2] border border-dashed border-[#8B5E3C] text-[13px] font-bold text-[#8B5E3C] inline-flex items-center gap-1 cursor-pointer"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
@@ -296,6 +305,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
     dailyPnl,
     dailyR,
     onOpenChartViewer,
+    onOpenAddChartModal,
     externalModalRequest,
   }) => {
     const shouldReduceMotion = useReducedMotion();
@@ -530,9 +540,9 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
         });
         onNotify('Trade updated!', 'success');
       } else {
-        const nextCountAfterAdd = trades.length + 1;
+        const createdTradeId = draftTradeId;
         const res = onAddTrade({
-          id: draftTradeId,
+          id: createdTradeId,
           asset: normalizedAsset,
           session,
           riskAmount: numericRisk,
@@ -544,8 +554,8 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
           charts,
         });
         if (res.ok) {
-          onNotify('Trade saved!', 'success', 'Add another', () => {
-            handleTapAddTrade(nextCountAfterAdd, false);
+          onNotify('Trade saved!', 'success', 'Add chart', () => {
+            onOpenAddChartModal?.(createdTradeId);
           });
         } else if (res.reason) {
           onNotify(res.reason, 'warning');
@@ -1127,6 +1137,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                 }}
                 onCancelDelete={() => setConfirmDeleteId(null)}
                 onOpenChartViewer={onOpenChartViewer}
+                onOpenAddChartModal={onOpenAddChartModal}
               />
             ))
           )}

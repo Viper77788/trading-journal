@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,7 +12,11 @@ import {
   DailyAuditState,
 } from '../types/day';
 import { AccountSettings } from '../types/settings';
-import { TradeEntry, TradeChartSlot } from '../types/trade';
+import {
+  TradeEntry,
+  TradeChartSlot,
+  TradeChartAttachment,
+} from '../types/trade';
 import {
   calculateDayTotals,
   evaluateDayDiscipline,
@@ -32,6 +36,7 @@ import {
   ExternalTradeModalRequest,
 } from '../components/TradeTable';
 import { ChartsOfTheDayCard } from '../components/ChartsOfTheDayCard';
+import { AddChartModal } from '../components/AddChartModal';
 import {
   AuditForm,
   FeelingsCard,
@@ -104,9 +109,28 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
     const [isWide3Col, setIsWide3Col] = useState<boolean>(() =>
       typeof window !== 'undefined' ? window.innerWidth >= 1300 : true
     );
+    const [isTabletLandscape, setIsTabletLandscape] = useState<boolean>(() =>
+      typeof window !== 'undefined' ? window.innerWidth >= 1000 : true
+    );
     const [savedBanner, setSavedBanner] = useState(false);
 
-    // In-App Chart Viewer State (§3)
+    // Unified Add Chart Modal State (§1)
+    const [addChartModalState, setAddChartModalState] = useState<{
+      open: boolean;
+      requestedTradeId: string | null;
+      initialPastedFile: File | Blob | null;
+    }>({
+      open: false,
+      requestedTradeId: null,
+      initialPastedFile: null,
+    });
+
+    // 600ms soft outline highlight on Charts of the Day trade group after saving charts (§1)
+    const [highlightedTradeId, setHighlightedTradeId] = useState<string | null>(
+      null
+    );
+
+    // In-App Chart Viewer State
     const [viewerState, setViewerState] = useState<{
       open: boolean;
       tradeId: string | null;
@@ -117,24 +141,84 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
       slot: null,
     });
 
-    // External Modal Request for TradeTable (e.g. from ChartsOfTheDayCard or Viewer "Edit trade")
+    // External Modal Request for TradeTable (e.g. from Viewer "Edit trade" or AddChartModal "Log a trade first" -> ADD TRADE)
     const [externalModalRequest, setExternalModalRequest] =
       useState<ExternalTradeModalRequest | null>(null);
 
     useEffect(() => {
-      const mql = window.matchMedia('(min-width: 1300px)');
-      const onChange = (e: MediaQueryListEvent) => setIsWide3Col(e.matches);
-      setIsWide3Col(mql.matches);
-      if (mql.addEventListener) {
-        mql.addEventListener('change', onChange);
-        return () => mql.removeEventListener('change', onChange);
+      const mqlWide = window.matchMedia('(min-width: 1300px)');
+      const mqlTabletLand = window.matchMedia('(min-width: 1000px)');
+      const onWideChange = (e: MediaQueryListEvent) => setIsWide3Col(e.matches);
+      const onLandChange = (e: MediaQueryListEvent) =>
+        setIsTabletLandscape(e.matches);
+      setIsWide3Col(mqlWide.matches);
+      setIsTabletLandscape(mqlTabletLand.matches);
+
+      if (mqlWide.addEventListener && mqlTabletLand.addEventListener) {
+        mqlWide.addEventListener('change', onWideChange);
+        mqlTabletLand.addEventListener('change', onLandChange);
+        return () => {
+          mqlWide.removeEventListener('change', onWideChange);
+          mqlTabletLand.removeEventListener('change', onLandChange);
+        };
       }
     }, []);
 
-    // Fetch signed URLs in one batch per day and cache them in memory (§5)
+    // Fetch signed URLs in one batch per day and cache them in memory
     useEffect(() => {
       void prefetchDaySignedUrls(day);
     }, [day]);
+
+    // Quick Paste on TODAY page (§1):
+    // While TODAY is open and no text field is focused (and no modal/dialog is already open),
+    // pressing Ctrl+V with an image on the clipboard opens the Add chart modal with the pasted image
+    // placed in the first empty slot of the pre-selected trade. Plain text pastes are ignored.
+    useEffect(() => {
+      const handlePagePaste = (e: ClipboardEvent) => {
+        if (addChartModalState.open || viewerState.open) return;
+        if (document.querySelector('[role="dialog"]')) return;
+
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl) {
+          const tag = activeEl.tagName;
+          if (
+            tag === 'INPUT' ||
+            tag === 'TEXTAREA' ||
+            tag === 'SELECT' ||
+            activeEl.isContentEditable
+          ) {
+            return;
+          }
+        }
+
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        let imageFile: File | null = null;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            imageFile = item.getAsFile();
+            break;
+          }
+        }
+
+        if (!imageFile) {
+          // Ignore pastes of plain text (§1)
+          return;
+        }
+
+        e.preventDefault();
+        setAddChartModalState({
+          open: true,
+          requestedTradeId: null,
+          initialPastedFile: imageFile,
+        });
+      };
+
+      window.addEventListener('paste', handlePagePaste);
+      return () => window.removeEventListener('paste', handlePagePaste);
+    }, [addChartModalState.open, viewerState.open]);
 
     const todayIso = getTodayDateISO();
     const dayEval = evaluateDayDiscipline(day, settings);
@@ -151,42 +235,60 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
       }, 2000);
     };
 
-    const handleOpenChartViewer = (
-      tradeId: string,
-      slot?: TradeChartSlot
-    ) => {
-      setViewerState({
-        open: true,
-        tradeId,
-        slot: slot || null,
-      });
-    };
+    const handleOpenChartViewer = useCallback(
+      (tradeId: string, slot?: TradeChartSlot) => {
+        setViewerState({
+          open: true,
+          tradeId,
+          slot: slot || null,
+        });
+      },
+      []
+    );
 
-    const handleAttachChartToTrade = (trade: TradeEntry) => {
-      setExternalModalRequest({
-        mode: 'edit',
-        trade,
-        openChartsSection: true,
-        nonce: Date.now(),
-      });
-    };
+    const handleOpenAddChartModal = useCallback(
+      (requestedTradeId?: string | null) => {
+        setAddChartModalState({
+          open: true,
+          requestedTradeId: requestedTradeId || null,
+          initialPastedFile: null,
+        });
+      },
+      []
+    );
 
-    const handleOpenNewTradeWithChart = () => {
+    const handleSaveTradeChartsFromModal = useCallback(
+      (tradeId: string, nextCharts: TradeChartAttachment[]) => {
+        onUpdateTrade(tradeId, { charts: nextCharts });
+      },
+      [onUpdateTrade]
+    );
+
+    const handleChartSavedSuccess = useCallback((savedTradeId: string) => {
+      setHighlightedTradeId(savedTradeId);
+      window.setTimeout(() => {
+        setHighlightedTradeId((prev) =>
+          prev === savedTradeId ? null : prev
+        );
+      }, 650);
+    }, []);
+
+    const handleOpenNewTradeFromAddChartModal = useCallback(() => {
       setExternalModalRequest({
         mode: 'new',
-        openChartsSection: true,
+        openChartsSection: false,
         nonce: Date.now(),
       });
-    };
+    }, []);
 
-    const handleEditTradeFromViewer = (trade: TradeEntry) => {
+    const handleEditTradeFromViewer = useCallback((trade: TradeEntry) => {
       setExternalModalRequest({
         mode: 'edit',
         trade,
         openChartsSection: false,
         nonce: Date.now(),
       });
-    };
+    }, []);
 
     // Shared Date Row + Weekly Habit Row + 3 Stat Cards
     const topLeftStatsBlock = (
@@ -343,8 +445,9 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
       </div>
     );
 
-    const tradesAndChartsColumnContent = (
-      <div className="flex flex-col h-full min-h-0 gap-2.5">
+    // Middle column / Trades panel: My Trades Today + Total today bar get the freed space (§2)
+    const tradesOnlyColumnContent = (
+      <div className="flex flex-col h-full min-h-0">
         <TradeTable
           userId={userId}
           day={day}
@@ -359,38 +462,71 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
           dailyPnl={totalPnl}
           dailyR={totalR}
           onOpenChartViewer={handleOpenChartViewer}
+          onOpenAddChartModal={handleOpenAddChartModal}
           externalModalRequest={externalModalRequest}
-        />
-
-        <ChartsOfTheDayCard
-          day={day}
-          settings={settings}
-          onOpenViewer={handleOpenChartViewer}
-          onAttachChartToTrade={handleAttachChartToTrade}
-          onOpenNewTradeWithChart={handleOpenNewTradeWithChart}
         />
       </div>
     );
 
-    const chartViewerOverlay = viewerState.open ? (
-      <Suspense fallback={null}>
-        <LazyChartViewerModal
-          isOpen={viewerState.open}
+    const chartsOfTheDayCardElement = (
+      <ChartsOfTheDayCard
+        day={day}
+        settings={settings}
+        highlightedTradeId={highlightedTradeId}
+        onOpenViewer={handleOpenChartViewer}
+        onOpenAddChartModal={handleOpenAddChartModal}
+      />
+    );
+
+    const modalsOverlay = (
+      <>
+        <AddChartModal
+          isOpen={addChartModalState.open}
+          userId={userId || 'anon'}
           day={day}
-          settings={settings}
-          initialTradeId={viewerState.tradeId}
-          initialSlot={viewerState.slot}
-          onClose={() =>
-            setViewerState({ open: false, tradeId: null, slot: null })
+          requestedTradeId={addChartModalState.requestedTradeId}
+          initialPastedFile={addChartModalState.initialPastedFile}
+          onConsumedInitialPastedFile={() =>
+            setAddChartModalState((prev) => ({
+              ...prev,
+              initialPastedFile: null,
+            }))
           }
-          onUpdateTrade={onUpdateTrade}
-          onEditTrade={handleEditTradeFromViewer}
+          onClose={() =>
+            setAddChartModalState({
+              open: false,
+              requestedTradeId: null,
+              initialPastedFile: null,
+            })
+          }
+          onSaveTradeCharts={handleSaveTradeChartsFromModal}
+          onChartSavedSuccess={handleChartSavedSuccess}
+          onOpenAddTrade={handleOpenNewTradeFromAddChartModal}
+          onNotify={(title, type) => onNotify(title, type)}
         />
-      </Suspense>
-    ) : null;
+
+        {viewerState.open ? (
+          <Suspense fallback={null}>
+            <LazyChartViewerModal
+              isOpen={viewerState.open}
+              day={day}
+              settings={settings}
+              initialTradeId={viewerState.tradeId}
+              initialSlot={viewerState.slot}
+              onClose={() =>
+                setViewerState({ open: false, tradeId: null, slot: null })
+              }
+              onUpdateTrade={onUpdateTrade}
+              onEditTrade={handleEditTradeFromViewer}
+            />
+          </Suspense>
+        ) : null}
+      </>
+    );
 
     // ========================================================================
-    // TABLET LAYOUT (§3.4 & §4)
+    // TABLET LAYOUT (§2: Tablet Landscape places Charts of the Day in the RIGHT column below End-of-Day Review;
+    // Tablet Portrait places Charts of the Day in its own card below My Trades Today in the grid)
     // ========================================================================
     if (effectiveLayout === 'tablet') {
       return (
@@ -410,21 +546,33 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
               <FeelingsCard day={day} onUpdateAudit={onUpdateAudit} />
             </div>
 
-            {/* AREA 3: TRADES + CHARTS OF THE DAY */}
+            {/* AREA 3: MY TRADES TODAY (trades list and Total today bar get the freed space — §2) */}
             <div className="today-area-trades paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 h-full">
-              {tradesAndChartsColumnContent}
+              {tradesOnlyColumnContent}
             </div>
 
-            {/* AREA 4: REVIEW (End-of-Day Review + Lesson for Tomorrow, with SAVE TODAY pinned at bottom) */}
+            {/* TABLET PORTRAIT (< 1000px): CHARTS OF THE DAY as its own card below My Trades Today in the grid (§2) */}
+            {!isTabletLandscape && (
+              <div
+                data-testid="tablet-portrait-charts-panel"
+                className="today-area-charts paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 panel-scroll"
+              >
+                {chartsOfTheDayCardElement}
+              </div>
+            )}
+
+            {/* AREA 4: REVIEW (End-of-Day Review + [Tablet Landscape: Charts of the Day below End-of-Day Review] + Lesson for Tomorrow, with SAVE TODAY pinned at bottom) */}
             <div className="today-area-review paper-sheet p-2.5 sm:p-3 flex flex-col min-h-0 h-full gap-2">
-              <div className="flex-1 panel-scroll flex flex-col gap-2 min-h-0 pr-0.5">
+              <div className="flex-1 panel-scroll flex flex-col gap-2.5 min-h-0 pr-0.5">
                 <AuditForm
                   day={day}
                   settings={settings}
                   onUpdateAudit={onUpdateAudit}
                 />
 
-                <div className="flex-1 flex flex-col min-h-[76px] rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden">
+                {isTabletLandscape && chartsOfTheDayCardElement}
+
+                <div className="flex flex-col min-h-[76px] rounded-xl bg-[#FFFDF7] border-2 border-[#8B5E3C] overflow-hidden shrink-0">
                   <div className="px-3 py-1 bg-[#E8E0A9] border-b-2 border-[#8B5E3C] shrink-0">
                     <label
                       htmlFor="tablet-lesson-notepad"
@@ -464,20 +612,26 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
             </div>
           </div>
 
-          {chartViewerOverlay}
+          {modalsOverlay}
         </>
       );
     }
 
     // ========================================================================
     // DESKTOP LAYOUT (3-Column >= 1300px, 2-Column < 1300px)
+    // - 3-Column: Charts of the Day sits in the RIGHT column below End-of-Day Review (§2).
+    //   The right column is a scrollable panel only if its content is taller than the screen (no nested scroll).
+    //   In the middle column, the trades list and Total today bar get the freed space.
     // ========================================================================
     if (isWide3Col) {
       return (
         <>
           <div className="today-grid h-full">
             {/* LEFT COLUMN (30%): Date + Weekly row + 3 stat cards + Feelings + Lesson + Pinned SAVE TODAY */}
-            <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full gap-2.5 panel-scroll">
+            <div
+              data-testid="desktop-left-column"
+              className="paper-sheet p-3.5 flex flex-col min-h-0 h-full gap-2.5 panel-scroll"
+            >
               {topLeftStatsBlock}
               <FeelingsAndLessonSection
                 day={day}
@@ -486,13 +640,19 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
               />
             </div>
 
-            {/* MIDDLE COLUMN (40%): My Trades Today + Charts of the Day */}
-            <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full">
-              {tradesAndChartsColumnContent}
+            {/* MIDDLE COLUMN (40%): My Trades Today (trades list and Total today bar get the freed space — §2) */}
+            <div
+              data-testid="desktop-middle-column"
+              className="paper-sheet p-3.5 flex flex-col min-h-0 h-full"
+            >
+              {tradesOnlyColumnContent}
             </div>
 
-            {/* RIGHT COLUMN (30%): Before You Trade checklist + End-of-Day Review */}
-            <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full">
+            {/* RIGHT COLUMN (30%): Before You Trade checklist + End-of-Day Review + Charts of the Day (§2) */}
+            <div
+              data-testid="desktop-right-column"
+              className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full"
+            >
               <ChecklistCard
                 checklist={day.checklist}
                 onUpdate={onUpdateChecklist}
@@ -502,27 +662,24 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
                 settings={settings}
                 onUpdateAudit={onUpdateAudit}
               />
+              {chartsOfTheDayCardElement}
             </div>
           </div>
 
-          {chartViewerOverlay}
+          {modalsOverlay}
         </>
       );
     }
 
+    // Desktop narrower 2-column (< 1300px): Left column has overview/checklist/feelings; Right column has Trades + End-of-Day Review + Charts of the Day
     return (
       <>
         <div className="today-grid h-full">
-          <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3">
+          <div className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full">
             {topLeftStatsBlock}
             <ChecklistCard
               checklist={day.checklist}
               onUpdate={onUpdateChecklist}
-            />
-            <AuditForm
-              day={day}
-              settings={settings}
-              onUpdateAudit={onUpdateAudit}
             />
             <FeelingsAndLessonSection
               day={day}
@@ -531,12 +688,23 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
             />
           </div>
 
-          <div className="paper-sheet p-3.5 flex flex-col min-h-0 h-full">
-            {tradesAndChartsColumnContent}
+          <div
+            data-testid="desktop-right-column"
+            className="paper-sheet p-3.5 panel-scroll flex flex-col min-h-0 h-full gap-3"
+          >
+            <div className="flex flex-col min-h-[260px] flex-1">
+              {tradesOnlyColumnContent}
+            </div>
+            <AuditForm
+              day={day}
+              settings={settings}
+              onUpdateAudit={onUpdateAudit}
+            />
+            {chartsOfTheDayCardElement}
           </div>
         </div>
 
-        {chartViewerOverlay}
+        {modalsOverlay}
       </>
     );
   }
