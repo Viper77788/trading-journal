@@ -604,61 +604,77 @@ export const MistakeBarChart: React.FC<MistakeBarChartProps> = React.memo(
       );
     }
 
+    // §3: Show a label for EVERY bar (interval={0}), use a fixed row height of ~34px per bar
+    // with the chart height growing with the number of bars (and panel scrolling inside the card if needed),
+    // and widen the label area so names like "Moved Stop Loss" and "Revenge Trade" fit cleanly.
+    const chartHeightPx = Math.max(190, data.length * 34 + 28);
+
     return (
-      <div className="flex-1 w-full h-[190px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            layout="vertical"
-            data={data}
-            margin={{ top: 8, right: 24, left: 10, bottom: 8 }}
-          >
-            <CartesianGrid
-              strokeDasharray="4 4"
-              stroke="rgba(139, 94, 60, 0.25)"
-            />
-            <XAxis
-              type="number"
-              allowDecimals={false}
-              domain={[0, (dataMax: number) => Math.max(dataMax, 2)]}
-              stroke="#5C3D2E"
-              tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              width={118}
-              stroke="#5C3D2E"
-              tick={{ fill: '#5C3D2E', fontSize: 14, fontWeight: 700 }}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#FFFDF7',
-                borderColor: '#8B5E3C',
-                borderWidth: '2px',
-                borderRadius: '12px',
-                fontSize: '16px',
-                fontWeight: 700,
-                color: '#5C3D2E',
-              }}
-            />
-            <Bar
-              dataKey="count"
-              name="Times happened"
-              stroke="#8B5E3C"
-              strokeWidth={2}
-              radius={[0, 8, 8, 0]}
-              isAnimationActive={isAnimationActive}
-              animationDuration={400}
+      <div
+        data-testid="mistake-bar-chart-scroll-container"
+        className="flex-1 w-full max-h-[240px] panel-scroll pr-0.5"
+      >
+        <div
+          data-testid="mistake-bar-chart-inner"
+          style={{ height: `${chartHeightPx}px` }}
+          className="w-full"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              layout="vertical"
+              data={data}
+              margin={{ top: 6, right: 28, left: 6, bottom: 6 }}
             >
-              {data.map((entry) => (
-                <Cell
-                  key={entry.name}
-                  fill={entry.isMinor ? '#F7E2A0' : '#F5B8B0'}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              <CartesianGrid
+                strokeDasharray="4 4"
+                stroke="rgba(139, 94, 60, 0.25)"
+              />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                domain={[0, (dataMax: number) => Math.max(dataMax, 2)]}
+                stroke="#5C3D2E"
+                tick={{ fill: '#5C3D2E', fontSize: 13, fontWeight: 700 }}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                interval={0}
+                width={136}
+                stroke="#5C3D2E"
+                tick={{ fill: '#5C3D2E', fontSize: 13.5, fontWeight: 700 }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#FFFDF7',
+                  borderColor: '#8B5E3C',
+                  borderWidth: '2px',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#5C3D2E',
+                }}
+              />
+              <Bar
+                dataKey="count"
+                name="Times happened"
+                stroke="#8B5E3C"
+                strokeWidth={2}
+                barSize={20}
+                radius={[0, 8, 8, 0]}
+                isAnimationActive={isAnimationActive}
+                animationDuration={400}
+              >
+                {data.map((entry) => (
+                  <Cell
+                    key={entry.name}
+                    fill={entry.isMinor ? '#F7E2A0' : '#F5B8B0'}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     );
   }

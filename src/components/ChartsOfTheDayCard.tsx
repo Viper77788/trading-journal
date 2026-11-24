@@ -94,7 +94,7 @@ export const ChartsOfTheDayCard: React.FC<ChartsOfTheDayCardProps> = React.memo(
       <section
         aria-label="Charts of the day"
         data-testid="charts-of-the-day-card"
-        className="flex flex-col gap-2 shrink-0"
+        className="charts-of-day-card-container flex flex-col gap-2 shrink-0"
       >
         {/* Slim Pastel Heading Bar with Count Badge, "+ Add chart" Header Button, and Collapse / Expand Toggle (§1 & §2) */}
         <div className="px-3.5 py-1.5 rounded-xl bg-[#DCEEF2] border-2 border-[#8B5E3C] flex flex-wrap items-center justify-between gap-2 shrink-0">

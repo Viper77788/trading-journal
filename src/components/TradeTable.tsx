@@ -123,15 +123,18 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
     return (
       <div
         data-testid={`trade-card-${tradeIndex + 1}`}
-        className={`rounded-xl bg-[#FFFDF7] border-2 px-3.5 py-2.5 space-y-1.5 ${
+        className={`trade-row-card-container rounded-xl bg-[#FFFDF7] border-2 px-3.5 py-2.5 space-y-1.5 ${
           overLimit ? 'border-[#9B2C20]' : 'border-[#8B5E3C]'
         }`}
       >
-        {/* Line 1: Trade #, pair, session chip, money risked | Result badge + Edit/Delete icon buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
+        {/* Line 1: Trade #, pair, session chip, money risked | Result badge + Edit/Delete icon buttons (single row when card >= 560px — §1) */}
+        <div
+          data-testid={`trade-card-line1-${tradeIndex + 1}`}
+          className="trade-row-line1"
+        >
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
             <span
-              className={`px-2.5 py-0.5 rounded-lg border font-heading text-[16px] font-bold ${
+              className={`px-2 py-0.5 rounded-lg border font-heading text-[15px] sm:text-[16px] font-bold shrink-0 ${
                 overLimit
                   ? 'bg-[#F5B8B0] border-[#9B2C20] text-[#9B2C20]'
                   : 'bg-[#DCEEF2] border-[#8B5E3C] text-[#8B5E3C]'
@@ -139,30 +142,33 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
             >
               #{tradeIndex + 1}
             </span>
-            <span className="text-[18px] font-extrabold text-[#5C3D2E]">
+            <span className="text-[17px] sm:text-[18px] font-extrabold text-[#5C3D2E] shrink-0">
               {trade.asset}
             </span>
-            <span className="px-2.5 py-0.5 rounded-lg bg-[#F0DED4] border border-[#8B5E3C] text-[16px] font-bold text-[#5C3D2E]">
+            <span className="px-2 py-0.5 rounded-lg bg-[#F0DED4] border border-[#8B5E3C] text-[15px] sm:text-[16px] font-bold text-[#5C3D2E] shrink-0">
               {sessionName}
             </span>
-            <span className="text-[16px] font-semibold text-[#5C3D2E]">
+            <span className="text-[15px] sm:text-[16px] font-semibold text-[#5C3D2E] whitespace-nowrap">
               Risk: <strong>{formatCurrency(trade.riskAmount)}</strong> (
               {trade.riskPercent}%)
             </span>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div
+            data-testid={`trade-card-actions-${tradeIndex + 1}`}
+            className="flex items-center gap-1.5 sm:gap-2 shrink-0"
+          >
             <span
-              className={`px-3 py-1 rounded-xl border-2 border-[#8B5E3C] leading-none inline-flex items-baseline gap-1.5 ${
+              className={`px-2.5 py-1 rounded-xl border-2 border-[#8B5E3C] leading-none inline-flex items-baseline gap-1 whitespace-nowrap ${
                 isWin
                   ? 'bg-[#BFE3C0] text-[#2F6B3A]'
                   : 'bg-[#F5B8B0] text-[#9B2C20]'
               }`}
             >
-              <strong className="text-[18px] font-extrabold">
+              <strong className="text-[17px] sm:text-[18px] font-extrabold">
                 {formatCurrency(trade.outcome, true)}
               </strong>
-              <span className="text-[15px] font-bold opacity-90">
+              <span className="text-[14px] sm:text-[15px] font-bold opacity-90">
                 / {rString}
               </span>
             </span>
@@ -172,7 +178,7 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
               onClick={() => onEdit(trade, false)}
               aria-label="Edit trade"
               title="Edit trade"
-              className="no-print trade-icon-btn rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer"
+              className="no-print trade-icon-btn rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#5C3D2E] flex items-center justify-center cursor-pointer shrink-0"
             >
               <Edit3 className="w-4 h-4" />
             </button>
@@ -181,7 +187,7 @@ const TradeRowCard: React.FC<TradeRowCardProps> = React.memo(
               onClick={() => onToggleConfirmDelete(trade.id)}
               aria-label="Delete trade"
               title="Delete trade"
-              className="no-print trade-icon-btn rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#9B2C20] flex items-center justify-center cursor-pointer"
+              className="no-print trade-icon-btn rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] text-[#9B2C20] flex items-center justify-center cursor-pointer shrink-0"
             >
               <Trash2 className="w-4 h-4" />
             </button>

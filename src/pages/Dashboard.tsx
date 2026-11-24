@@ -142,7 +142,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(
                 </div>
               </div>
 
-              {/* 3. Rule Breaks */}
+              {/* 3. Rule Breaks (§3: show number of rule-broken DAYS as big number, sub-label "days with a rule break", and second small line "N violations in total") */}
               <div className="px-3 py-2 rounded-xl bg-[#F8D0CC] border-2 border-[#8B5E3C] flex flex-col justify-between">
                 <div className="text-[15px] font-bold text-[#9B2C20]">
                   Rule Breaks
@@ -152,12 +152,28 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(
                   className="text-[22px] font-extrabold text-[#9B2C20] leading-tight mt-0.5"
                 >
                   <AnimatedNumber
-                    value={analytics.totalRuleViolations}
+                    value={analytics.ruleBrokenDaysCount}
                     formatter={(v) => Math.round(v).toString()}
                   />
                 </div>
-                <div className="text-[14px] font-bold text-[#9B2C20] mt-0.5">
-                  Major violations
+                <div className="mt-0.5 space-y-0.5">
+                  <div
+                    data-testid="stat-rule-breaks-sublabel"
+                    className="text-[13px] font-bold text-[#9B2C20] leading-tight"
+                  >
+                    {analytics.ruleBrokenDaysCount === 1
+                      ? 'day with a rule break'
+                      : 'days with a rule break'}
+                  </div>
+                  <div
+                    data-testid="stat-rule-breaks-total-violations"
+                    className="text-[11.5px] font-extrabold text-[#9B2C20]/85 leading-tight"
+                  >
+                    {analytics.totalRuleViolations}{' '}
+                    {analytics.totalRuleViolations === 1
+                      ? 'violation in total'
+                      : 'violations in total'}
+                  </div>
                 </div>
               </div>
 
@@ -240,15 +256,8 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(
               </div>
             </div>
 
-            {/* §6: NEW: CLEAN vs RULE-BROKEN TRADES P&L ("RULES vs RESULTS") */}
-            <RulesVsResultsCard
-              daysMap={daysMap}
-              settings={settings}
-              onSelectDate={onSelectDayToEdit}
-            />
-
             {/* 2-Column Charts Grid */}
-            <div className="history-charts-grid flex-1 min-h-0">
+            <div className="history-charts-grid shrink-0">
               {/* 1. Profit Over Time */}
               <section className="chart-card flex flex-col min-h-[210px] rounded-xl bg-[#FFFBF2] border-2 border-[#8B5E3C] overflow-hidden">
                 <div className="px-3.5 py-1.5 bg-[#BFE3C0] border-b-2 border-[#8B5E3C] shrink-0">
@@ -310,6 +319,13 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(
                 </div>
               </section>
             </div>
+
+            {/* §2: RULES vs RESULTS moved to the bottom of the right panel, below the charts, collapsed by default */}
+            <RulesVsResultsCard
+              daysMap={daysMap}
+              settings={settings}
+              onSelectDate={onSelectDayToEdit}
+            />
           </div>
         </div>
 

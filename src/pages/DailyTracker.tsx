@@ -635,7 +635,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
       return (
         <>
           <div className="today-grid h-full">
-            {/* LEFT COLUMN (28%): Date + Weekly row + 3 stat cards + Feelings + Lesson + Pinned SAVE TODAY */}
+            {/* LEFT COLUMN (27%): Date + Weekly row + 3 stat cards + Feelings + Lesson + Pinned SAVE TODAY */}
             <div
               data-testid="desktop-left-column"
               className="paper-sheet p-3.5 flex flex-col min-h-0 h-full gap-2.5 panel-scroll"
@@ -648,7 +648,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
               />
             </div>
 
-            {/* MIDDLE COLUMN (34%): My Trades Today (trades list and Total today bar get the freed space — §2) */}
+            {/* MIDDLE COLUMN (38%): My Trades Today (trades list and Total today bar get the freed space — §1 & §2) */}
             <div
               data-testid="desktop-middle-column"
               className="paper-sheet p-3.5 flex flex-col min-h-0 h-full"
@@ -656,7 +656,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
               {tradesOnlyColumnContent}
             </div>
 
-            {/* RIGHT COLUMN (38%): Before You Trade checklist + End-of-Day Review + Charts of the Day (2 thumbnails per row — §2 & §3) */}
+            {/* RIGHT COLUMN (35%): Before You Trade checklist + End-of-Day Review + Charts of the Day (2 thumbnails per row — §1, §2 & §3) */}
             <div
               data-testid="desktop-right-column"
               className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full"

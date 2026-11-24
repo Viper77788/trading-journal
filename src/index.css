@@ -284,24 +284,83 @@ button:active:not(:disabled),
 
 @media (min-width: 1300px) {
   .today-grid {
-    grid-template-columns: 27fr 33fr 40fr;
+    grid-template-columns: minmax(0, 27fr) minmax(0, 38fr) minmax(0, 35fr);
     height: 100%;
     min-height: 0;
   }
 }
 
 /* ==========================================================================
+   TRADE ROW CARD CONTAINER QUERY (§1: keep result badge & icons on same row >= 560px)
+   ========================================================================== */
+.trade-row-card-container {
+  container-type: inline-size;
+}
+
+.trade-row-line1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@container (min-width: 560px) {
+  .trade-row-line1 {
+    flex-wrap: nowrap;
+  }
+}
+
+/* ==========================================================================
    CHARTS OF THE DAY THUMBNAILS GRID & HIGHLIGHT ANIMATION (§1, §2 & §3)
    ========================================================================== */
+.charts-of-day-card-container {
+  container-type: inline-size;
+}
+
 .charts-of-day-thumbs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(260px, calc(50% - 6px)), 1fr));
   gap: 10px;
 }
 
-@media (max-width: 480px) {
+@container (max-width: 519.98px) {
   .charts-of-day-thumbs-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 519.98px) {
+  .charts-of-day-thumbs-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ==========================================================================
+   COLLAPSIBLE RULES VS RESULTS 0fr -> 1fr TRANSITION (§2)
+   ========================================================================== */
+.collapsible-grid-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 180ms ease-out,
+    opacity 180ms ease-out;
+}
+
+.collapsible-grid-wrapper[data-expanded='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.collapsible-grid-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-grid-wrapper {
+    transition: none;
   }
 }
 
