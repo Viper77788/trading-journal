@@ -236,8 +236,11 @@ export const ChartThumbnailCard: React.FC<ChartThumbnailCardProps> = React.memo(
           </span>
         </div>
 
-        {/* Bottom Label Strip: Entry / Result tag + label under the image (§2) */}
-        <div className="w-full px-2 py-1 bg-[#FFFDF7] border-t border-[#8B5E3C]/50 flex items-center justify-between gap-1.5">
+        {/* Bottom Label Strip: Entry / Result tag + label under the image on one line with ellipsis and full label as tooltip (§3) */}
+        <div
+          title={displayLabel}
+          className="w-full px-2 py-1 bg-[#FFFDF7] border-t border-[#8B5E3C]/50 flex items-center justify-between gap-1.5"
+        >
           <span
             className={`px-1.5 py-0.5 rounded-md border border-[#8B5E3C] text-[11px] font-extrabold shrink-0 ${
               chart.slot === 'entry'
@@ -247,7 +250,10 @@ export const ChartThumbnailCard: React.FC<ChartThumbnailCardProps> = React.memo(
           >
             {slotTitle}
           </span>
-          <span className="text-[12px] sm:text-[13px] font-extrabold text-[#5C3D2E] truncate flex-1 text-right">
+          <span
+            title={trimmedLabel || `${slotTitle} chart`}
+            className="text-[12px] sm:text-[13px] font-extrabold text-[#5C3D2E] truncate flex-1 text-right"
+          >
             {trimmedLabel || `${slotTitle} chart`}
           </span>
         </div>

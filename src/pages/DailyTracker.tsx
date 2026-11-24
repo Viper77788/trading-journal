@@ -21,6 +21,7 @@ import {
   calculateDayTotals,
   evaluateDayDiscipline,
   DayDisciplineStatus,
+  getLatestEarlierLesson,
 } from '../utils/calculations';
 import {
   formatReadableDate,
@@ -223,6 +224,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
     const todayIso = getTodayDateISO();
     const dayEval = evaluateDayDiscipline(day, settings);
     const { totalPnl, totalR } = calculateDayTotals(day);
+    const latestEarlierLesson = getLatestEarlierLesson(daysMap, selectedDate);
 
     const weekDays = getWeekDatesMondayToSunday(selectedDate);
 
@@ -436,6 +438,8 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
         {/* 3 Stat Cards */}
         <DisciplineGauge
           score={dayEval.score}
+          breakdown={dayEval.breakdown}
+          effectiveLayout={effectiveLayout}
           dailyPnl={totalPnl}
           tradesCount={day.trades.length}
           maxTrades={dayEval.maxTradesLimit}
@@ -541,6 +545,10 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
             <div className="today-area-prep paper-sheet p-2.5 sm:p-3 flex flex-col gap-2 min-h-0 panel-scroll">
               <ChecklistCard
                 checklist={day.checklist}
+                tradesCount={day.trades.length}
+                selectedDate={selectedDate}
+                latestEarlierLesson={latestEarlierLesson}
+                onSelectDate={onSelectDate}
                 onUpdate={onUpdateChecklist}
               />
               <FeelingsCard day={day} onUpdateAudit={onUpdateAudit} />
@@ -627,7 +635,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
       return (
         <>
           <div className="today-grid h-full">
-            {/* LEFT COLUMN (30%): Date + Weekly row + 3 stat cards + Feelings + Lesson + Pinned SAVE TODAY */}
+            {/* LEFT COLUMN (28%): Date + Weekly row + 3 stat cards + Feelings + Lesson + Pinned SAVE TODAY */}
             <div
               data-testid="desktop-left-column"
               className="paper-sheet p-3.5 flex flex-col min-h-0 h-full gap-2.5 panel-scroll"
@@ -640,7 +648,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
               />
             </div>
 
-            {/* MIDDLE COLUMN (40%): My Trades Today (trades list and Total today bar get the freed space — §2) */}
+            {/* MIDDLE COLUMN (34%): My Trades Today (trades list and Total today bar get the freed space — §2) */}
             <div
               data-testid="desktop-middle-column"
               className="paper-sheet p-3.5 flex flex-col min-h-0 h-full"
@@ -648,13 +656,17 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
               {tradesOnlyColumnContent}
             </div>
 
-            {/* RIGHT COLUMN (30%): Before You Trade checklist + End-of-Day Review + Charts of the Day (§2) */}
+            {/* RIGHT COLUMN (38%): Before You Trade checklist + End-of-Day Review + Charts of the Day (2 thumbnails per row — §2 & §3) */}
             <div
               data-testid="desktop-right-column"
               className="paper-sheet p-3.5 panel-scroll flex flex-col gap-3 min-h-0 h-full"
             >
               <ChecklistCard
                 checklist={day.checklist}
+                tradesCount={day.trades.length}
+                selectedDate={selectedDate}
+                latestEarlierLesson={latestEarlierLesson}
+                onSelectDate={onSelectDate}
                 onUpdate={onUpdateChecklist}
               />
               <AuditForm
@@ -679,6 +691,10 @@ export const DailyTracker: React.FC<DailyTrackerProps> = React.memo(
             {topLeftStatsBlock}
             <ChecklistCard
               checklist={day.checklist}
+              tradesCount={day.trades.length}
+              selectedDate={selectedDate}
+              latestEarlierLesson={latestEarlierLesson}
+              onSelectDate={onSelectDate}
               onUpdate={onUpdateChecklist}
             />
             <FeelingsAndLessonSection

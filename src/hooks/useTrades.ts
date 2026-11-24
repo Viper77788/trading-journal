@@ -349,15 +349,66 @@ export function useTrades(
         };
 
         const loadedDays: Record<string, DayRecord> = {};
+        const cleanedDatesToPersist: string[] = [];
+
         for (const row of daysRes.data || []) {
           if (row.date && row.data) {
-            loadedDays[row.date] = row.data as DayRecord;
+            const rawDay = row.data as DayRecord;
+            const dayLimit =
+              typeof rawDay.maxTradesSnapshot === 'number' &&
+              rawDay.maxTradesSnapshot >= 1 &&
+              (rawDay.trades?.length ?? 0) > 0
+                ? rawDay.maxTradesSnapshot
+                : loadedSettings.maxTradesPerDay;
+
+            // §1 One-time cleanup: strip any manually stored "Over Trading" tag from trades that are within the limit.
+            // Do not touch trades above the limit (they get it automatically).
+            let modified = false;
+            const cleanedTrades = (rawDay.trades || []).map((t, idx) => {
+              const isWithinLimit = idx + 1 <= dayLimit;
+              if (
+                isWithinLimit &&
+                Array.isArray(t.mistakes) &&
+                t.mistakes.includes('Over Trading')
+              ) {
+                modified = true;
+                const withoutOverTrading = t.mistakes.filter(
+                  (m) => m !== 'Over Trading'
+                );
+                return {
+                  ...t,
+                  mistakes:
+                    withoutOverTrading.length > 0
+                      ? withoutOverTrading
+                      : (['None'] as TradeEntry['mistakes']),
+                };
+              }
+              return t;
+            });
+
+            if (modified) {
+              loadedDays[row.date] = {
+                ...rawDay,
+                trades: cleanedTrades,
+                updatedAt: new Date().toISOString(),
+              };
+              cleanedDatesToPersist.push(row.date);
+            } else {
+              loadedDays[row.date] = rawDay;
+            }
           }
         }
 
+        daysMapRef.current = loadedDays;
+        settingsRef.current = loadedSettings;
         setSettings(loadedSettings);
         setDaysMap(loadedDays);
         setSyncStatus('saved');
+
+        if (cleanedDatesToPersist.length > 0) {
+          cleanedDatesToPersist.forEach((d) => dirtyDaysRef.current.add(d));
+          void flushToSupabase();
+        }
 
         // Check for one-time migration from localStorage if cloud tables are empty
         const cloudIsEmpty =
@@ -547,6 +598,10 @@ export function useTrades(
           ? Math.round(((riskAmt / settings.accountSize) * 100) * 100) / 100
           : settings.maxRiskPercent;
 
+      const sanitizedMistakes = (customPayload?.mistakes || ['None']).filter(
+        (m) => m !== 'Over Trading'
+      );
+
       const newTrade: TradeEntry = {
         id:
           customPayload?.id ||
@@ -559,7 +614,8 @@ export function useTrades(
         setupQuality: customPayload?.setupQuality ?? 4,
         disciplineScore: customPayload?.disciplineScore ?? 5,
         outcome: customPayload?.outcome ?? 0,
-        mistakes: customPayload?.mistakes || ['None'],
+        mistakes:
+          sanitizedMistakes.length > 0 ? sanitizedMistakes : ['None'],
         notes: customPayload?.notes || '',
         charts: customPayload?.charts || [],
         reviewNote: customPayload?.reviewNote || '',
@@ -576,12 +632,23 @@ export function useTrades(
           existing.trades.length === 0 || existing.maxTradesSnapshot === undefined
             ? settings.maxTradesPerDay
             : existing.maxTradesSnapshot;
+        const currentChecksCount = [
+          existing.checklist?.checkedEconomicCalendar,
+          existing.checklist?.confirmedAllowedWindows,
+          existing.checklist?.mentalStateCalm,
+        ].filter(Boolean).length;
+        const checklistSnapshot =
+          existing.trades.length === 0 ||
+          existing.checklistSnapshotAtFirstTrade === undefined
+            ? currentChecksCount
+            : existing.checklistSnapshotAtFirstTrade;
 
         const nextMap = {
           ...prev,
           [dateIso]: {
             ...existing,
             maxTradesSnapshot: snapshot,
+            checklistSnapshotAtFirstTrade: checklistSnapshot,
             trades: [...existing.trades, nextTradeWithNum],
             updatedAt: new Date().toISOString(),
           },
@@ -604,7 +671,21 @@ export function useTrades(
         const current = prev[dateIso] || createEmptyDay(dateIso);
         const nextTrades = current.trades.map((t) => {
           if (t.id !== tradeId) return t;
-          const updated = { ...t, ...patch };
+          const sanitizedPatch =
+            patch.mistakes !== undefined
+              ? {
+                  ...patch,
+                  mistakes: (() => {
+                    const filtered = patch.mistakes.filter(
+                      (m) => m !== 'Over Trading'
+                    );
+                    return filtered.length > 0
+                      ? filtered
+                      : (['None'] as TradeEntry['mistakes']);
+                  })(),
+                }
+              : patch;
+          const updated = { ...t, ...sanitizedPatch };
 
           if (
             patch.riskPercent !== undefined &&

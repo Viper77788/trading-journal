@@ -13,6 +13,7 @@ import {
   EmotionDonutChart,
   WinLossChart,
 } from '../components/Charts';
+import { RulesVsResultsCard } from '../components/RulesVsResultsCard';
 
 const LazyChartViewerModal = React.lazy(
   () => import('../components/ChartViewerModal')
@@ -195,7 +196,26 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(
                 </div>
               </div>
 
-              {/* 6. Current Streak */}
+              {/* 6. Trades without full checks (§2c) */}
+              <div className="px-3 py-2 rounded-xl bg-[#E8E0A9] border-2 border-[#8B5E3C] flex flex-col justify-between">
+                <div className="text-[14.5px] font-bold text-[#8B5E3C] leading-tight">
+                  Trades without full checks
+                </div>
+                <div
+                  data-testid="stat-trades-without-full-checks"
+                  className="text-[22px] font-extrabold text-[#5C3D2E] leading-tight mt-0.5"
+                >
+                  <AnimatedNumber
+                    value={analytics.tradesWithoutFullChecksCount}
+                    formatter={(v) => Math.round(v).toString()}
+                  />
+                </div>
+                <div className="text-[13.5px] font-bold text-[#5C3D2E] mt-0.5">
+                  Fewer than 3/3 checks
+                </div>
+              </div>
+
+              {/* 7. Current Streak */}
               <div className="px-3 py-2 rounded-xl bg-[#F2D29B] border-2 border-[#8B5E3C] flex flex-col justify-between">
                 <div className="text-[15px] font-bold text-[#8B5E3C]">
                   Current Streak
@@ -219,6 +239,13 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(
                 </div>
               </div>
             </div>
+
+            {/* §6: NEW: CLEAN vs RULE-BROKEN TRADES P&L ("RULES vs RESULTS") */}
+            <RulesVsResultsCard
+              daysMap={daysMap}
+              settings={settings}
+              onSelectDate={onSelectDayToEdit}
+            />
 
             {/* 2-Column Charts Grid */}
             <div className="history-charts-grid flex-1 min-h-0">

@@ -1,9 +1,18 @@
 import { DayRecord } from '../types/day';
 import { AccountSettings } from '../types/settings';
 import { TradeEntry, MistakeTag } from '../types/trade';
+import { getTodayDateISO, shiftDateISO } from './formatters';
 
 export const MAJOR_MISTAKE_TAGS: MistakeTag[] = [
   'Over Trading',
+  'Broke Rules',
+  'Revenge Trade',
+  'FOMO',
+  'Moved Stop Loss',
+  'Overleveraged',
+];
+
+export const MANUAL_MAJOR_MISTAKE_TAGS: MistakeTag[] = [
   'Broke Rules',
   'Revenge Trade',
   'FOMO',
@@ -63,7 +72,7 @@ export function getDayMaxTradesLimit(
 
 /**
  * Trade number N (1-based, i.e. tradeIndexZeroBased + 1) counts as an over-trade
- * when N is greater than the day's max trades limit.
+ * when N is greater than the day's max trades limit (§1: derived only).
  */
 export function isTradeOverLimit(
   tradeIndexZeroBased: number,
@@ -92,8 +101,9 @@ export function getOverTradingPenalty(extraTradesCount: number): number {
 }
 
 /**
- * Returns the effective mistake tags for a trade at `tradeIndexZeroBased`.
- * Automatically includes 'Over Trading' when the trade exceeds the daily limit.
+ * Returns the effective mistake tags for a trade at `tradeIndexZeroBased` (§1):
+ * - "Over Trading" is AUTOMATIC ONLY (derived from trade order > maxTradesLimit, never read from stored `trade.mistakes`).
+ * - Trades #1 to #maxLimit can never have "Over Trading".
  */
 export function getEffectiveTradeMistakes(
   trade: TradeEntry,
@@ -102,10 +112,11 @@ export function getEffectiveTradeMistakes(
   settings: AccountSettings
 ): MistakeTag[] {
   const userTags = (trade.mistakes || []).filter(
-    (m): m is MistakeTag => Boolean(m) && m !== 'None'
+    (m): m is MistakeTag =>
+      Boolean(m) && m !== 'None' && m !== 'Over Trading'
   );
   const overLimit = isTradeOverLimit(tradeIndexZeroBased, day, settings);
-  if (overLimit && !userTags.includes('Over Trading')) {
+  if (overLimit) {
     return ['Over Trading', ...userTags];
   }
   return userTags;
@@ -123,11 +134,7 @@ export function getAutoSuggestedAudit(
 ): AutoSuggestedAudit {
   const trades = day.trades || [];
   const maxLimit = getDayMaxTradesLimit(day, settings);
-  const hasManualOverTradeTag = trades.some((t) =>
-    (t.mistakes || []).includes('Over Trading')
-  );
-  const stuckToMaxTrades =
-    trades.length <= maxLimit && !hasManualOverTradeTag;
+  const stuckToMaxTrades = trades.length <= maxLimit;
   const respectedRiskCap = trades.every(
     (t) => !isTradeRiskViolated(t, settings)
   );
@@ -192,9 +199,32 @@ export function isDayEmpty(day: DayRecord | undefined): boolean {
 
 export type DayDisciplineStatus = 'green' | 'yellow' | 'red' | 'empty';
 
+/**
+ * §4: SCORE BREAKDOWN (tap to open)
+ * The shared discipline score function returns a breakdown:
+ * { total, rawTotal, base, items: [{ key, label, points, count, detail }] }
+ * where `rawTotal` always equals `base` plus the sum of `items[i].points`,
+ * and `total` is `Math.max(0, Math.min(100, rawTotal))`.
+ */
+export interface DisciplineScoreBreakdownItem {
+  key: string;
+  label: string;
+  points: number; // <= 0 (e.g. -20, -5, 0)
+  count: number;
+  detail: string;
+}
+
+export interface DisciplineScoreBreakdown {
+  total: number; // Clamped [0, 100]
+  rawTotal: number; // Unclamped base + sum(items.points)
+  base: number; // 100 on trade days
+  items: DisciplineScoreBreakdownItem[];
+}
+
 export interface DayDisciplineEvaluation {
   status: DayDisciplineStatus;
   score: number;
+  breakdown: DisciplineScoreBreakdown;
   ruleBreaksCount: number;
   smallMistakesCount: number;
   overTradesCount: number;
@@ -206,16 +236,11 @@ export interface DayDisciplineEvaluation {
 }
 
 /**
- * SINGLE SHARED SOURCE OF TRUTH FOR DISCIPLINE & OVER-TRADING RULES:
- * - Over-trading: Trade N > maxTradesLimit is an over-trade.
- *   First over-trade subtracts 20 points; each additional over-trade subtracts 10 more points (floor 0).
- *   Shows reason under score on TODAY (e.g. "-20: 1 extra trade", "-30: 2 extra trades").
- *   Any over-trade makes the day "Rule broken" (red X), resets the streak, counts in Rule Breaks,
- *   and appears in Most Common Mistakes as "Over Trading".
- * - Other major mistakes (Broke Rules, Revenge Trade, FOMO, Moved Stop Loss, Overleveraged, manual Over Trading),
- *   a "No" answer in the review, or a broken risk cap also make the day "Rule broken" (red) and lower score by 25 pts.
- * - Minor mistakes (Early Exit, Late Entry) make the day "Almost" (yellow), take 5 points off per tag,
- *   and do NOT reset the streak.
+ * SINGLE SHARED SOURCE OF TRUTH FOR DISCIPLINE, SCORE BREAKDOWN & OVER-TRADING RULES (§1 & §4):
+ * - Over-trading is derived only: Trade N > maxTradesLimit is an over-trade.
+ *   First over-trade subtracts 20 points; each additional over-trade subtracts 10 more points.
+ * - Every rule and cap is represented explicitly in `breakdown.items` so `base + sum(items.points) === rawTotal`,
+ *   and `total === Math.max(0, Math.min(100, rawTotal))`.
  */
 export function evaluateDayDiscipline(
   day: DayRecord | undefined,
@@ -227,6 +252,12 @@ export function evaluateDayDiscipline(
     return {
       status: 'empty',
       score: 0,
+      breakdown: {
+        total: 0,
+        rawTotal: 0,
+        base: 0,
+        items: [],
+      },
       ruleBreaksCount: 0,
       smallMistakesCount: 0,
       overTradesCount: 0,
@@ -258,8 +289,35 @@ export function evaluateDayDiscipline(
         }`
       : null;
 
-  let otherMajorViolationsCount = 0;
+  // Count distinct major violations and minor mistakes across trades and review answers
+  let majorMistakeTagsCount = 0;
   let smallMistakesCount = 0;
+  let riskCapBrokenTradesCount = 0;
+  let outsideSessionTradesCount = 0;
+
+  trades.forEach((t) => {
+    if (isTradeRiskViolated(t, settings)) {
+      riskCapBrokenTradesCount += 1;
+    }
+    if (t.session === 'Outside') {
+      outsideSessionTradesCount += 1;
+    }
+    const cleanManualTags = (t.mistakes || []).filter(
+      (m): m is MistakeTag =>
+        Boolean(m) && m !== 'None' && m !== 'Over Trading'
+    );
+    for (const m of cleanManualTags) {
+      if (isMajorMistake(m)) {
+        majorMistakeTagsCount += 1;
+      } else if (isMinorMistake(m)) {
+        smallMistakesCount += 1;
+      }
+    }
+  });
+
+  // Review answers marked No (count total No answers for display, and count extra major violations not already covered by trades)
+  let reviewAnswersNoDisplayCount = 0;
+  let extraReviewNoMajorViolations = 0;
 
   const hasExplicitOrTradeAudit =
     hasTrades ||
@@ -268,65 +326,84 @@ export function evaluateDayDiscipline(
     day.audit.executedInAllowedWindows !== null;
 
   if (hasExplicitOrTradeAudit) {
-    if (!effectiveAudit.stuckToMaxTrades && overTradesCount === 0) {
-      const anyManualOverTradeTag = trades.some((t) =>
-        (t.mistakes || []).includes('Over Trading')
-      );
-      if (!anyManualOverTradeTag) {
-        otherMajorViolationsCount += 1;
+    if (!effectiveAudit.stuckToMaxTrades) {
+      reviewAnswersNoDisplayCount += 1;
+      if (overTradesCount === 0) {
+        extraReviewNoMajorViolations += 1;
       }
     }
     if (!effectiveAudit.respectedRiskCap) {
-      const anyRiskViolated = trades.some((t) =>
-        isTradeRiskViolated(t, settings)
-      );
-      if (!anyRiskViolated) otherMajorViolationsCount += 1;
+      reviewAnswersNoDisplayCount += 1;
+      if (riskCapBrokenTradesCount === 0) {
+        extraReviewNoMajorViolations += 1;
+      }
     }
     if (!effectiveAudit.executedInAllowedWindows) {
-      otherMajorViolationsCount += 1;
+      reviewAnswersNoDisplayCount += 1;
+      if (outsideSessionTradesCount === 0) {
+        extraReviewNoMajorViolations += 1;
+      }
     }
   }
 
-  trades.forEach((t, idx) => {
-    const isExtraTrade = idx + 1 > maxTradesLimit;
-    if (isTradeRiskViolated(t, settings)) {
-      otherMajorViolationsCount += 1;
-    }
-    for (const m of t.mistakes || []) {
-      if (m === 'Over Trading') {
-        // If trade is within the numeric limit but user manually tagged Over Trading, count as a major rule break
-        if (!isExtraTrade) {
-          otherMajorViolationsCount += 1;
-        }
-      } else if (isMajorMistake(m)) {
-        otherMajorViolationsCount += 1;
-      } else if (isMinorMistake(m)) {
-        smallMistakesCount += 1;
-      }
-    }
-  });
+  const otherMajorViolationsCount =
+    majorMistakeTagsCount +
+    riskCapBrokenTradesCount +
+    outsideSessionTradesCount +
+    extraReviewNoMajorViolations;
 
   const ruleBreaksCount = overTradesCount + otherMajorViolationsCount;
 
+  // Non-trade day with checklist/audit activity
   if (!hasTrades) {
-    let rawNoTradeScore = Math.round((checklistCount / 3) * 100);
+    let baseNoTrade = Math.round((checklistCount / 3) * 100);
     if (
       checklistCount === 0 &&
       (day.audit.stuckToMaxTrades === true ||
         day.audit.respectedRiskCap === true ||
         day.audit.executedInAllowedWindows === true)
     ) {
-      rawNoTradeScore = 85;
+      baseNoTrade = 85;
+    } else if (checklistCount === 0 && ruleBreaksCount > 0) {
+      baseNoTrade = 100;
     }
-    if (ruleBreaksCount > 0) {
-      rawNoTradeScore = Math.max(
-        0,
-        Math.min(75, (rawNoTradeScore || 100) - ruleBreaksCount * 25)
-      );
-    }
+
+    const reviewDeduction =
+      ruleBreaksCount > 0
+        ? -(baseNoTrade - Math.min(75, baseNoTrade - ruleBreaksCount * 25))
+        : 0;
+    const rawNoTrade = baseNoTrade + reviewDeduction;
+    const clampedNoTrade = Math.max(0, Math.min(100, rawNoTrade));
+
+    const noTradeItems: DisciplineScoreBreakdownItem[] = [
+      {
+        key: 'checklist',
+        label: `Checklist done: ${checklistCount} of 3`,
+        points: 0,
+        count: checklistCount,
+        detail: `${checklistCount} of 3 pre-trade checks completed (no trades taken)`,
+      },
+      {
+        key: 'review_no',
+        label: `Review answers marked No: ${reviewAnswersNoDisplayCount}`,
+        points: reviewDeduction,
+        count: reviewAnswersNoDisplayCount,
+        detail:
+          reviewAnswersNoDisplayCount > 0
+            ? `${reviewAnswersNoDisplayCount} end-of-day review answer(s) marked No`
+            : 'All review answers respected',
+      },
+    ].sort((a, b) => a.points - b.points);
+
     return {
       status: ruleBreaksCount > 0 ? 'red' : 'empty',
-      score: rawNoTradeScore,
+      score: clampedNoTrade,
+      breakdown: {
+        total: clampedNoTrade,
+        rawTotal: rawNoTrade,
+        base: baseNoTrade,
+        items: noTradeItems,
+      },
       ruleBreaksCount,
       smallMistakesCount,
       overTradesCount,
@@ -338,33 +415,145 @@ export function evaluateDayDiscipline(
     };
   }
 
-  // Base score starts from 100 and deducts for unchecked pre-trade items and star ratings
-  const uncheckedChecklistPenalty = (3 - checklistCount) * 5; // up to 15 pts
+  // Trade day scoring rules (exact match to existing rules, decomposed into additive items from base = 100)
+  const base = 100;
+  const uncheckedChecklistCount = 3 - checklistCount;
+  const checklistPoints = -(uncheckedChecklistCount * 5); // 0 to -15
+
   const avgDisciplineStars =
     trades.reduce((sum, t) => sum + (t.disciplineScore || 5), 0) /
     trades.length;
-  const starDeduction = Math.round(((5 - avgDisciplineStars) / 4) * 15); // 0 to 15 pts
+  const starDeductionAbs = Math.round(((5 - avgDisciplineStars) / 4) * 15);
+  const starPoints = -starDeductionAbs;
 
-  let score = 100 - uncheckedChecklistPenalty - starDeduction;
+  let runningScore = base + checklistPoints + starPoints;
 
-  // Minor mistakes: take 5 points off per tagged minor mistake
+  // Minor mistakes: -5 per tag (plus any cap to 95 - smallMistakesCount * 5 if checklist/stars were 0)
+  let minorMistakePoints = 0;
   if (smallMistakesCount > 0) {
-    score -= smallMistakesCount * 5;
-    score = Math.min(score, 95 - smallMistakesCount * 5);
+    const afterMinor = Math.min(
+      runningScore - smallMistakesCount * 5,
+      95 - smallMistakesCount * 5
+    );
+    minorMistakePoints = afterMinor - runningScore;
+    runningScore = afterMinor;
   }
 
-  // Other major rule breaks: subtract 25 points per major violation
+  // Other major violations: -25 per major violation (and score capped at <= 75 before over-trading penalty)
+  const majorMistakesPoints = -(majorMistakeTagsCount * 25);
+  const riskCapPoints = -(riskCapBrokenTradesCount * 25);
+  const outsideSessionPoints = -(outsideSessionTradesCount * 25);
+  let reviewNoPoints = -(extraReviewNoMajorViolations * 25);
+
   if (otherMajorViolationsCount > 0) {
-    score -= Math.max(25, otherMajorViolationsCount * 25);
-    score = Math.min(score, 75);
+    const rawAfterMajor =
+      runningScore +
+      majorMistakesPoints +
+      riskCapPoints +
+      outsideSessionPoints +
+      reviewNoPoints;
+    const cappedAfterMajor = Math.min(rawAfterMajor, 75);
+    const capDiff = cappedAfterMajor - rawAfterMajor; // <= 0
+    if (capDiff < 0) {
+      // Fold any 75-cap difference into the active major violation item so base + sum(items) === rawTotal
+      reviewNoPoints += capDiff;
+    }
+    runningScore = cappedAfterMajor;
   }
 
-  // Over-trading penalty: subtract 20 points for first over-trade and 10 more for each additional one
-  if (overTradingPenalty > 0) {
-    score -= overTradingPenalty;
+  const overTradingPoints = -overTradingPenalty;
+  runningScore += overTradingPoints;
+
+  const rawTotal = Math.round(runningScore);
+  const total = Math.max(0, Math.min(100, rawTotal));
+
+  const items: DisciplineScoreBreakdownItem[] = [
+    {
+      key: 'checklist',
+      label: `Checklist done: ${checklistCount} of 3`,
+      points: checklistPoints,
+      count: uncheckedChecklistCount,
+      detail:
+        uncheckedChecklistCount === 0
+          ? 'All 3 pre-trade checks ticked'
+          : `${uncheckedChecklistCount} unchecked pre-trade item${uncheckedChecklistCount === 1 ? '' : 's'} (-5 each)`,
+    },
+    {
+      key: 'over_trading',
+      label: `Over-trading: ${overTradesCount} extra ${overTradesCount === 1 ? 'trade' : 'trades'}`,
+      points: overTradingPoints,
+      count: overTradesCount,
+      detail:
+        overTradesCount === 0
+          ? `Stayed within ${maxTradesLimit}-trade daily limit`
+          : `-20 for 1st extra trade, -10 for each additional`,
+    },
+    {
+      key: 'major_mistakes',
+      label: `Major mistakes: ${majorMistakeTagsCount} ${majorMistakeTagsCount === 1 ? 'tag' : 'tags'}`,
+      points: majorMistakesPoints,
+      count: majorMistakeTagsCount,
+      detail:
+        majorMistakeTagsCount === 0
+          ? 'No major mistake tags logged'
+          : '-25 pts per major mistake tag',
+    },
+    {
+      key: 'minor_mistakes',
+      label: `Minor mistakes: ${smallMistakesCount} ${smallMistakesCount === 1 ? 'tag' : 'tags'}`,
+      points: minorMistakePoints,
+      count: smallMistakesCount,
+      detail:
+        smallMistakesCount === 0
+          ? 'No minor mistake tags logged'
+          : '-5 pts per minor mistake tag',
+    },
+    {
+      key: 'review_no',
+      label: `Review answers marked No: ${reviewAnswersNoDisplayCount}`,
+      points: reviewNoPoints,
+      count: reviewAnswersNoDisplayCount,
+      detail:
+        reviewAnswersNoDisplayCount === 0
+          ? 'All end-of-day review questions answered Yes'
+          : reviewNoPoints === 0
+            ? 'Already counted under trade deductions above'
+            : `${extraReviewNoMajorViolations} unlogged rule break(s) marked No in review (-25 each)`,
+    },
+    {
+      key: 'risk_cap',
+      label: `Risk cap broken: ${riskCapBrokenTradesCount}`,
+      points: riskCapPoints,
+      count: riskCapBrokenTradesCount,
+      detail:
+        riskCapBrokenTradesCount === 0
+          ? `All trades respected ${settings.maxRiskPercent}% risk limit`
+          : `${riskCapBrokenTradesCount} trade(s) exceeded max risk limit (-25 each)`,
+    },
+    {
+      key: 'outside_sessions',
+      label: `Outside allowed sessions: ${outsideSessionTradesCount}`,
+      points: outsideSessionPoints,
+      count: outsideSessionTradesCount,
+      detail:
+        outsideSessionTradesCount === 0
+          ? 'All trades taken in London or NY sessions'
+          : `${outsideSessionTradesCount} trade(s) outside London/NY (-25 each)`,
+    },
+  ];
+
+  if (starPoints < 0) {
+    items.push({
+      key: 'discipline_stars',
+      label: `Trade discipline rating: ${avgDisciplineStars.toFixed(1)} / 5★`,
+      points: starPoints,
+      count: trades.length,
+      detail: 'Self-rated discipline stars across trades',
+    });
   }
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  // Sort largest deduction (most negative points) first (§4)
+  items.sort((a, b) => a.points - b.points);
 
   let status: DayDisciplineStatus = 'green';
   if (ruleBreaksCount > 0 || overTradesCount > 0) {
@@ -377,7 +566,13 @@ export function evaluateDayDiscipline(
 
   return {
     status,
-    score,
+    score: total,
+    breakdown: {
+      total,
+      rawTotal,
+      base,
+      items,
+    },
     ruleBreaksCount,
     smallMistakesCount,
     overTradesCount,
@@ -413,6 +608,275 @@ export function calculateDayTotals(day: DayRecord) {
     totalPnl: Math.round(totalPnl * 100) / 100,
     totalRiskDollar: Math.round(totalRiskDollar * 100) / 100,
     totalR: Math.round(totalR * 100) / 100,
+  };
+}
+
+/**
+ * §5: Returns the most recent non-empty "Lesson for tomorrow" (`audit.keyLesson`)
+ * from a date strictly BEFORE `currentDateIso` (not only yesterday).
+ */
+export function getLatestEarlierLesson(
+  daysMap: Record<string, DayRecord>,
+  currentDateIso: string
+): { date: string; lesson: string } | null {
+  const earlierDatesDesc = Object.keys(daysMap)
+    .filter((d) => d < currentDateIso)
+    .sort()
+    .reverse();
+
+  for (const dateIso of earlierDatesDesc) {
+    const text = (daysMap[dateIso]?.audit?.keyLesson || '').trim();
+    if (text.length > 0) {
+      return { date: dateIso, lesson: text };
+    }
+  }
+  return null;
+}
+
+/**
+ * §6: CLEAN vs RULE-BROKEN TRADES P&L (History)
+ * Shared trade classifier:
+ * - 'rule-broken': has any major mistake tag (Broke Rules, Revenge Trade, FOMO, Moved Stop Loss, Overleveraged,
+ *   and automatic Over Trading) OR its risk is above the risk cap (percent or dollars) OR outside allowed session.
+ * - 'small-mistake': has only minor tags (Early Exit, Late Entry) and no major tag / risk violation.
+ * - 'clean': no tags or "None", risk within cap, and within the trade limit.
+ */
+export type TradeRuleClassification = 'clean' | 'small-mistake' | 'rule-broken';
+
+export function classifyTradeCompliance(
+  trade: TradeEntry,
+  tradeIndexZeroBased: number,
+  day: DayRecord | undefined,
+  settings: AccountSettings
+): TradeRuleClassification {
+  const effectiveTags = getEffectiveTradeMistakes(
+    trade,
+    tradeIndexZeroBased,
+    day,
+    settings
+  );
+  const riskViolated = isTradeRiskViolated(trade, settings);
+  const overLimit = isTradeOverLimit(tradeIndexZeroBased, day, settings);
+  const hasMajorTag = effectiveTags.some((tag) => isMajorMistake(tag));
+
+  if (hasMajorTag || riskViolated || overLimit || trade.session === 'Outside') {
+    return 'rule-broken';
+  }
+
+  const hasMinorTag = effectiveTags.some((tag) => isMinorMistake(tag));
+  if (hasMinorTag) {
+    return 'small-mistake';
+  }
+
+  return 'clean';
+}
+
+export type RulesVsResultsPeriod = 'this-month' | 'last-30-days' | 'all-time';
+
+export interface ClassifiedTradeItem {
+  date: string;
+  trade: TradeEntry;
+  tradeIndex: number;
+  classification: TradeRuleClassification;
+  effectiveTags: MistakeTag[];
+  rMultiple: number;
+}
+
+export interface RulesVsResultsGroupStats {
+  group: TradeRuleClassification;
+  label: string;
+  tradesCount: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPnl: number;
+  avgPnl: number;
+  totalR: number;
+  trades: ClassifiedTradeItem[];
+}
+
+export interface RulesVsResultsComparison {
+  period: RulesVsResultsPeriod;
+  clean: RulesVsResultsGroupStats;
+  smallMistake: RulesVsResultsGroupStats;
+  ruleBroken: RulesVsResultsGroupStats;
+  cleanDaysCount: number;
+  cleanDaysPnl: number;
+  ruleBrokenDaysCount: number;
+  ruleBrokenDaysPnl: number;
+  summarySentence: string;
+}
+
+function formatWholeDollarsAbs(val: number): string {
+  return `$${Math.round(Math.abs(val)).toLocaleString('en-US')}`;
+}
+
+function formatWholeDollarsSigned(val: number): string {
+  const rounded = Math.round(val);
+  if (rounded > 0) return `+$${rounded.toLocaleString('en-US')}`;
+  if (rounded < 0) return `-$${Math.abs(rounded).toLocaleString('en-US')}`;
+  return '$0';
+}
+
+export function computeRulesVsResults(
+  daysMap: Record<string, DayRecord>,
+  settings: AccountSettings,
+  period: RulesVsResultsPeriod,
+  referenceDateIso?: string
+): RulesVsResultsComparison {
+  const todayIso = referenceDateIso || getTodayDateISO();
+  const currentMonthPrefix = todayIso.slice(0, 7); // YYYY-MM
+  const thirtyDaysAgoIso = shiftDateISO(todayIso, -29);
+
+  const sortedDates = Object.keys(daysMap)
+    .sort()
+    .filter((dateIso) => {
+      if (period === 'this-month') {
+        return dateIso.startsWith(currentMonthPrefix);
+      }
+      if (period === 'last-30-days') {
+        return dateIso >= thirtyDaysAgoIso && dateIso <= todayIso;
+      }
+      return true;
+    });
+
+  const makeEmptyGroup = (
+    group: TradeRuleClassification,
+    label: string
+  ): RulesVsResultsGroupStats => ({
+    group,
+    label,
+    tradesCount: 0,
+    wins: 0,
+    losses: 0,
+    winRate: 0,
+    totalPnl: 0,
+    avgPnl: 0,
+    totalR: 0,
+    trades: [],
+  });
+
+  const groups: Record<TradeRuleClassification, RulesVsResultsGroupStats> = {
+    clean: makeEmptyGroup('clean', 'Clean'),
+    'small-mistake': makeEmptyGroup('small-mistake', 'Small mistakes'),
+    'rule-broken': makeEmptyGroup('rule-broken', 'Rule-broken'),
+  };
+
+  let cleanDaysCount = 0;
+  let cleanDaysPnl = 0;
+  let ruleBrokenDaysCount = 0;
+  let ruleBrokenDaysPnl = 0;
+
+  for (const dateIso of sortedDates) {
+    const day = daysMap[dateIso];
+    if (!day || !day.trades || day.trades.length === 0) continue;
+
+    const dayEval = evaluateDayDiscipline(day, settings);
+    const { totalPnl: dayPnl } = calculateDayTotals(day);
+
+    if (dayEval.status === 'green') {
+      cleanDaysCount += 1;
+      cleanDaysPnl += dayPnl;
+    } else if (dayEval.status === 'red') {
+      ruleBrokenDaysCount += 1;
+      ruleBrokenDaysPnl += dayPnl;
+    }
+
+    day.trades.forEach((trade, idx) => {
+      const classification = classifyTradeCompliance(
+        trade,
+        idx,
+        day,
+        settings
+      );
+      const effectiveTags = getEffectiveTradeMistakes(
+        trade,
+        idx,
+        day,
+        settings
+      );
+      const risk = Number(trade.riskAmount) || 0;
+      const outcome = Number(trade.outcome) || 0;
+      const rMultiple =
+        risk > 0 ? Math.round((outcome / risk) * 100) / 100 : 0;
+
+      const bucket = groups[classification];
+      bucket.tradesCount += 1;
+      if (outcome > 0) bucket.wins += 1;
+      else if (outcome < 0) bucket.losses += 1;
+      bucket.totalPnl += outcome;
+      bucket.totalR += rMultiple;
+      bucket.trades.push({
+        date: dateIso,
+        trade,
+        tradeIndex: idx,
+        classification,
+        effectiveTags,
+        rMultiple,
+      });
+    });
+  }
+
+  for (const bucket of Object.values(groups)) {
+    bucket.totalPnl = Math.round(bucket.totalPnl * 100) / 100;
+    bucket.totalR = Math.round(bucket.totalR * 100) / 100;
+    bucket.avgPnl =
+      bucket.tradesCount > 0
+        ? Math.round((bucket.totalPnl / bucket.tradesCount) * 100) / 100
+        : 0;
+    bucket.winRate =
+      bucket.tradesCount > 0
+        ? Math.round((bucket.wins / bucket.tradesCount) * 1000) / 10
+        : 0;
+    // Sort trades newest first
+    bucket.trades.sort((a, b) =>
+      a.date === b.date
+        ? b.tradeIndex - a.tradeIndex
+        : b.date.localeCompare(a.date)
+    );
+  }
+
+  const clean = groups.clean;
+  const smallMistake = groups['small-mistake'];
+  const ruleBroken = groups['rule-broken'];
+
+  let summarySentence = '';
+  if (clean.tradesCount < 5 || ruleBroken.tradesCount < 5) {
+    summarySentence = `Need 5 trades in each group for a reliable comparison (clean: ${clean.tradesCount}, rule-broken: ${ruleBroken.tradesCount})`;
+  } else if (ruleBroken.totalPnl < 0 && clean.totalPnl >= 0) {
+    summarySentence = `Rule-broken trades lost ${formatWholeDollarsAbs(
+      ruleBroken.totalPnl
+    )} while clean trades made ${formatWholeDollarsSigned(
+      clean.totalPnl
+    )}. Your rule breaks cost you money.`;
+  } else if (ruleBroken.totalPnl > clean.totalPnl) {
+    summarySentence = `Rule-broken trades made ${formatWholeDollarsSigned(
+      ruleBroken.totalPnl
+    )} (${ruleBroken.wins} ${
+      ruleBroken.wins === 1 ? 'win' : 'wins'
+    } in ${ruleBroken.tradesCount} trades) vs ${formatWholeDollarsSigned(
+      clean.totalPnl
+    )} on clean trades — short-term variance can reward bad habits.`;
+  } else {
+    summarySentence = `Clean trades made ${formatWholeDollarsSigned(
+      clean.totalPnl
+    )} (${clean.winRate.toFixed(
+      0
+    )}% win rate) compared with ${formatWholeDollarsSigned(
+      ruleBroken.totalPnl
+    )} on rule-broken trades.`;
+  }
+
+  return {
+    period,
+    clean,
+    smallMistake,
+    ruleBroken,
+    cleanDaysCount,
+    cleanDaysPnl: Math.round(cleanDaysPnl * 100) / 100,
+    ruleBrokenDaysCount,
+    ruleBrokenDaysPnl: Math.round(ruleBrokenDaysPnl * 100) / 100,
+    summarySentence,
   };
 }
 
@@ -472,6 +936,7 @@ export interface DashboardAnalytics {
   overTradingDaysCount: number;
   totalOverTradesCount: number;
   weeklyOverTradesCount: number;
+  tradesWithoutFullChecksCount: number;
   currentDisciplineStreak: number;
   bestDisciplineStreak: number;
   cleanDaysCount: number;
@@ -516,6 +981,7 @@ export function computeDashboardAnalytics(
   let totalSmallMistakes = 0;
   let overTradingDaysCount = 0;
   let totalOverTradesCount = 0;
+  let tradesWithoutFullChecksCount = 0;
   let cleanDaysCount = 0;
   let almostDaysCount = 0;
   let ruleBrokenDaysCount = 0;
@@ -542,8 +1008,24 @@ export function computeDashboardAnalytics(
     const evalResult = evaluateDayDiscipline(day, settings);
     const { totalPnl } = calculateDayTotals(day);
 
-    let dayHasOverTrading = evalResult.overTradesCount > 0;
-    let dayOverTradeInstances = evalResult.overTradesCount;
+    // §2c: Count of trades taken without full 3 of 3 pre-trade checks
+    const currentChecklistCount = [
+      day.checklist?.checkedEconomicCalendar,
+      day.checklist?.confirmedAllowedWindows,
+      day.checklist?.mentalStateCalm,
+    ].filter(Boolean).length;
+    const checksAtTradeTime =
+      typeof day.checklistSnapshotAtFirstTrade === 'number'
+        ? Math.min(currentChecklistCount, day.checklistSnapshotAtFirstTrade)
+        : currentChecklistCount;
+
+    if (trades.length > 0 && checksAtTradeTime < 3) {
+      tradesWithoutFullChecksCount += trades.length;
+    }
+
+    // §1: Over-trading count is strictly derived from trade order > maxTradesLimit
+    const dayOverTradeInstances = evalResult.overTradesCount;
+    const dayHasOverTrading = dayOverTradeInstances > 0;
 
     trades.forEach((t, idx) => {
       totalTrades += 1;
@@ -565,13 +1047,6 @@ export function computeDashboardAnalytics(
         day,
         settings
       );
-      if (
-        effectiveMistakes.includes('Over Trading') &&
-        !isTradeOverLimit(idx, day, settings)
-      ) {
-        dayHasOverTrading = true;
-        dayOverTradeInstances += 1;
-      }
 
       for (const m of effectiveMistakes) {
         if (m && m !== 'None') {
@@ -715,6 +1190,7 @@ export function computeDashboardAnalytics(
     overTradingDaysCount,
     totalOverTradesCount,
     weeklyOverTradesCount,
+    tradesWithoutFullChecksCount,
     currentDisciplineStreak: currentStreak,
     bestDisciplineStreak: bestStreak,
     cleanDaysCount,

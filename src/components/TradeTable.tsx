@@ -10,12 +10,13 @@ import {
   X,
   AlertTriangle,
   Image as ImageIcon,
+  Lock,
 } from 'lucide-react';
 import {
   TradeEntry,
   TradingSession,
   MistakeTag,
-  MISTAKE_TAGS,
+  MANUAL_MISTAKE_TAGS,
   TradeChartAttachment,
   TradeChartSlot,
 } from '../types/trade';
@@ -455,7 +456,10 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
       setNotes(t.notes || '');
       setSetupQuality(t.setupQuality || 4);
       setDisciplineScore(t.disciplineScore || 5);
-      setMistakes(t.mistakes && t.mistakes.length > 0 ? t.mistakes : ['None']);
+      const cleanedMistakes = (t.mistakes || []).filter(
+        (m) => m !== 'Over Trading'
+      );
+      setMistakes(cleanedMistakes.length > 0 ? cleanedMistakes : ['None']);
       setCharts(t.charts || []);
       setIsChartUploading(false);
       setShowMoreDetails(openCharts);
@@ -971,7 +975,7 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                                     Rule break)
                                   </span>
                                   <div className="flex flex-wrap gap-2">
-                                    {MISTAKE_TAGS.map((tag) => {
+                                    {MANUAL_MISTAKE_TAGS.map((tag) => {
                                       const selected = mistakes.includes(tag);
                                       const minor = isMinorMistake(tag);
                                       return (
@@ -995,6 +999,18 @@ export const TradeTable: React.FC<TradeTableProps> = React.memo(
                                         </button>
                                       );
                                     })}
+
+                                    {/* §1: Locked Over Trading chip with tooltip "Added automatically after trade N" */}
+                                    <span
+                                      data-testid="locked-over-trading-picker-chip"
+                                      title={`Added automatically after trade ${maxTradesLimit}`}
+                                      className="min-h-[44px] px-3 py-1 rounded-xl border-2 border-dashed border-[#8B5E3C]/65 bg-[#F0DED4]/55 text-[14px] font-bold text-[#8B5E3C] inline-flex items-center gap-1.5 cursor-not-allowed select-none"
+                                    >
+                                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                                      <span>
+                                        Over Trading (auto &gt; {maxTradesLimit})
+                                      </span>
+                                    </span>
                                   </div>
                                 </div>
 

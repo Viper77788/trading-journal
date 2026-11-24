@@ -35,6 +35,7 @@ import {
 } from '../utils/formatters';
 import { DayRecord } from '../types/day';
 import { AccountSettings } from '../types/settings';
+import { ScoreBreakdownPanel } from './ScoreBreakdownPanel';
 
 interface CalendarHeatmapProps {
   daysMap: Record<string, DayRecord>;
@@ -181,6 +182,8 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
     const [viewYear, setViewYear] = useState<number>(initYear || 2026);
     const [viewMonth, setViewMonth] = useState<number>((initMonth || 11) - 1);
     const [selectedDayIso, setSelectedDayIso] = useState<string>(todayIso);
+    const [isScoreBreakdownOpen, setIsScoreBreakdownOpen] =
+      useState<boolean>(false);
 
     const handleStepMonth = (delta: number) => {
       const dt = new Date(Date.UTC(viewYear, viewMonth + delta, 1));
@@ -353,6 +356,16 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {!selectedDayEval.isEmpty && (
+              <button
+                type="button"
+                data-testid="history-score-details-btn"
+                onClick={() => setIsScoreBreakdownOpen(true)}
+                className="px-2.5 py-1 rounded-lg bg-[#FFFBF2] border border-[#8B5E3C] text-[12.5px] font-extrabold text-[#8B5E3C] cursor-pointer"
+              >
+                Score details
+              </button>
+            )}
             {selectedDayChartsCount > 0 && onViewDayCharts && (
               <button
                 type="button"
@@ -375,6 +388,15 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = React.memo(
             </button>
           </div>
         </div>
+
+        {!selectedDayEval.isEmpty && (
+          <ScoreBreakdownPanel
+            isOpen={isScoreBreakdownOpen}
+            breakdown={selectedDayEval.breakdown}
+            mode="modal"
+            onClose={() => setIsScoreBreakdownOpen(false)}
+          />
+        )}
 
         {/* Fixed Legend Underneath */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[14px] sm:text-[15px] font-bold text-[#5C3D2E] shrink-0">

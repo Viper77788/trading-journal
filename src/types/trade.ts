@@ -23,6 +23,17 @@ export const MISTAKE_TAGS: MistakeTag[] = [
   'Late Entry',
 ];
 
+export const MANUAL_MISTAKE_TAGS: MistakeTag[] = [
+  'None',
+  'FOMO',
+  'Revenge Trade',
+  'Overleveraged',
+  'Moved Stop Loss',
+  'Broke Rules',
+  'Early Exit',
+  'Late Entry',
+];
+
 export type TradeChartSlot = 'entry' | 'result';
 export type TradeChartType = 'tv' | 'upload';
 

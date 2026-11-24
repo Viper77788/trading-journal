@@ -58,6 +58,7 @@ export function resolveEffectiveLayout(
 
   const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
   const width = window.innerWidth;
+  if (width < 700) return 'tablet';
   return isCoarsePointer && width <= 1366 ? 'tablet' : 'desktop';
 }
 
